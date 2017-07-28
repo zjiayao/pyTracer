@@ -12,32 +12,12 @@ import numpy as np
 
 EPS = 1e-5
 INT = np.int32
-FLOAT = np.float32
+UINT = np.uint32
+FLOAT = np.float64
 DOUBLE = np.float64
 HANDNESS = 'left'
 
-# Forward class declarations
-
-class Vector():
-	pass
-
-class Point():
-	pass
-
-class Normal():
-	pass
-
-class Ray():
-	pass
-
-class RayDifferential():
-	pass
-
-class BBox():
-	pass
-
-class Transform():
-	pass
+INV_2PI = 1. / (2. * np.pi)
 
 
 # Global Functions

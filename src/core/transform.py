@@ -7,18 +7,9 @@ defines the geometric transformations.
 v0.0
 Created by Jiayao on July 27, 2017
 '''
-'''
-imp.reload(src.core.pytracer)
-imp.reload(src.core.geometry)
-imp.reload(src.core.transform)
-from src.core.pytracer import *
-from src.core.geometry import *
-from src.core.transform import *
-'''
-
-from src.core.pytracer import *
-from src.core.geometry import *
 import numpy as np
+from src.core.pytracer import *
+from src.core.geometry import *
 
 
 class Transform():
@@ -84,8 +75,8 @@ class Transform():
 		elif isinstance(arg, BBox):
 			res = BBox.fromBBox(arg)
 			x = Vector(res.pMax.x - res.pMin.x, 0., 0.)
-			y = Vector(res.pMax.y - res.pMin.y, 0., 0.)
-			z = Vector(res.pMax.z - res.pMin.z, 0., 0.)
+			y = Vector(0., res.pMax.y - res.pMin.y, 0.)
+			z = Vector(0., 0., res.pMax.z - res.pMin.z)
 			res.pMin = self(res.pMin)
 			x = self(x)
 			y = self(y)
@@ -94,7 +85,7 @@ class Transform():
 			return res
 
 		else:
-			raise TypeError('Transform can only be called on Point or Vector')
+			raise TypeError('Transform can only be called on Point, Vector, Normal, Ray or BBox')
 
 	def __mul__(self, other):
 		m = self.m.dot(other.m)
@@ -102,7 +93,7 @@ class Transform():
 		return Transform(m, mInv)
 
 	@staticmethod
-	def translate(delta: Vector, dtype=FLOAT):
+	def translate(delta: 'Vector', dtype=FLOAT) -> 'Transform':
 		m = np.eye(4,4, dtype=dtype)
 		mInv = np.eye(4,4, dtype=dtype)
 
@@ -116,7 +107,7 @@ class Transform():
 		return Transform(m, mInv, dtype)
 
 	@staticmethod
-	def scale(x, y, z, dtype=FLOAT):
+	def scale(x, y, z, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4,4, dtype=dtype)
 		mInv = np.eye(4,4, dtype=dtype)	
 
@@ -131,7 +122,7 @@ class Transform():
 
 	# all angles are in degrees
 	@staticmethod
-	def rotate_x(angle, dtype=FLOAT):
+	def rotate_x(angle, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
 		sin_t = np.sin(np.deg2rad(angle))
 		cos_t = np.cos(np.deg2rad(angle))
@@ -142,7 +133,7 @@ class Transform():
 		return Transform(m, m.T, dtype)
 
 	@staticmethod
-	def rotate_y(angle, dtype=FLOAT):
+	def rotate_y(angle, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
 		sin_t = np.sin(np.deg2rad(angle))
 		cos_t = np.cos(np.deg2rad(angle))
@@ -153,7 +144,7 @@ class Transform():
 		return Transform(m, m.T, dtype)
 
 	@staticmethod
-	def rotate_z(angle, dtype=FLOAT):
+	def rotate_z(angle, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
 		sin_t = np.sin(np.deg2rad(angle))
 		cos_t = np.cos(np.deg2rad(angle))
@@ -164,7 +155,7 @@ class Transform():
 		return Transform(m, m.T, dtype)
 
 	@staticmethod
-	def rotate(angle, axis:Vector, dtype=FLOAT):
+	def rotate(angle, axis:'Vector', dtype=FLOAT) -> 'Transform':
 		a = normalize(axis)
 
 		s = np.sin(np.deg2rad(angle))
@@ -185,7 +176,7 @@ class Transform():
 		return Transform(m, m.T, dtype)
 
 	@staticmethod
-	def look_at(pos: Point, look: Point, up: Vector, dtype=FLOAT):
+	def look_at(pos: 'Point', look: 'Point', up: 'Vector', dtype=FLOAT) -> 'Transform':
 		'''
 		look_at
 		Look-at transformation, from camera
@@ -233,21 +224,21 @@ class Transform():
 
 		return Transform(c2w, w2c, dtype)
 
-	def inverse(self):
+	def inverse(self) -> 'Transform':
 		'''
 		Returns the inverse transformation
 		'''
 		return Transform(self.mInv, self.m)
 
-	def is_identity(self):
+	def is_identity(self) -> bool:
 		return np.array_equal(self.m, np.eye(4,4))
 
-	def has_scale(self):
+	def has_scale(self) -> bool:
 		return ne_unity(self.m[0][0] * self.m[0][0]) or \
 			   ne_unity(self.m[1][1] * self.m[1][1]) or \
 			   ne_unity(self.m[2][2] * self.m[2][2])
 
-	def swaps_handness(self):
+	def swaps_handedness(self) -> bool:
 		return np.linalg.det(self.m[0:3,0:3]) < 0.
 
 

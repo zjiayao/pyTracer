@@ -10,9 +10,8 @@ Created by Jiayao on July 27, 2017
 import numpy as np
 from src.core.pytracer import *
 
-
 # Geometry related functions
-def coordinate_system(v1: Vector):
+def coordinate_system(v1: 'Vector') -> ['Vector']:
 	'''
 	construct a left-handed coordinate system
 	with v1, which is assumed to be normalized.
@@ -29,7 +28,7 @@ def coordinate_system(v1: Vector):
 
 	return v1, v2, v3
 
-def normalize(vec: Vector):
+def normalize(vec: 'Vector') -> 'Vector':
 	'''
 	returns a new normalized vector
 	'''
@@ -39,7 +38,7 @@ def normalize(vec: Vector):
 		n /= length
 	return n	
 
-def face_forward(n: Normal, v: Vector):
+def face_forward(n: 'Normal', v: 'Vector') -> 'Vector':
 	'''
 	Flip a normal according to a vector
 	'''
@@ -66,7 +65,7 @@ class Vector(np.ndarray):
 		return obj
 
 	@classmethod
-	def fromNormal(cls, n: Normal):
+	def fromNormal(cls, n: 'Normal'): # Forward type hint, see PEP-484
 		return cls(n.x, n.y, n.z)	
 
 	@property
@@ -99,22 +98,18 @@ class Vector(np.ndarray):
 	def __ne__(self, other):
 		return not np.array_equal(self, other)
 
-	def __iter__(self):
-		for x in np.nditer(self):
-			yield x.item()
-
-	def abs_dot(self, other):
+	def abs_dot(self, other) -> FLOAT:
 		return np.fabs(np.dot(self, other))
 
-	def cross(self, other):
+	def cross(self, other) -> 'Vector':
 		return Vector(self.y * other.z - self.z * other.y,
 					  self.z * other.x - self.x * other.z,
 					  self.x * other.y - self.y * other.x)
 
-	def sq_length(self):
+	def sq_length(self) -> FLOAT:
 		return self.x * self.x + self.y * self.y + self.z * self.z
 
-	def length(self):
+	def length(self) -> FLOAT:
 		return np.sqrt(self.sq_length())
 
 
@@ -169,10 +164,6 @@ class Point(np.ndarray):
 	def __ne__(self, other):
 		return not np.array_equal(self, other)
 
-	def __iter__(self):
-		for x in np.nditer(self):
-			yield x.item()
-
 	def __sub__(self, other):
 		if isinstance(other, Point): # no other methods found
 			return Vector(self.x - other.x, self.y - other.y, self.z - other.z)
@@ -187,10 +178,16 @@ class Point(np.ndarray):
 		raise TypeError("undefined inplace substraction between Point")
 		# addition, however, is defined, as can be used for weighing points
 	
-	def sq_dist(self, other):
+	def sq_length(self) -> FLOAT:
+		return self.x * self.x + self.y * self.y + self.z * self.z
+
+	def length(self) -> FLOAT:
+		return np.sqrt(self.sq_length())
+
+	def sq_dist(self, other) -> FLOAT:
 		return (self - other).sq_length()
 	
-	def dist(self, other):
+	def dist(self, other) -> FLOAT:
 		return (self - other).length()
 
 class Normal(np.ndarray):
@@ -207,7 +204,7 @@ class Normal(np.ndarray):
 		return obj
 	
 	@classmethod
-	def fromVector(cls, vec:Vector):
+	def fromVector(cls, vec: 'Vector'):
 		return cls(vec.x, vec.y, vec.z)
 	
 	@property
@@ -240,25 +237,21 @@ class Normal(np.ndarray):
 	def __ne__(self, other):
 		return not np.array_equal(self, other)
 	
-	def __iter__(self):
-		for x in np.nditer(self):
-			yield x.item()
-	
 	def abs_dot(self, other):
 		return np.fabs(np.dot(self, other))
 	
-	def cross(self, other):
+	def cross(self, other) -> Vector:
 		return Vector(self.y * other.z - self.z * other.y,
 					  self.z * other.x - self.x * other.z,
 					  self.x * other.y - self.y * other.x)
 	
-	def sq_length(self):
+	def sq_length(self) -> FLOAT:
 		return self.x * self.x + self.y * self.y + self.z * self.z
 	
-	def length(self):
+	def length(self) -> FLOAT:
 		return np.sqrt(self.sq_length())
 	
-	def normalize(self):
+	def normalize(self) -> 'Normal':
 		'''
 		returns a new vector
 		'''
@@ -293,14 +286,21 @@ class Ray(object):
 					self.time)
 	
 	@classmethod
-	def fromParent(cls, o: Point, d: Vector, r:Ray,
+	def fromParent(cls, o: 'Point', d: 'Vector', r:'Ray',
 			mint: FLOAT, maxt: FLOAT=np.inf):
 		'''
 		initialize from a parent ray
 		'''
 		return cls(o, d, mint, maxt, r.depth + 1, r.time)
+
+	@classmethod
+	def fromRay(cls, r: 'Ray'):
+		'''
+		initialize from a ray, analogous to a copy constructor
+		'''
+		return cls(r.o, r.d, r.mint, r.maxt, r.depth, r.time)
 	
-	def __call__(self, t):
+	def __call__(self, t) -> 'Point':
 		'''
 		point at parameter t
 		'''
@@ -370,8 +370,8 @@ class BBox:
 			self.pMax = p1.copy()
 	
 	@classmethod
-	def fromBBox(cls, box: BBox):
-		return cls(box.p1, box.p2)
+	def fromBBox(cls, box: 'BBox'):
+		return cls(box.pMin, box.pMax)
 	
 	def __repr__(self):
 		return "{}\npMin:{}\npMax:{}".format(self.__class__,
@@ -393,7 +393,7 @@ class BBox:
 		else:
 			raise KeyError
 	
-	def union(self, other):
+	def union(self, other) -> 'BBox':
 		'''
 		Return the union of a `BBox`
 		and a `Point` or a union
@@ -422,7 +422,7 @@ class BBox:
 							{} and {}'.format(self.__class__, type(other)))			
 		return ret
 	
-	def overlaps(self, other: BBox):
+	def overlaps(self, other: 'BBox') -> bool:
 		'''
 		Determines whether two `BBox`es overlaps
 		'''
@@ -430,7 +430,7 @@ class BBox:
 			   (self.pMax.y >= other.pMin.y) and (self.pMin.y <= other.pMax.y) and \
 			   (self.pMax.z >= other.pMin.z) and (self.pMin.z <= other.pMax.z)
 	
-	def inside(self, pnt: Point):
+	def inside(self, pnt: 'Point') -> bool:
 		'''
 		Determines whether a given `Point`
 		is inside the box
@@ -439,7 +439,7 @@ class BBox:
 			   (self.pMax.y >= pnt.y) and (self.pMin.y <= pnt.y) and \
 			   (self.pMax.z >= pnt.z) and (self.pMin.z <= pnt.z)
 	
-	def expand(self, delta: FLOAT):
+	def expand(self, delta: FLOAT) -> None:
 		'''
 		Expands box by a constant factor
 		'''
@@ -450,14 +450,14 @@ class BBox:
 		self.pMax.y += delta
 		self.pMax.z += delta
 	
-	def surface_area(self):
+	def surface_area(self) -> FLOAT:
 		'''
 		Computes the surface area
 		'''
 		delta = self.pMax - self.pMin
 		return 2. * (d.x * d.y + d.x * d.z + d.y * d.z)
 	
-	def volume(self):
+	def volume(self) -> FLOAT:
 		'''
 		Computes the volume
 		'''
@@ -476,7 +476,7 @@ class BBox:
 		else:
 			return 2
 	
-	def lerp(self, tx: FLOAT, ty: FLOAT, tz: FLOAT):
+	def lerp(self, tx: FLOAT, ty: FLOAT, tz: FLOAT) -> 'Point':
 		'''
 		Lerp
 		3D Linear interpolation between two opposite vertices
@@ -485,7 +485,7 @@ class BBox:
 					 Lerp(ty, self.pMin.y, self.pMax.y),
 					 Lerp(tz, self.pMin.z, self.pMax.z))
 	
-	def offset(self, pnt: Point):
+	def offset(self, pnt: 'Point') -> 'Vector':
 		'''
 		offset
 		Get point relative to the corners
@@ -494,7 +494,7 @@ class BBox:
 					  (pnt.y - self.pMin.y) / (self.pMax.y - self.pMin.y),
 					  (pnt.z - self.pMin.z) / (self.pMax.z - self.pMin.z))
 	
-	def bounding_sphere(self):
+	def bounding_sphere(self) -> ('Point', FLOAT):
 		'''
 		bounding_sphere
 		Get the center and radius of the bounding sphere
@@ -504,4 +504,7 @@ class BBox:
 		if self.inside(ctr):
 			rad = ctr.dist(self.pMax)
 		return ctr, rad
+
+
+
 
