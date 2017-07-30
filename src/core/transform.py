@@ -49,19 +49,19 @@ class Transform():
 	def __ne__(self, other):
 		return not np.array_equal(self.m, other.m)
 
-	def __call__(self, arg):
-		if isinstance(arg, Point):
+	def __call__(self, arg, dtype=None):
+		if isinstance(arg, Point) or (isinstance(arg, np.ndarray) and dtype == Point):
 			res = self.m[0:4, 0:3].dot(arg) + self.m[0:4, 3]
 			p = Point(res[0], res[1], res[2])
 			if ne_unity(res[3]):
 				p /= res[3]
 			return p
 		
-		elif isinstance(arg, Vector):
+		elif isinstance(arg, Vector) or (isinstance(arg, np.ndarray) and dtype == Vector):
 			res = self.m[0:3, 0:3].dot(arg)
 			return Vector(res[0], res[1], res[2])
 
-		elif isinstance(arg, Normal):
+		elif isinstance(arg, Normal) or (isinstance(arg, np.ndarray) and dtype == Normal):
 			# must be transformed by inverse transpose
 			res = self.mInv[0:3, 0:3].T.dot(arg)
 			return Normal(res[0], res[1], res[2])

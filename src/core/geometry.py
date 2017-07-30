@@ -66,7 +66,11 @@ class Vector(np.ndarray):
 
 	@classmethod
 	def fromNormal(cls, n: 'Normal'): # Forward type hint, see PEP-484
-		return cls(n.x, n.y, n.z)	
+		return cls(n.x, n.y, n.z)
+
+	@classmethod
+	def fromPoint(cls, n: 'Point'):
+		return cls(n.x, n.y, n.z)				
 
 	@property
 	def x(self):
@@ -251,15 +255,13 @@ class Normal(np.ndarray):
 	def length(self) -> FLOAT:
 		return np.sqrt(self.sq_length())
 	
-	def normalize(self) -> 'Normal':
+	def normalize(self):
 		'''
-		returns a new vector
+		inplace normalization
 		'''
-		n = self.copy()
 		length = self.length()
 		if not length == 0:
-			n /= length
-		return n
+			self /= length
 
 class Ray(object):
 	'''
@@ -359,9 +361,10 @@ class BBox:
 							  max(p1.y, p2.y),
 							  max(p1.z, p2.z))
 		
+		# default: degenerated BBox
 		elif p1 is None and p2 is None:
 			self.pMin = Point(np.inf, np.inf, np.inf)
-			self.pMax = Point(np.inf, np.inf, np.inf)
+			self.pMax = Point(-np.inf, -np.inf, -np.inf)
 		
 		else:
 			if not p2:
@@ -392,35 +395,64 @@ class BBox:
 			return self.pMax
 		else:
 			raise KeyError
-	
-	def union(self, other) -> 'BBox':
+
+	@staticmethod
+	def Union(b1, b2) -> 'BBox':
 		'''
 		Return the union of a `BBox`
 		and a `Point` or a union
 		of two `Box`es.
-		'''
+		'''	
 		ret = BBox()
-		
+
 		if isinstance(other, Point):
-			ret.pMin.x = min(self.pMin.x, other.x)
-			ret.pMin.y = min(self.pMin.y, other.y)
-			ret.pMin.z = min(self.pMin.z, other.z)
-			ret.pMax.x = max(self.pMax.x, other.x)
-			ret.pMax.y = max(self.pMax.y, other.y)
-			ret.pMax.z = max(self.pMax.z, other.z)
+			ret.pMin.x = min(b1.pMin.x, b2.x)
+			ret.pMin.y = min(b1.pMin.y, b2.y)
+			ret.pMin.z = min(b1.pMin.z, b2.z)
+			ret.pMax.x = max(b1.pMax.x, b2.x)
+			ret.pMax.y = max(b1.pMax.y, b2.y)
+			ret.pMax.z = max(b1.pMax.z, b2.z)
 		
 		elif isinstance(other, BBox):
-			ret.pMin.x = min(self.pMin.x, other.pMin.x)
-			ret.pMin.y = min(self.pMin.y, other.pMin.y)
-			ret.pMin.z = min(self.pMin.z, other.pMin.z)
-			ret.pMax.x = max(self.pMax.x, other.pMax.x)
-			ret.pMax.y = max(self.pMax.y, other.pMax.y)
-			ret.pMax.z = max(self.pMax.z, other.pMax.z)
+			ret.pMin.x = min(b1.pMin.x, b2.pMin.x)
+			ret.pMin.y = min(b1.pMin.y, b2.pMin.y)
+			ret.pMin.z = min(b1.pMin.z, b2.pMin.z)
+			ret.pMax.x = max(b1.pMax.x, b2.pMax.x)
+			ret.pMax.y = max(b1.pMax.y, b2.pMax.y)
+			ret.pMax.z = max(b1.pMax.z, b2.pMax.z)
 		
 		else:
 			raise TypeError('unsupported union operation between\
 							{} and {}'.format(self.__class__, type(other)))			
-		return ret
+		return ret		
+	
+	def union(self, other) -> 'BBox':
+		'''
+		Return self as the union of a `BBox`
+		and a `Point` or a union
+		of two `Box`es.
+		'''
+		
+		if isinstance(other, Point):
+			self.pMin.x = min(self.pMin.x, other.x)
+			self.pMin.y = min(self.pMin.y, other.y)
+			self.pMin.z = min(self.pMin.z, other.z)
+			self.pMax.x = max(self.pMax.x, other.x)
+			self.pMax.y = max(self.pMax.y, other.y)
+			self.pMax.z = max(self.pMax.z, other.z)
+		
+		elif isinstance(other, BBox):
+			self.pMin.x = min(self.pMin.x, other.pMin.x)
+			self.pMin.y = min(self.pMin.y, other.pMin.y)
+			self.pMin.z = min(self.pMin.z, other.pMin.z)
+			self.pMax.x = max(self.pMax.x, other.pMax.x)
+			self.pMax.y = max(self.pMax.y, other.pMax.y)
+			self.pMax.z = max(self.pMax.z, other.pMax.z)
+		
+		else:
+			raise TypeError('unsupported union operation between\
+							{} and {}'.format(self.__class__, type(other)))			
+		return self
 	
 	def overlaps(self, other: 'BBox') -> bool:
 		'''
