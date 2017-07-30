@@ -7,12 +7,14 @@ defines the geometric transformations.
 v0.0
 Created by Jiayao on July 27, 2017
 '''
+from numba import jit
 import numpy as np
 from src.core.pytracer import *
 from src.core.geometry import *
+import src.core.quaternion as quat
 
 
-class Transform():
+class Transform(object):
 	'''
 	Transform class
 	'''
@@ -20,12 +22,13 @@ class Transform():
 		if m is None:
 			self.__m = np.eye(4,4, dtype=dtype)
 			self.__mInv = np.eye(4,4, dtype=dtype)
-		elif not mInv is None:
+		elif m is not None and mInv is not None:
 			self.__m = m.copy()
 			self.__mInv = mInv.copy()
 		else:
 			if not np.shape(m) == (4,4):
 				raise TypeError('Transform matrix must be 4x4')
+		
 			self.__m = m.copy()
 			self.__mInv = np.linalg.inv(m)
 		self.__m.flags.writeable = False
@@ -241,6 +244,113 @@ class Transform():
 	def swaps_handedness(self) -> bool:
 		return np.linalg.det(self.m[0:3,0:3]) < 0.
 
+
+class AnimatedTransform(object):
+	def __init__(self, t1: 'Transform', tm1: FLOAT, t2: 'Transform', tm2: FLOAT):
+		self.startTime = tm1
+		self.endTime = tm2
+		self.startTransform = t1
+		self.endTransform = t2
+		self.animated = (t1 != t2)
+		T = R = S = [None, None]
+		T[0], R[0], S[0] = AnimatedTransform.Decompose(self.startTransform.m)
+		T[1], R[1], S[1] = AnimatedTransform.Decompose(self.endTransform.m)
+
+	def __repr__(self):
+		return "{}\nTime: {} - {}\nAnimated: {}".format(self.__class__,
+				self.startTime, self.endTime, self.animated)
+
+	def __call__(self, arg_1, arg_2=None):
+		if isinstance(arg1, 'Ray') and arg_2 is None
+			r = arg_1
+			if not self.animated or r.time < self.startTime:
+				tr = self.startTransform(r)
+			elif r.time >= self.endTime:
+				tr = self.endTransform(r)
+			else:
+				tr = self.interpolate(r.time)(r)
+			tr.time = r.time
+			return tr
+
+		elif isinstance(arg1, FLOAT) and isinstance(arg_2, 'Point'):
+			time = arg1
+			p  = arg_2
+			if not self.animated or time < self.startTime:
+				return self.startTransform(p)
+			elif time > self.endTime:
+				return self.endTransform(p)
+			return self.interpolate(time)(p)
+
+		elif isinstance(arg1, FLOAT) and isinstance(arg_2, 'Vector'):
+			time = arg1
+			v  = arg_2
+			if not self.animated or time < self.startTime:
+				return self.startTransform(v)
+			elif time > self.endTime:
+				return self.endTransform(v)
+			return self.interpolate(time)(v)
+		else:
+			raise TypeError()
+
+
+	@jit
+	def motion_bounds(self, b: 'BBox', useInv: bool) -> 'BBox':
+		if not self.animated:
+			return startTransform.inverse()(b)
+		ret = BBox()
+		steps = 128
+		for i in range(128):
+			time = Lerp(i * (1. / (steps-1)), self.startTime, self.endTime )
+			t = self.interpolate(time)
+			if useInv:
+				t = t.inverse()
+			ret.union(t(b))
+		return ret
+
+	@jit
+	@staticmethod
+	def Decompose(m: 'np.ndarray') -> ['Vector', 'quat.Quaternion', 'np.ndarray']:
+		'''
+		Decompose into
+		m = T R S
+		Assume m is an affine transformation
+		'''
+		T = Vector(m[0,3], m[1,3], m[2,3])
+		M = m.copy()
+		M[0:3,3] = M[3,0:3] = 0
+		M[3,3] = 1
+
+		# polar decomposition
+		norm = 2 * EPS
+		R = M.copy()
+
+		for norm > EPS and _ in range(100):
+			Rit = np.linalg.inv(R.T)
+			Rnext = .5 * (Rit + R)
+			D = np.fabs(Rnext - Rit)[0:3, 0:3]
+			norm = max(norm, np.max( np.sum(D, axis=0) ))
+			R = Rnext
+		Rquat = quat.fromTransform(R)
+		S = np.linalg.inv(R).mul(M)
+
+		return T, Rquat, S
+
+	@jit
+	def interpolate(self, time: FLOAT) -> 'Transform':
+
+		if not self.animated or time <= self.startTime:
+			return self.startTransform
+
+		if time >= self.endTime:
+			return self.endTransform
+
+		dt = (time - self.startTime) / (self.endTime - self.startTime)
+
+		trans = (1. - dt) * self.T[0] + dt * self.T[1]
+		rot = quat.slerp(dt, R[0], R[1])
+		scale = ufunc_lerp(dt, S[0], S[1])
+
+		t = Transform.translate(trans) * quat.toTransform(rot) * Transform(scale)
 
 
 

@@ -20,20 +20,6 @@ from src.core.pytracer import *
 from src.core.geometry import *
 from src.core.transform import *
 from src.core.diffgeom import *
-'''
-import src.core.pytracer
-import src.core.geometry
-import src.core.transform
-import src.core.shape
-imp.reload(src.core.pytracer)
-imp.reload(src.core.geometry)
-imp.reload(src.core.transform)
-imp.reload(src.core.shape)
-from src.core.pytracer import *
-from src.core.geometry import *
-from src.core.transform import *
-from src.core.shape import *
-'''
 
 # aux functions for mesh navigation
 def NEXT(i: INT) -> INT:
@@ -157,7 +143,7 @@ class Shape(object):
 		return True
 
 	@abstractmethod
-	def refine(self) -> 'Shape':
+	def refine(self) -> ['Shape']:
 		'''
 		If `Shape` cannot intersect,
 		return a refined subset
@@ -423,7 +409,7 @@ class LoopSubdiv(Shape):
 	def can_intersect(self) -> bool:
 		return False
 
-	def refine(self) -> 'Shape':
+	def refine(self) -> ['Shape']:
 		f = self.faces
 		v = self.vertices
 		for i in range(self.nLevels):
@@ -576,7 +562,7 @@ class LoopSubdiv(Shape):
 		params = {	'indices': verts,
 					'P': Plimit,
 					'N': Ns }
-		return create_triangle_mesh(o2w, w2o, ro, params)
+		return [create_triangle_mesh(o2w, w2o, ro, params)]
 
 
 
@@ -896,7 +882,7 @@ class TriangleMesh(Shape):
 
 	# produce a list of `Shape`s that
 	# can be intersected
-	def refine(self) -> 'Shape':
+	def refine(self) -> ['Shape']:
 		'''
 		returns a list of triangle references
 		'''
