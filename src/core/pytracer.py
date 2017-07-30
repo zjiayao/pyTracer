@@ -38,4 +38,4 @@ def Lerp(t: FLOAT, v1: FLOAT, v2: FLOAT):
 	'''
 	return (1. - t) * v1 + t * v2
 
-def ufunc_lerp = np.frompyfunc(Lerp, 3, 1)
+ufunc_lerp = np.frompyfunc(Lerp, 3, 1)

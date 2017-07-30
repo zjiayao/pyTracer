@@ -261,7 +261,7 @@ class AnimatedTransform(object):
 				self.startTime, self.endTime, self.animated)
 
 	def __call__(self, arg_1, arg_2=None):
-		if isinstance(arg1, 'Ray') and arg_2 is None
+		if isinstance(arg1, 'Ray') and arg_2 is None:
 			r = arg_1
 			if not self.animated or r.time < self.startTime:
 				tr = self.startTransform(r)
@@ -307,8 +307,8 @@ class AnimatedTransform(object):
 			ret.union(t(b))
 		return ret
 
-	@jit
 	@staticmethod
+	@jit
 	def Decompose(m: 'np.ndarray') -> ['Vector', 'quat.Quaternion', 'np.ndarray']:
 		'''
 		Decompose into
@@ -324,7 +324,9 @@ class AnimatedTransform(object):
 		norm = 2 * EPS
 		R = M.copy()
 
-		for norm > EPS and _ in range(100):
+		for _ in range(100):
+			if norm < EPS:
+				break
 			Rit = np.linalg.inv(R.T)
 			Rnext = .5 * (Rit + R)
 			D = np.fabs(Rnext - Rit)[0:3, 0:3]

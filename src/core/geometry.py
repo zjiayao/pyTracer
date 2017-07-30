@@ -543,11 +543,11 @@ class BBox:
 		tNear = (pMin - ray.o) * dInv
 		tFar = (pMax - ray.o) * dInv
 		for i in range(3):
-		if tNear[i] > tFar[i]:
-			tNear[i], tFar[i] = tFar[i], tNear[i]
-			t0, t1 = max(t0, tNear), max(t1, tFar)
-			if t0 > t1:
-				return False
+			if tNear[i] > tFar[i]:
+				tNear[i], tFar[i] = tFar[i], tNear[i]
+				t0, t1 = max(t0, tNear), max(t1, tFar)
+				if t0 > t1:
+					return [False, 0., 0.]
 		return [True, t0, t1]
 
 
