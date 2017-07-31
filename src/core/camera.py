@@ -3,7 +3,7 @@ camera.py
 
 The base class to model cameras.
 
-Created by Jiayao on July 30, 2017
+Created by Jiayao on July 31, 2017
 '''
 
 from numba import jit
