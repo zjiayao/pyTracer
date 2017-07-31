@@ -18,6 +18,7 @@ class Transform(object):
 	'''
 	Transform class
 	'''
+	@jit
 	def __init__(self, m=None, mInv=None, dtype=FLOAT):
 		if m is None:
 			self.__m = np.eye(4,4, dtype=dtype)
@@ -51,6 +52,9 @@ class Transform(object):
 
 	def __ne__(self, other):
 		return not np.array_equal(self.m, other.m)
+
+	def __copy__(self):
+		return Transform(self.m.copy(), self.mInv.copy())
 
 	def __call__(self, arg, dtype=None):
 		if isinstance(arg, Point) or (isinstance(arg, np.ndarray) and dtype == Point):
@@ -95,8 +99,8 @@ class Transform(object):
 		mInv = other.mInv.dot(self.mInv)
 		return Transform(m, mInv)
 
-	@staticmethod
-	def translate(delta: 'Vector', dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def translate(cls, delta: 'Vector', dtype=FLOAT) -> 'Transform':
 		m = np.eye(4,4, dtype=dtype)
 		mInv = np.eye(4,4, dtype=dtype)
 
@@ -107,10 +111,10 @@ class Transform(object):
 		mInv[1][3] = -delta.y
 		mInv[2][3] = -delta.z
 
-		return Transform(m, mInv, dtype)
+		return cls(m, mInv, dtype)
 
-	@staticmethod
-	def scale(x, y, z, dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def scale(cls, x, y, z, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4,4, dtype=dtype)
 		mInv = np.eye(4,4, dtype=dtype)	
 
@@ -121,11 +125,11 @@ class Transform(object):
 		mInv[1][1] = 1. / y
 		mInv[2][2] = 1. / z
 
-		return Transform(m, mInv, dtype)
+		return cls(m, mInv, dtype)
 
 	# all angles are in degrees
-	@staticmethod
-	def rotate_x(angle, dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def rotate_x(cls, angle, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
 		sin_t = np.sin(np.deg2rad(angle))
 		cos_t = np.cos(np.deg2rad(angle))
@@ -133,10 +137,10 @@ class Transform(object):
 		m[1][2] = -sin_t
 		m[2][1] = sin_t
 		m[2][2] = cos_t
-		return Transform(m, m.T, dtype)
+		return cls(m, m.T, dtype)
 
-	@staticmethod
-	def rotate_y(angle, dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def rotate_y(cls, angle, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
 		sin_t = np.sin(np.deg2rad(angle))
 		cos_t = np.cos(np.deg2rad(angle))
@@ -144,10 +148,10 @@ class Transform(object):
 		m[0][2] = sin_t
 		m[2][0] = -sin_t
 		m[2][2] = cos_t
-		return Transform(m, m.T, dtype)
+		return cls(m, m.T, dtype)
 
-	@staticmethod
-	def rotate_z(angle, dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def rotate_z(cls, angle, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
 		sin_t = np.sin(np.deg2rad(angle))
 		cos_t = np.cos(np.deg2rad(angle))
@@ -155,10 +159,10 @@ class Transform(object):
 		m[0][1] = -sin_t
 		m[1][0] = sin_t
 		m[1][1] = cos_t
-		return Transform(m, m.T, dtype)
+		return cls(m, m.T, dtype)
 
-	@staticmethod
-	def rotate(angle, axis:'Vector', dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def rotate(cls, angle, axis:'Vector', dtype=FLOAT) -> 'Transform':
 		a = normalize(axis)
 
 		s = np.sin(np.deg2rad(angle))
@@ -176,10 +180,10 @@ class Transform(object):
 		m[2][1] = a.y * a.z * (1. - c) + a.x * s
 		m[2][2] = a.z * a.z + (1. - a.z * a.z) * c
 
-		return Transform(m, m.T, dtype)
+		return cls(m, m.T, dtype)
 
-	@staticmethod
-	def look_at(pos: 'Point', look: 'Point', up: 'Vector', dtype=FLOAT) -> 'Transform':
+	@classmethod
+	def look_at(cls, pos: 'Point', look: 'Point', up: 'Vector', dtype=FLOAT) -> 'Transform':
 		'''
 		look_at
 		Look-at transformation, from camera
@@ -225,7 +229,28 @@ class Transform(object):
 		w2c[1][3] = -(pos.x * xc.y + pos.y * yc.y + pos.z * zc.y)
 		w2c[2][3] = -(pos.x * xc.z + pos.y * yc.z + pos.z * zc.z)
 
-		return Transform(c2w, w2c, dtype)
+		return cls(c2w, w2c, dtype)
+
+	@classmethod
+	@jit
+	def orthographic(cls, znear: FLOAT, zfar: FLOAT, dtype=FLOAT):
+		return cls.scale(1., 1., 1./(zfar-znear)) * cls.translate(Vector(0., 0., -znear))
+
+	@classmethod
+	@jit
+	def perspective(cls, fov: FLOAT, n: FLOAT, f: FLOAT, dtype=FLOAT):
+		# projective along z
+		m = np.eye((4,4), dtype=dtype)
+		m[2, 2] = f / (f - n)
+		m[2, 3] = -f * n / (f - n)
+		m[3, 2] = 1.
+		m[3, 3] = 0.
+		
+		# scale to viewing volume
+		tanInv = 1. / np.tan(np.deg2rad(fov) / 2.)
+		return cls.scale(tanInv, tanInv, 1.) * cls(m)
+
+
 
 	def inverse(self) -> 'Transform':
 		'''
