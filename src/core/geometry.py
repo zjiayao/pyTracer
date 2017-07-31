@@ -7,6 +7,7 @@ defines the geometric classes.
 v0.0
 Created by Jiayao on July 27, 2017
 '''
+from numba import jit
 import numpy as np
 from src.core.pytracer import *
 
@@ -49,6 +50,33 @@ def face_forward(n: 'Normal', v: 'Vector') -> 'Vector':
 		return -n.copy()
 
 	return n.copy()
+
+@jit
+def spherical_direction(stheta: FLOAT, ctheta: FLOAT, phi: FLOAT,
+		x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector':
+	'''
+	Computes spherical direction from sperical coordiante
+	with or without basis
+	'''
+	if x None or y is None or z is None:
+		return Vector(stheta * np.cos(phi), stheta * np.sin(phi), ctheta)
+	else:
+		return stheta * np.cos(phi) * x + stheta * np.sin(phi) * y + ctheta * z
+
+@jit
+def spherical_theta(v: 'Vector') -> FLOAT:
+	'''
+	Get theta from direction
+	'''
+	return np.arccos(np.clip(v.z, -1., 1.))
+
+@jit
+def spherical_phi(v: 'Vector') -> FLOAT:
+	'''
+	Get phi from direction
+	'''
+	p = np.arctan2(v.y, v.x)
+	return p if p > 0. else p + 2 * np.pi
 
 # Classes
 class Vector(np.ndarray):
@@ -274,8 +302,8 @@ class Ray(object):
 	def __init__(self, o: Point=Point(0,0,0), d: Vector=Vector(0,0,0), 
 			mint: FLOAT=0., maxt: FLOAT=np.inf, 
 			depth: INT=0, time: FLOAT=0.):
-		self.o = o.copy() # NB: using copy
-		self.d = d.copy()
+		self.o = Point(o.x, o.y, o.z)
+		self.d = Vector(d.x, d.y, d.z)
 		self.mint = mint
 		self.maxt = maxt
 		self.depth = depth

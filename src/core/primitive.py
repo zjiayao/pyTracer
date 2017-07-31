@@ -432,6 +432,48 @@ class GridAccel(Aggregate):
 
 			return anyHit
 
+# BVH Accelerator
+class BVHAccel(Aggregate):
+	class BVHPrimInfo():
+		def __init__(self, pn: INT, b: BBox):
+			self.primitiveId = pn
+			self.bunds = b
+			self.centroid = .5 * b.pMin + .5 * b.pMax
+
+		def __repr__(self):
+			return "{}\nCentroid: {}".format(self.__class__, self.centroid)
+
+	def __init__(self, p: ['Primitive'], mp: INT, algo: str):
+		self.max_prims_in_node = min(mp, 255)
+		self.primitives = []
+		for i, prim in enumerate(p):
+			p[i].full_refine(primitives)
+
+		if algo == "sah" or algo == "surface area heuristic":
+			self.splitMethod = SPLIT_SAH
+		else:
+			print("[Warning] src.core.primitive.{}: unknown BVH split method, using sah." \
+				.format(self.__class__))
+			self.splitMethod = SPLIT_SAH
+
+		if len(self.primitives) == 0:
+			self.nodes = None
+			return
+		# construct BVH
+		## init build_data
+		build_data = np.empty(len(self.primitives), dtype=object)
+		for i, prim in enumerate(self.primitives):
+			bbox = prim.world_bound()
+			build_data[i] = BVHPrimInfo(i, bbox)
+			root = 
+
+
+		## build BVH tree recursively
+
+
+		## representation for DFS
+
+
 
 
 
