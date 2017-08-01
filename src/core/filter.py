@@ -33,7 +33,7 @@ class Filter(object):
 									'called'.format(self.__class__)) 		
 
 class BoxFilter(Filter):
-	def __call__(self, x: FLOAT, y: FLOAT) -> FLOAT:
+	def call(self, x: FLOAT, y: FLOAT) -> FLOAT:
 		return 1.
 
 class TriangleFilter(Filter):
@@ -60,13 +60,30 @@ class MitchellFilter(Filter):
 		self.C = c
 
 	def __call__(self, x: FLOAT, y: FLOAT) -> FLOAT:
-		return self.mitchell(x * self.xwInv) * self.mitchell(y * self.ywInv)
+		return self.mitchell(np.multiply(x, self.xwInv)) * self.mitchell(np.multiply(y, self.ywInv))
 
+	@jit
 	def mitchell(self, x: FLOAT) -> FLOAT:
 		x = np.fabs(2. * x)
+		# add np.ndarray support
+		if hasattr(x, '__iter__'):
+			for i, xx in enumerate(x):
+				if xx > 1.:
+					x[i] = ((-self.B - 6 * self.C) * xx * xx * xx + (6 * self.B + 30 * self.C) * xx * xx + \
+						(-12 * self.B - 48 * self.C) * xx + (8 * self.B + 24 * self.C)) * (1./6.)
+				else:
+					x[i] = ((12 - 9 * self.B - 6 * self.C) * xx * xx * xx + \
+					(-18 + 12 * self. B + 6 * self.C) * xx * xx +
+					(6 - 2 * self.B)) * (1./6.);
+			return np.array(x)
+
 		if x > 1.:
 			return ((-self.B - 6 * self.C) * x * x * x + (6 * self.B + 30 * self.C) * x * x + \
 						(-12 * self.B - 48 * self.C) * x + (8 * self.B + 24 * self.C)) * (1./6.)
+		else:
+			return  ((12 - 9 * self.B - 6 * self.C) * x * x * x + \
+					(-18 + 12 * self. B + 6 * self.C) * x * x +
+					(6 - 2 * self.B)) * (1./6.);
 
 class LanczosSincFilter(Filter):
 	def __init__(self, xw: FLOAT, yw: FLOAT, tau: FLOAT):
@@ -74,10 +91,23 @@ class LanczosSincFilter(Filter):
 		self.tau = tau
 
 	def __call__(self, x: FLOAT, y: FLOAT) -> FLOAT:
-		return self.sinc(x * self.xwInv) * self.sinc(y * self.ywInv)
+		return self.sinc(np.multiply(x, self.xwInv)) * self.sinc(np.multiply(y, self.ywInv))
 
+	@jit
 	def sinc(self, x: FLOAT) -> FLOAT:
 		x = np.fabs(x)
+
+		# add np.ndarray or list support
+		if hasattr(x, '__iter__'):
+			for i, xx in enumerate(x):
+				if xx < EPS:
+					x[i] = 1.
+				elif xx > 1.:
+					x[i] = 0.
+				else:
+					x[i] = np.sinc(xx * self.tau) / np.sinc(xx)
+			return np.array(x)
+
 		if x < EPS:
 			return 1.
 		elif x > 1.:
