@@ -7,7 +7,8 @@ Created by Jiayao on July 31, 2017
 '''
 
 from numba import jit
-from abc import ABCMeta, abstractmethod  
+from abc import ABCMeta, abstractmethod
+from enum import Enum
 import numpy as np
 from src.core.pytracer import *
 
@@ -213,6 +214,95 @@ class StratifiedSampler(Sampler):
 	'''
 	def __init__(self, xs: INT, xe: INT, ys: INT, ye: INT,
 					xst: INT, yst: INT, jitter: bool, s_open: FLOAT, s_close: FLOAT):
+		super().__init__(xs, xe, ys, ye, xst * yst, s_open, s_close)
+		self.jitter = jitter
+		self.xPos = xs # current position
+		self.yPos = ys
+		self.xSamples = xst
+		self.ySamples = yst
+
+	@jit
+	def __next__(self, rng=np.random.rand) -> 'np.ndarray':
+		'''
+		returns an np object array holding `Sample`s
+		'''
+		if self.yPos == self.yPixel_end:
+			return None
+		nSamples = self.xSamples * self.ySamples
+		# generate stratified samples
+		imageSamples = stratified_sample_2d(self.xSamples, self.ySamples, self.jitter, rng)
+		lensSamples = stratified_sample_2d(self.xSamples, self.ySamples, self.jitter, rng)
+		timeSamples = stratified_sample_1d(self.xSamples * self.ySamples, self.jitter, rng)
+
+		## shift samples to pixel coord
+		imageSamples += [self.xPos, self.yPos]
+
+		## decorrelate dimensions
+		np.random.shuffle(lensSamples)
+		np.random.shuffle(timeSamples)
+
+		## init `Sample` object
+		samples = np.empty(nSamples, dtype=object)
+		for i in range(nSamples):
+			samples[i] = Sample(imageX=imageSamples[i, 0], imageY=imageSamples[i, 1],
+				lens_u=lensSamples[i, 0], lens_v=lensSamples[i, 1],
+				time=Lerp(timeSamples[i], self.s_open, self.s_close))
+
+		## generate patterns for integraters, if needed
+			for j, n in enumerate(samples[i].n1D):
+				samples[i].oneD[j] = latin_hypercube_1d(n, rng)
+			for j, n in enumerate(samples[i].n2D):
+				samples[i].twoD[j] = latin_hypercube_2d(n, rng)
+
+
+		# advance current position
+		self.xPos += 1
+		if self.xPos == self.xPixel_end:
+			self.xPos = self.xPixel_start
+			self.yPos += 1
+
+		return samples
+
+	def round_size(self, size: INT) -> INT:
+		'''
+		round_size
+
+		`StratifiedSampler` has no preferences
+		'''
+		return size
+
+	def maximum_sample_cnt(self) -> INT:
+		return self.xSamples * self.ySamples
+
+
+	def get_subsampler(self, num: INT, cnt: INT) -> 'Sampler':
+		'''
+		Returns `None` if operation
+		cannot be done
+		'''
+		ret = self.compute_subwindow(num, cnt)
+		if ret[0] == ret[1] or ret[2] == ret[3]:
+			return None
+		return StratifiedSampler(ret[0], ret[1], ret[2], ret[3],
+					self.xSamples, self.ySamples, self.jitter, self.s_open, self.s_close)
+
+class AdaptiveTest(Enum):
+	ADAPTIVE_COMPARE_SHAPE_ID = 0
+	ADAPTIVE_CONTRAST_THRESHOLD = 1
+
+class StratifiedSampler(Sampler):
+	'''
+	StratifiedSampler Class
+
+	Subclasses `Sampler`. Jittering
+	stratified sampling is implemented.
+	Traversal pattern;
+	---------/
+	---------/
+	--------->
+	'''
+	def __init__(self, xs: INT, xe: INT, ys: INT, ye: INT,
+					xst: INT, yst: INT, supersamplePixel: bool, s_open: FLOAT, s_close: FLOAT):
 		super().__init__(xs, xe, ys, ye, xst * yst, s_open, s_close)
 		self.jitter = jitter
 		self.xPos = xs # current position
