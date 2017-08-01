@@ -12,10 +12,23 @@ import numpy as np
 from src.core.pytracer import *
 
 # Geometry related functions
+@jit
 def coordinate_system(v1: 'Vector') -> ['Vector']:
 	'''
-	construct a left-handed coordinate system
+	coordinate_system()
+
+	Construct a left-handed coordinate system
 	with v1, which is assumed to be normalized.
+	Noted left-handed coordinate system is used.
+
+	@param
+		- v1: `Vector`
+			a `Vector` from which a coordinate
+			system is constructed
+	@return
+		- [`Vector`]
+			a python List encompassing three basis
+			constructed from `v1`
 	'''
 	if(np.fabs(v1.x) > np.fabs(v1.y)):
 		invLen = 1. / np.sqrt(v1.x * v1.x + v1.z * v1.z)
@@ -29,10 +42,23 @@ def coordinate_system(v1: 'Vector') -> ['Vector']:
 
 	return v1, v2, v3
 
+@jit
 def normalize(vec: 'Vector') -> 'Vector':
 	'''
-	returns a new normalized vector
-	'''
+	normalize()
+
+	Normalize a given vector, returns the
+	normalized version. The input is not 
+	modified. Noted `Normal`s are also
+	normalized using this method.
+
+	@param
+		- vec: `Vector`
+			The `Vector` to be normalized.
+	@return
+		- `Vector`
+			The normalized version of `vec`
+	'''	
 	n = vec.copy()
 	length = vec.length()
 	if not length == 0:
@@ -41,7 +67,10 @@ def normalize(vec: 'Vector') -> 'Vector':
 
 def face_forward(n: 'Normal', v: 'Vector') -> 'Vector':
 	'''
-	Flip a normal according to a vector
+	face_forward
+
+	Flip a `Normal` according to a `Vector` such that
+	they make an angle less than pi
 	'''
 	if not isinstance(n, Normal) or not isinstance(v, Vector):
 		raise TypeError('Argument type error')
@@ -55,10 +84,12 @@ def face_forward(n: 'Normal', v: 'Vector') -> 'Vector':
 def spherical_direction(stheta: FLOAT, ctheta: FLOAT, phi: FLOAT,
 		x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector':
 	'''
+	spherical_direction
+
 	Computes spherical direction from sperical coordiante
-	with or without basis
+	with or without basis.
 	'''
-	if x None or y is None or z is None:
+	if x is None or y is None or z is None:
 		return Vector(stheta * np.cos(phi), stheta * np.sin(phi), ctheta)
 	else:
 		return stheta * np.cos(phi) * x + stheta * np.sin(phi) * y + ctheta * z
@@ -66,6 +97,8 @@ def spherical_direction(stheta: FLOAT, ctheta: FLOAT, phi: FLOAT,
 @jit
 def spherical_theta(v: 'Vector') -> FLOAT:
 	'''
+	spherical_theta
+
 	Get theta from direction
 	'''
 	return np.arccos(np.clip(v.z, -1., 1.))
@@ -73,6 +106,8 @@ def spherical_theta(v: 'Vector') -> FLOAT:
 @jit
 def spherical_phi(v: 'Vector') -> FLOAT:
 	'''
+	spherical_phi
+
 	Get phi from direction
 	'''
 	p = np.arctan2(v.y, v.x)
@@ -81,7 +116,7 @@ def spherical_phi(v: 'Vector') -> FLOAT:
 # Classes
 class Vector(np.ndarray):
 	'''
-	Vector class
+	Vector Class
 
 	A wrappper subclasses numpy.ndarray which 
 	models a 3D vector.
@@ -93,12 +128,16 @@ class Vector(np.ndarray):
 		return obj
 
 	@classmethod
-	def fromNormal(cls, n: 'Normal'): # Forward type hint, see PEP-484
+	def fromNormal(cls, n: 'Normal'): # Forward type hint (PEP-484)
 		return cls(n.x, n.y, n.z)
 
 	@classmethod
 	def fromPoint(cls, n: 'Point'):
-		return cls(n.x, n.y, n.z)				
+		return cls(n.x, n.y, n.z)	
+
+	@classmethod
+	def fromVector(cls, v: 'Vector'):
+		return cls(v.x, v.y, v.z)	
 
 	@property
 	def x(self):
@@ -317,7 +356,7 @@ class Ray(object):
 	
 	@classmethod
 	def fromParent(cls, o: 'Point', d: 'Vector', r:'Ray',
-			mint: FLOAT, maxt: FLOAT=np.inf):
+			mint: FLOAT=0., maxt: FLOAT=np.inf):
 		'''
 		initialize from a parent ray
 		'''
@@ -381,7 +420,7 @@ class BBox:
 	represented by a pair of opposite vertices.
 	'''
 	def __init__(self, p1=None, p2=None):
-		if not p1 is None and not p2 is None:
+		if p1 is not None and p2 is not None:
 			self.pMin = Point(min(p1.x, p2.x),
 							  min(p1.y, p2.y),
 							  min(p1.z, p2.z))
@@ -394,12 +433,14 @@ class BBox:
 			self.pMin = Point(np.inf, np.inf, np.inf)
 			self.pMax = Point(-np.inf, -np.inf, -np.inf)
 		
-		else:
-			if not p2:
-				p1 = p2
+		elif p2 is None:
 			self.pMin = p1.copy()
-			self.pMax = p1.copy()
-	
+			self.pMax = Point(np.inf, np.inf, np.inf)
+
+		else:
+			self.pMin = Point(-np.inf, -np.inf, -np.inf)
+			self.pMax = p2.copy()
+
 	@classmethod
 	def fromBBox(cls, box: 'BBox'):
 		return cls(box.pMin, box.pMax)
@@ -409,8 +450,8 @@ class BBox:
 											 self.pMin,
 											 self.pMax)
 	def __eq__(self, other):
-		return np.array_equal(self.pMin, other.pMax) and \
-			   np.array_equal(self.pMin, other.pMax)
+		return np.array_equal(self.pMin, other.pMin) and \
+			   np.array_equal(self.pMax, other.pMax)
 
 	def __ne__(self, other):
 		return not np.array_equal(self.pMin, other.pMax) or \
@@ -433,7 +474,7 @@ class BBox:
 		'''	
 		ret = BBox()
 
-		if isinstance(other, Point):
+		if isinstance(b2, Point):
 			ret.pMin.x = min(b1.pMin.x, b2.x)
 			ret.pMin.y = min(b1.pMin.y, b2.y)
 			ret.pMin.z = min(b1.pMin.z, b2.z)
@@ -441,7 +482,7 @@ class BBox:
 			ret.pMax.y = max(b1.pMax.y, b2.y)
 			ret.pMax.z = max(b1.pMax.z, b2.z)
 		
-		elif isinstance(other, BBox):
+		elif isinstance(b2, BBox):
 			ret.pMin.x = min(b1.pMin.x, b2.pMin.x)
 			ret.pMin.y = min(b1.pMin.y, b2.pMin.y)
 			ret.pMin.z = min(b1.pMin.z, b2.pMin.z)
@@ -514,14 +555,14 @@ class BBox:
 		'''
 		Computes the surface area
 		'''
-		delta = self.pMax - self.pMin
+		d = self.pMax - self.pMin
 		return 2. * (d.x * d.y + d.x * d.z + d.y * d.z)
 	
 	def volume(self) -> FLOAT:
 		'''
 		Computes the volume
 		'''
-		delta = self.pMax - self.pMin
+		d = self.pMax - self.pMin
 		return d.x * d.y * d.z
 	
 	def maximum_extent(self):
@@ -566,16 +607,24 @@ class BBox:
 		return ctr, rad
 
 	def intersectP(self, r: 'Ray') -> [bool, FLOAT, FLOAT]:
+		'''
+		intersectP()
+
+		Check whether a ray intersects the BBox
+		Compare intervals along each dimension
+		returns the shortest/largest parametric values
+		if intersects.
+		'''
 		t0, t1 = r.mint, r.maxt
-		dInv = 1. / r.d
-		tNear = (pMin - ray.o) * dInv
-		tFar = (pMax - ray.o) * dInv
+		# automatically convert /0. to np.inf
+		tNear = np.true_divide((self.pMin - r.o), r.d)
+		tFar = np.true_divide((self.pMax - r.o), r.d)
 		for i in range(3):
 			if tNear[i] > tFar[i]:
 				tNear[i], tFar[i] = tFar[i], tNear[i]
-				t0, t1 = max(t0, tNear), max(t1, tFar)
-				if t0 > t1:
-					return [False, 0., 0.]
+			t0, t1 = np.fmax(t0, tNear[i]), np.fmin(t1, tFar[i])
+			if t0 > t1:
+				return [False, 0., 0.]
 		return [True, t0, t1]
 
 
