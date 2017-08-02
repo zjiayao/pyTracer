@@ -32,7 +32,7 @@ class Film(object):
 
 	@abstractmethod
 	def add_sample(self, sample: 'CameraSample', spectrum: 'Spectrum'):
-		raise NotImplementedError('src.core.file {}.add_sample(): abstract method '
+		raise NotImplementedError('src.core.film {}.add_sample(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	@abstractmethod
@@ -41,7 +41,7 @@ class Film(object):
 		Used to sum the contribution
 		around a pixel sample
 		'''
-		raise NotImplementedError('src.core.file {}.add_sample(): abstract method '
+		raise NotImplementedError('src.core.film {}.add_sample(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	@abstractmethod
@@ -50,7 +50,7 @@ class Film(object):
 		Determine the range of pixels to generate
 		samples, returns [xStart, xEnd, yStart, yEnd]
 		'''
-		raise NotImplementedError('src.core.file {}.get_sample_extent(): abstract method '
+		raise NotImplementedError('src.core.film {}.get_sample_extent(): abstract method '
 									'called'.format(self.__class__)) 	
 
 	@abstractmethod
@@ -59,7 +59,7 @@ class Film(object):
 		Determine the range of pixels on
 		the actual image, returns [xStart, xEnd, yStart, yEnd]
 		'''
-		raise NotImplementedError('src.core.file {}.get_pixel_extent(): abstract method '
+		raise NotImplementedError('src.core.film {}.get_pixel_extent(): abstract method '
 									'called'.format(self.__class__)) 	
 
 	@abstractmethod
@@ -76,7 +76,7 @@ class Film(object):
 		'''
 		Display or write image to file
 		'''
-		raise NotImplementedError('src.core.file {}.write_image(): abstract method '
+		raise NotImplementedError('src.core.film {}.write_image(): abstract method '
 									'called'.format(self.__class__))
 
 
