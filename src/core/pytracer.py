@@ -16,7 +16,11 @@ from scipy import spatial # cKdTree
 import PIL.Image
 
 
+# Type Alias
+
 KdTree = spatial.cKDTree
+
+# Global Constant
 
 EPS = 1e-5
 INT = int
@@ -30,6 +34,10 @@ INV_PI = 1. / np.pi
 INV_2PI = 1. / (2. * np.pi)
 
 FILTER_TABLE_SIZE = 16
+
+# Global Static
+IrIsotropicData = {}
+
 
 # Global Functions
 
