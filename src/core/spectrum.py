@@ -53,6 +53,11 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 	def __repr__(self):
 		return "{}\nNumber of Samples: {}".format(self.__class__, self.nSamples)
 
+	def copy(self):
+		other = self.__class__(self.nSamples)
+		other.c = self.c.copy()
+		return other
+
 	@classmethod
 	def fromArray(cls, sample: 'np.ndarray'):
 		if sample is None:
@@ -194,7 +199,7 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.spectrum.{}.toRGB(): abstract method '
 									'called'.format(self.__class__))
 	@abstractmethod
-	def toRGBSepctrum(self) -> 'RGBSpectrum':
+	def toRGBSpectrum(self) -> 'RGBSpectrum':
 		raise NotImplementedError('src.core.spectrum.{}.toRGBSepctrum(): abstract method '
 									'called'.format(self.__class__))
 class SampledSpectrum(CoefficientSpectrum):
@@ -233,7 +238,7 @@ class SampledSpectrum(CoefficientSpectrum):
 	def fromSampled(cls, lam: [FLOAT], v: [FLOAT], n: INT):
 		# sort the spectrum if necessary
 
-		v = v[np.argsort(lam)]
+		v = np.array(v)[np.argsort(lam)]
 		lam = np.sort(lam)
 
 		# compute average SPD values 
@@ -424,7 +429,7 @@ class SampledSpectrum(CoefficientSpectrum):
 	def toRGB(self) -> [FLOAT]:
 		return xyz2rgb(self.toXYZ())
 
-	def toRGBSepctrum(self) -> 'RGBSpectrum':
+	def toRGBSpectrum(self) -> 'RGBSpectrum':
 		return RGBSpectrum.fromXYZ(self.c)
 
 class RGBSpectrum(CoefficientSpectrum):
@@ -437,7 +442,7 @@ class RGBSpectrum(CoefficientSpectrum):
 	def __init__(self, v: FLOAT = 0.):
 		super().__init__(3, v)
 
-	@staticmethod
+	@classmethod
 	@jit
 	def fromSampled(cls, lam: [FLOAT], v: [FLOAT], n: INT):
 		ss = SampledSpectrum.fromSampled(lam, v, n)
@@ -456,6 +461,10 @@ class RGBSpectrum(CoefficientSpectrum):
 		s = RGBSpectrum()
 		s.c = np.array(rgb)
 		return s
+
+	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
+		rgb = r.c.copy()
+		return cls.fromRGB(rbg, t)
 
 	@classmethod
 	@jit

@@ -43,6 +43,14 @@ class Intersection(object):
 		self.primitiveId = pr_id
 		self.rEps = rEps
 
+	def get_BSDF(self, ray: 'RayDifferential') -> 'BSDF':
+		self.dg.compute_differential(ray)
+		return self.primitive.get_BSDF(dg, o2w)
+
+	def get_BSSRDF(self, ray: 'RayDifferential') -> 'BSSRDF':
+		self.dg.compute_differential(ray)
+		return self.primitive.get_BSSRDF(dg, o2w)
+
 class Primitive(object, metaclass=ABCMeta):
 
 	__primitiveId = 0
@@ -80,11 +88,11 @@ class Primitive(object, metaclass=ABCMeta):
 		raise NotImplementedError('{}.get_area_light(): Not implemented'.format(self.__class__))
 
 	@abstractmethod
-	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
+	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'Transform') -> 'BSDF':
 		raise NotImplementedError('{}.get_BSDF(): Not implemented'.format(self.__class__))
 
 	@abstractmethod
-	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
+	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'Transform') -> 'BSSRDF':
 		raise NotImplementedError('{}.get_BSSRDF(): Not implemented'.format(self.__class__))
 
 	def full_refine(self, refined: ['Primitive']):

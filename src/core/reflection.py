@@ -64,6 +64,24 @@ def fr_cond(cos_i: FLOAT, eta: 'Spectrum', k: 'Spectrum') -> 'Spectrum':
 				(tmp + (2. * eta * cos_i) + cos_i * cos_i)
 	return .5 * (r_para_sq + r_perp_sq)
 
+@jit
+def BRDF_remap(wo: 'Vector', wi: 'Vector') -> 'Point':
+	'''
+	Mapping regularly sampled BRDF
+	using Marschner, 1998
+	'''
+	dphi = spherical_phi(wi) - spherical_phi(wo)
+	if dphi < 0.:
+		dphi += 2. * PI
+	if dphi > 2. * PI:
+		dphi -= 2. * PI
+	if dphi > PI:
+		dphi = 2. * PI - dphi
+
+	return Point(sin_theta(wi) * sin_theta(wo),
+				dphi * INV_PI, cos_theta(wi) * cos_theta(wo))
+
+
 # interface for Fresnel coefficients
 class Fresnel(object, metaclass=ABCMeta):
 	'''
@@ -227,21 +245,7 @@ class BDF(object, metaclass=ABCMeta):
 	def match_flag(self, flag: 'BDFType') -> bool:
 		return (self.type & flag) == type
 
-	def BRDF_remap(self, wo: 'Vector', wi: 'Vector') -> 'Point':
-		'''
-		Mapping regularly sampled BRDF
-		using Marschner, 1998
-		'''
-		dphi = spherical_phi(wi) - spherical_phi(wo)
-		if dphi < 0.:
-			dphi += 2. * PI
-		if dphi > 2. * PI:
-			dphi -= 2. * PI
-		if dphi > PI:
-			dphi = 2. * PI - dphi
 
-		return Point(sin_theta(wi) * sin_theta(wo),
-					dphi * INV_PI, cos_theta(wi) * cos_theta(wo))
 
 
 # adapter from BRDF to BTDF
@@ -573,7 +577,7 @@ class FresnelBlend(BDF):
 		return diffuse + specular
 
 # Measured BDF
-def IrIsotropicBRDFSample(object):
+class IrIsotropicBRDFSample(object):
 	'''
 	IrIsotropicBRDFSample Class
 
@@ -618,18 +622,6 @@ class IrIsotropicBRDF(BDF):
 
 			max_dist *= 1.414
 
-
-	@abstractmethod
-	@jit
-	def sample_f(self, wo: 'Vector', u1: FLOAT, 
-							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
-		'''
-		Handles scattering discribed by delta functions
-		or random sample directions.
-		Returns the spectrum, incident vector and pdf used in MC sampling.
-		'''
-		raise NotImplementedError('src.core.reflection.{}.sample_f(): abstract method '
-									'called'.format(self.__class__)) 
 
 class ReHalfangleBRDF(BDF):
 	'''
@@ -686,7 +678,7 @@ class BSDF(object):
 	n_s: shading normal
 	n_g: geometric normal
 	'''
-	def __init__(self, dg: 'DifferentialGeometry', ng: 'Normal', e: FLOAT):
+	def __init__(self, dg: 'DifferentialGeometry', ng: 'Normal', e: FLOAT=1.):
 		'''
 		dg: DifferentialGeometry
 		ng: Geometric Normal
@@ -701,7 +693,7 @@ class BSDF(object):
 		self.sn = normalize(dg.dpdu)
 		self.tn = nn.cross(sn)
 
-		self.__BDF = []
+		self.bdfs = []
 		self.__nBDF = INT(0)
 
 	def __repr__(self):
@@ -712,7 +704,7 @@ class BSDF(object):
 		'''
 		Add more BDF
 		'''
-		self.__BDF.append(bdf)
+		self.bdfs.append(bdf)
 		self.__nBDF += 1
 
 	@property
@@ -721,7 +713,7 @@ class BSDF(object):
 
 	def n_components(self, flags: 'BDFType'):
 		n = 0
-		for bdf in self.__BDF:
+		for bdf in self.bdfs:
 			if bdf.match_flag(flags):
 				n += 1
 		return n
@@ -760,7 +752,7 @@ class BSDF(object):
 
 		f = Spectrum(0.)
 
-		for bdf in self.__BDF:
+		for bdf in self.bdfs:
 			if bdf.match_flag(flags):
 				f+= bdf.f(wo, wi)
 
@@ -775,7 +767,7 @@ class BSDF(object):
 		smp = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
 
 		sp = Spectrum(0.)
-		for bdf in self.__BDF:
+		for bdf in self.bdfs:
 			if bdf.match_flag(flags):
 				sp += bdf.rho_hd(wo, nSamples, smp)
 
@@ -791,7 +783,7 @@ class BSDF(object):
 		smp_2 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
 
 		sp = Spectrum(0.)
-		for bdf in self.__BDF:
+		for bdf in self.bdfs:
 			if bdf.match_flag(flags):
 				sp += bdf.rho_hh(nSamples, smp_1, smp_2)
 
