@@ -222,6 +222,22 @@ class BDF(object):
 	def match_flag(self, flag: 'BDFType') -> bool:
 		return (self.type & flag) == type
 
+	def BRDF_remap(self, wo: 'Vector', wi: 'Vector') -> 'Point':
+		'''
+		Mapping regularly sampled BRDF
+		using Marschner, 1998
+		'''
+		dphi = spherical_phi(wi) - spherical_phi(wo)
+		if dphi < 0.:
+			dphi += 2. * PI
+		if dphi > 2. * PI:
+			dphi -= 2. * PI
+		if dphi > PI:
+			dphi = 2. * PI - dphi
+
+		return Point(sin_theta(wi) * sin_theta(wo),
+					dphi * INV_PI, cos_theta(wi) * cos_theta(wo))
+
 
 # adapter from BRDF to BTDF
 class BRDF2BTDF(BDF):
@@ -551,4 +567,104 @@ class FresnelBlend(BDF):
 			self.schlick(wi.dot(wh))
 
 		return diffuse + specular
+
+# Measured BDF
+def IrIsotropicBRDFSample(object):
+	'''
+	IrIsotropicBRDFSample Class
+
+	Store irregular isotropic BRDF sample
+	'''
+	def __init__(self, p: 'Point', v: 'Spectrum'):
+		self.p = p.copy()
+		self.v = v.copy()
+
+	def __repr__(self):
+		return "{}\nPoint: {}\nSpectrum:\n{}".format(self.__class__,
+							self.p, self.v)
+
+
+class IrIsotropicBRDF(BDF):
+	'''
+	IrIsotropicBRDF Class
+
+	Used for measured BRDF
+	'''
+	def __init__(self, tree: 'KdTree', data: ['IrIsotropicBRDFSample']):
+		super().__init__(BDFType.REFLECTION | BDFType.GLOSSY)
+		self.tree = tree
+		self.data = data
+
+
+	@jit
+	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
+		m = BRDF_remap(wo, wi)
+		max_dist = .01
+		while True:
+			indices = tree.query_ball_point(m, max_dist)
+			if len(indices) > 2 or max_dist > 1.5:
+				sum_wt = 0.
+				v = Spectrum()
+				for sample in self.data[idx]:
+					wt += np.exp((sample.p - m).sq_length() * -100.)
+					sum_wt += wt
+					v += sample.v * wt
+
+				return v.clip() / sum_wt 
+
+			max_dist *= 1.414
+
+
+	@abstractmethod
+	@jit
+	def sample_f(self, wo: 'Vector', u1: FLOAT, 
+							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
+		'''
+		Handles scattering discribed by delta functions
+		or random sample directions.
+		Returns the spectrum, incident vector and pdf used in MC sampling.
+		'''
+		raise NotImplementedError('src.core.reflection.{}.sample_f(): abstract method '
+									'called'.format(self.__class__)) 
+
+class ReHalfangleBRDF(BDF):
+	'''
+	ReHalfangleBRDF Class
+
+	Models regularly tabulated BRDF Samples
+	Format inline with Matusik(2003) at
+	http://people.csail.mit.edu/wojciech/BRDFDatabase/
+	'''
+	def __init__(self, data: 'np.ndarray', nth: INT, ntd: INT, npd: INT):
+		super().__init__(BDFType.REFLECTION | BDFType.GLOSSY)
+		self.brdf = data
+		self.nThetaH = INT(nth)
+		self.nThetaD = INT(ntd)
+		self.nPhiD = INT(npd)
+
+	@jit
+	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
+		# find wh and transform wi to halfangle coord. system
+		wh = normalize(wi + wo)
+		
+		t = spherical_theta(wh)
+		cp = cos_phi(wh)
+		sp = sin_phi(wh)
+		ct = cos_theta(wh)
+		st = sin_theta(wh)
+		x = Vector(cp * ct, sp * ct, -st)
+		y = Vector(-sp, cp, 0.)
+		wd = Vector(wi.dot(x), wi.dot(y), wi.dot(wh))
+
+		# compute index
+		wdt = spherical_theta(wd)
+		wdp = spherical_phi(wd)
+		if wdp > PI:
+			wdp -= PI
+		wht_idx = np.clip(INT(( np.sqrt(max(0., t / (PI/2.))) )/(self.nThetaH)), 0, self.nThetaH - 1)
+
+		wdt_idx = np.clip(INT((wdt)/(self.nThetaD * PI)), 0, self.nThetaD - 1)
+
+		wdp_idx = np.clip(INT((wdp)/(self.nPhiD * PI)), 0, self.nPhiD - 1)
+		return Spectrum.fromRGB(self.brdf[wht_idx][wdt_idx][wdp_idx])
 
