@@ -453,7 +453,7 @@ class RGBSpectrum(CoefficientSpectrum):
 
 	@staticmethod
 	@jit
-	def fromRGB(rgb: [FLOAT], tp: 'SpectrumType'):
+	def fromRGB(rgb: [FLOAT], tp: 'SpectrumType' = SpectrumType.REFLECTANCE):
 		s = RGBSpectrum()
 		s.c = np.array(rgb)
 		return s
