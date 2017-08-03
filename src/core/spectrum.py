@@ -7,6 +7,7 @@ Created by Jiayao on July 30, 2017
 '''
 from numba import jit
 import numpy as np
+from abc import ABCMeta, abstractmethod
 from enum import Enum
 from src.core.pytracer import *
 # Utility Declarations
@@ -44,6 +45,8 @@ class CoefficientSpectrum(object):
 	and is to be subclassed by `RGBSpectrum` and
 	`SampledSpectrum`
 	'''
+	__metaclass__ = ABCMeta	
+
 	def __init__(self, nSamples, v: FLOAT = 0.):
 		self.nSamples = nSamples
 		self.c = np.full(nSamples, v)
@@ -68,19 +71,37 @@ class CoefficientSpectrum(object):
 		return self
 
 	def __add__(self, other):
-		return CoefficientSpectrum.fromArray(self.c + other.c)
+		return self.__class__.fromArray(self.c + other.c)
 
 	def __sub__(self, other):
-		return CoefficientSpectrum.fromArray(self.c - other.c)
+		return self.__class__.fromArray(self.c - other.c)
 
 	def __mul__(self, other):
-		return CoefficientSpectrum.fromArray(self.c * other.c)
+		if isinstance(other, CoefficientSpectrum):
+			return self.__class__.fromArray(self.c * other.c)
+		else:
+			return self.__class__.fromArray(self.c * other)
+
+	def __rmul__(self, other):
+		if isinstance(other, CoefficientSpectrum):
+			return self.__class__.fromArray(self.c * other.c)
+		else:
+			return self.__class__.fromArray(self.c * other)
 
 	def __div__(self, other):
-		return CoefficientSpectrum.fromArray(self.c / other.c)
+		if isinstance(other, CoefficientSpectrum):
+			return self.__class__.fromArray(self.c / other.c)
+		else:
+			return self.__class__.fromArray(self.c / other)		
+
+	def __rdiv__(self, other):
+		if isinstance(other, CoefficientSpectrum):
+			return self.__class__.fromArray(self.c / other.c)
+		else:
+			return self.__class__.fromArray(self.c / other)
 
 	def __neg__(self):
-		ret = CoefficientSpectrum(self.nSamples)
+		ret = self.__class__(self.nSamples)
 		ret.c = -self.c
 		return ret
 
@@ -102,7 +123,7 @@ class CoefficientSpectrum(object):
 		Returns the square root
 		of the current Spectrum
 		'''
-		ret = CoefficientSpectrum(self.nSamples)
+		ret = self.__class__(self.nSamples)
 		ret.c = np.sqrt(c)
 		return ret
 
@@ -111,7 +132,7 @@ class CoefficientSpectrum(object):
 		Returns the exponential
 		of the current Spectrum
 		'''
-		ret = CoefficientSpectrum(self.nSamples)
+		ret = self.__class__(self.nSamples)
 		ret.c = np.exp(c)
 		return ret
 
@@ -120,7 +141,7 @@ class CoefficientSpectrum(object):
 		Returns the power
 		of the current Spectrum
 		'''
-		ret = CoefficientSpectrum(self.nSamples)
+		ret = self.__class__(self.nSamples)
 		ret.c = np.power(ret.c, n)
 		return ret
 
@@ -128,18 +149,55 @@ class CoefficientSpectrum(object):
 		'''
 		Returns the linear intropolation
 		'''
-		ret = CoefficientSpectrum(self.nSamples)
+		ret = self.__class__(self.nSamples)
 		ret.c = ufunc_lerp(t, self.c, other.c)
 		return ret
 
 	def clip(self, low: FLOAT = 0., high: FLOAT = np.inf):
-		ret =CoefficientSpectrum(self.nSamples)
+		ret = self.__class__(self.nSamples)
 		ret.c = np.clip(self.c, low, high)
 		return ret
 
 	def has_nans(self) -> bool:
 		return np.isnan(self.c).any()
 
+	@classmethod
+	@abstractmethod
+	def fromSampled(cls, lam: [FLOAT], v: [FLOAT], n: INT):
+		raise NotImplementedError('src.core.spectrum.{}.fromSampled(): abstract method '
+									'called'.format(self.__class__)) 
+	@classmethod
+	@abstractmethod
+	def fromRGB(cls, rgb: [FLOAT], tp: 'SpectrumType'):
+		raise NotImplementedError('src.core.spectrum.{}.fromRGB(): abstract method '
+									'called'.format(self.__class__)) 
+
+	@classmethod
+	@abstractmethod
+	def fromXYZ(cls, xyz: [FLOAT], tp: 'SpectrumType' = SpectrumType.REFLECTANCE):
+		raise NotImplementedError('src.core.spectrum.{}.fromXYZ(): abstract method '
+									'called'.format(self.__class__)) 
+	@classmethod
+	@abstractmethod
+	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
+		raise NotImplementedError('src.core.spectrum.{}.fromRGBSpectrum(): abstract method '
+									'called'.format(self.__class__))
+	@abstractmethod
+	def toXYZ(self):
+		raise NotImplementedError('src.core.spectrum.{}.toXYZ(): abstract method '
+									'called'.format(self.__class__))
+	@abstractmethod
+	def y(self):
+		raise NotImplementedError('src.core.spectrum.{}.y(): abstract method '
+									'called'.format(self.__class__))
+	@abstractmethod
+	def toRGB(self) -> [FLOAT]:
+		raise NotImplementedError('src.core.spectrum.{}.toRGB(): abstract method '
+									'called'.format(self.__class__))
+	@abstractmethod
+	def toRGBSepctrum(self) -> 'RGBSpectrum':
+		raise NotImplementedError('src.core.spectrum.{}.toRGBSepctrum(): abstract method '
+									'called'.format(self.__class__))
 class SampledSpectrum(CoefficientSpectrum):
 	'''
 	SampledSpectrum Class
@@ -421,6 +479,7 @@ class RGBSpectrum(CoefficientSpectrum):
 		return y_weight * self.c
 
 
+Spectrum = RGBSpectrum
 
 
 
