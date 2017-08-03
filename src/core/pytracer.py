@@ -12,7 +12,11 @@ import os, sys, glob
 
 from numba import jit
 import numpy as np
+from scipy import spatial # cKdTree
 import PIL.Image
+
+
+KdTree = spatial.cKDTree
 
 EPS = 1e-5
 INT = int
@@ -21,6 +25,8 @@ FLOAT = np.float64
 DOUBLE = np.float64
 HANDNESS = 'left'
 
+PI = FLOAT(np.pi)
+INV_PI = 1. / np.pi
 INV_2PI = 1. / (2. * np.pi)
 
 FILTER_TABLE_SIZE = 16
