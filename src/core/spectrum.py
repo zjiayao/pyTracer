@@ -37,7 +37,7 @@ class SpectrumType(Enum):
 	ILLUMINANT = 1
 
 
-class CoefficientSpectrum(object):
+class CoefficientSpectrum(object, metaclass=ABCMeta):
 	'''
 	CoefficientSpectrum Class
 
@@ -45,7 +45,6 @@ class CoefficientSpectrum(object):
 	and is to be subclassed by `RGBSpectrum` and
 	`SampledSpectrum`
 	'''
-	__metaclass__ = ABCMeta	
 
 	def __init__(self, nSamples, v: FLOAT = 0.):
 		self.nSamples = nSamples

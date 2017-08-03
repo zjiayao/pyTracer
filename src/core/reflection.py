@@ -65,13 +65,12 @@ def fr_cond(cos_i: FLOAT, eta: 'Spectrum', k: 'Spectrum') -> 'Spectrum':
 	return .5 * (r_para_sq + r_perp_sq)
 
 # interface for Fresnel coefficients
-class Fresnel(object):
+class Fresnel(object, metaclass=ABCMeta):
 	'''
 	Fresnel Class
 
 	Interface for computing Fresnel coefficients
 	'''
-	__metaclass__ = ABCMeta
 
 	@abstractmethod
 	def __call__(self, cosi: FLOAT):
@@ -172,14 +171,13 @@ class BDFType():
 
 
 
-class BDF(object):
+class BDF(object, metaclass=ABCMeta):
 	'''
 	BDF Class
 
 	Models bidirectional distribution function.
 	Base class for `BSDF` and `BRDF`
 	'''
-	__metaclass__ = ABCMeta	
 
 	def __init__(self, t: 'BDFType'):
 		self.type = BDFType(t)
@@ -450,7 +448,7 @@ class OrenNayar(BDF):
 
 
 # Torrance–Sparrow Model
-class MicrofacetDistribution(object):
+class MicrofacetDistribution(object, metaclass=ABCMeta):
 	'''
 	MicrofacetDistribution Class
 
@@ -459,7 +457,6 @@ class MicrofacetDistribution(object):
 	Microfacet distribution functions must
 	be normalized.
 	'''
-	__metaclass__ = ABCMeta
 
 	def __repr__(self):
 		return "{}\n".format(self.__class__)	
@@ -783,7 +780,7 @@ class BSDF(object):
 				sp += bdf.rho_hd(wo, nSamples, smp)
 
 		return sp
-	
+
 	def rho_hh(self, flags: 'BDFType'=BDFType.ALL, sqrt_samples: INT=6, rng=np.random.rand) -> 'Spectrum':
 		'''
 		Computs hemispherical-hemispherical reflectance function.

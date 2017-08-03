@@ -109,13 +109,13 @@ def create_loop_subdiv(o2w: 'Transform', w2o: 'Transform',
 
 	
 
-class Shape(object):
+class Shape(object, metaclass=ABCMeta):
 	"""
 	Shape Class
 
 	Base class of shapes.
 	"""
-	__metaclass__ = ABCMeta
+
 	next_shapeId = 1
 
 	def __init__(self, o2w: 'Transform', w2o: 'Transform',

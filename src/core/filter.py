@@ -12,11 +12,10 @@ from enum import Enum
 import numpy as np
 from src.core.pytracer import *
 
-class Filter(object):
+class Filter(object, metaclass=ABCMeta):
 	'''
 	Filter class
 	'''
-	__metaclass__ = ABCMeta	
 
 	def __init__(self, xw: FLOAT, yw: FLOAT):
 		self.xw = xw

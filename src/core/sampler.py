@@ -95,7 +95,7 @@ class Sample(CameraSample):
 
 
 
-class Sampler(object):
+class Sampler(object, metaclass=ABCMeta):
 	'''
 	Sampler Class
 
@@ -103,7 +103,6 @@ class Sampler(object):
 	positions, two for image dimensions, one for time
 	and two more for lens positions.
 	'''
-	__metaclass__ = ABCMeta	
 
 	def __init__(self, xs: INT, xe: INT, ys: INT, ye: INT,
 					spp: INT, s_open: FLOAT, s_close: FLOAT):

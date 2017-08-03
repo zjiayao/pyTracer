@@ -16,11 +16,10 @@ from src.core.sampler import *
 from src.core.spectrum import *
 from src.core.filter import *
 
-class Film(object):
+class Film(object, metaclass=ABCMeta):
 	'''
 	Film Class
 	'''
-	__metaclass__ = ABCMeta	
 
 	def __init__(self, xr: INT, yr: INT):
 		self.xResolution = xr

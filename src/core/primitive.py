@@ -43,8 +43,8 @@ class Intersection(object):
 		self.primitiveId = pr_id
 		self.rEps = rEps
 
-class Primitive(object):
-	__metaclass__ = ABCMeta	
+class Primitive(object, metaclass=ABCMeta):
+
 	__primitiveId = 0
 	next_primitiveId = 1
 	def __init__(self):
@@ -79,9 +79,11 @@ class Primitive(object):
 	def get_area_light(self):
 		raise NotImplementedError('{}.get_area_light(): Not implemented'.format(self.__class__))
 
+	@abstractmethod
 	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
 		raise NotImplementedError('{}.get_BSDF(): Not implemented'.format(self.__class__))
 
+	@abstractmethod
 	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
 		raise NotImplementedError('{}.get_BSSRDF(): Not implemented'.format(self.__class__))
 

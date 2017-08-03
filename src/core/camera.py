@@ -12,11 +12,10 @@ import numpy as np
 from src.core.pytracer import *
 
 
-class Camera(object):
+class Camera(object, metaclass=ABCMeta):
 	'''
 	Camera Class
 	'''
-	__metaclass__ = ABCMeta	
 
 	def __init__(self, c2w: 'AnimatedTransform', s_open: FLOAT,
 					s_close: FLOAT, film: 'Film'):
