@@ -13,11 +13,12 @@ Created by Jiayao on Aug 2, 2017
 '''
 from numba import jit
 from abc import ABCMeta, abstractmethod
-from enum import IntEnum
 import numpy as np
 from src.core.pytracer import *
 from src.core.geometry import *
+from src.core.diffgeom import *
 from src.core.spectrum import *
+from src.core.sampler import stratified_sample_2d	# used in BSDF
 
 # inline functions
 def cos_theta(w: 'Vector'): return w.z
@@ -143,14 +144,20 @@ class BDFType():
 		if isinstance(v, BDFType):
 			self.v = v.v
 		else:
-			self.v = INT(v)	# raise exception if needed
+			self.v = UINT(v)	# raise exception if needed
 	def __repr__(self):
 		return "{}\nEnum: {}".format(self.__class__, self.v)
-	def __or__(self, other): return self.v | other.v if isinstance(other, BDFType) else self.v | INT(other)
-	def __and__(self, other): return self.v & other.v if isinstance(other, BDFType) else self.v & INT(other)
-	def __xor__(self, other): return self.v ^ other.v if isinstance(other, BDFType) else self.v ^ INT(other)
-	def __lshift__(self, other): return self.v << other 
-	def __rshift__(self, other): return self.v >> other			
+
+	def __invert__(self): return BDFType(~self.v)
+	def __or__(self, other): return BDFType(self.v | other.v) if isinstance(other, BDFType) \
+									else BDFType(self.v | UINT(other))
+	def __and__(self, other): return BDFType(self.v & other.v) if isinstance(other, BDFType) \
+									else BDFType(self.v & UINT(other))
+	def __xor__(self, other): return BDFType(self.v ^ other.v) if isinstance(other, BDFType) \
+									else BDFType(self.v ^ UINT(other))
+	def __lshift__(self, other): return BDFType(self.v << other)
+	def __rshift__(self, other): return BDFType(self.v >> other)
+
 	REFLECTION = (1 << 0)
 	TRANSMISSION = (1 << 1)
 	DIFFUSE = (1 << 2)
@@ -667,4 +674,141 @@ class ReHalfangleBRDF(BDF):
 
 		wdp_idx = np.clip(INT((wdp)/(self.nPhiD * PI)), 0, self.nPhiD - 1)
 		return Spectrum.fromRGB(self.brdf[wht_idx][wdt_idx][wdp_idx])
+
+
+
+
+
+class BSDF(object):
+	'''
+	BSDF Class
+
+	Models the collection of BRDF and BTDF
+	Also responsible for shading Normals.
+
+	n_s: shading normal
+	n_g: geometric normal
+	'''
+	def __init__(self, dg: 'DifferentialGeometry', ng: 'Normal', e: FLOAT):
+		'''
+		dg: DifferentialGeometry
+		ng: Geometric Normal
+		e: index of refraction
+		'''
+		self.dgs = dg
+		self.eta = e
+		self.ng = ng
+
+		# coord. system
+		self.nn = dg.nn
+		self.sn = normalize(dg.dpdu)
+		self.tn = nn.cross(sn)
+
+		self.__BDF = []
+		self.__nBDF = INT(0)
+
+	def __repr__(self):
+		return "{}\nBDF Count: {}\nPoint: {}".format(self.__class__,
+						self.nBDF, self.dgs.p)
+
+	def push_back(self, bdf: 'BDF'):
+		'''
+		Add more BDF
+		'''
+		self.__BDF.append(bdf)
+		self.__nBDF += 1
+
+	@property
+	def n_BDF(self):
+		return self.__nBDF
+
+	def n_components(self, flags: 'BDFType'):
+		n = 0
+		for bdf in self.__BDF:
+			if bdf.match_flag(flags):
+				n += 1
+		return n
+
+	def w2l(self, v: 'Vector') -> 'Vector':
+		'''
+		w2l()
+
+		Transform a `Vector` in world in the local
+		surface normal coord. system
+		'''
+		return Vector(v.dot(self.sn), v.dot(self.tn), v.dot(self.nn))
+
+	def l2w(self, v: 'Vector') -> 'Vector':
+		'''
+		l2w()
+
+		Transform a `Vector` in the local system
+		to the world system
+		'''
+		return Vector(  self.sn.x * v.x + self.tn.x * v.x + self.nn.x * v.x,
+						self.sn.y * v.y + self.tn.y * v.y + self.nn.y * v.y,
+						self.sn.z * v.z + self.tn.z * v.z + self.nn.z * v.z )
+
+	@jit
+	def f(self, wo_w: 'Vector', wi_w: 'Vector', flags: 'BDFType') -> 'Spectrum':
+		wi = self.w2l(wi)
+		wo = self.w2l(wo)	
+
+		if (wi_o.dot(ng)) * (wo_w.dot(ng)) < 0.:
+			# no transmission
+			flags = BDFType(flags & ~BDFType.TRANSMISSION)
+		else:
+			# no reflection
+			flags = BDFType(flags & ~BDFType.REFLECTION)
+
+		f = Spectrum(0.)
+
+		for bdf in self.__BDF:
+			if bdf.match_flag(flags):
+				f+= bdf.f(wo, wi)
+
+		return f
+
+	def rho_hd(self, wo: 'Vector', flags: 'BDFType'=BDFType.ALL, sqrt_samples: INT=6, rng=np.random.rand) -> 'Spectrum':
+		'''
+		Computs hemispherical-directional reflectance function.
+
+		'''
+		nSamples = sqrt_samples * sqrt_samples
+		smp = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
+
+		sp = Spectrum(0.)
+		for bdf in self.__BDF:
+			if bdf.match_flag(flags):
+				sp += bdf.rho_hd(wo, nSamples, smp)
+
+		return sp
+	
+	def rho_hh(self, flags: 'BDFType'=BDFType.ALL, sqrt_samples: INT=6, rng=np.random.rand) -> 'Spectrum':
+		'''
+		Computs hemispherical-hemispherical reflectance function.
+
+		'''
+		nSamples = sqrt_samples * sqrt_samples
+		smp_1 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
+		smp_2 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
+
+		sp = Spectrum(0.)
+		for bdf in self.__BDF:
+			if bdf.match_flag(flags):
+				sp += bdf.rho_hh(nSamples, smp_1, smp_2)
+
+		return sp
+
+
+
+
+
+
+
+
+
+	
+
+
 
