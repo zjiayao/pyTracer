@@ -14,14 +14,14 @@ from src.core.pytracer import *
 
 
 @jit
-def stratified_sample_1d(nSamples: INT, jitter: bool, rng=np.random.rand) -> 'np.ndarray':
+def stratified_sample_1d(nSamples: INT, jitter: bool=True, rng=np.random.rand) -> 'np.ndarray':
 	if not jitter:
 		return (np.arange(nSamples) + .5) / nSamples
 	else:
 		return (np.arange(nSamples) + rng(nSamples)) / nSamples
 
 @jit
-def stratified_sample_2d(nx: INT, ny: INT, jitter: bool, rng=np.random.rand) -> 'np.ndarray':
+def stratified_sample_2d(nx: INT, ny: INT, jitter: bool=True, rng=np.random.rand) -> 'np.ndarray':
 
 	if jitter:
 		return np.column_stack([(np.tile(np.arange(nx),   ny) + rng(nx * ny)) / nx,
