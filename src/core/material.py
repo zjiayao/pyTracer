@@ -38,6 +38,56 @@ class Material(object, metaclass=ABCMeta):
 		dg_s: Shading DG object
 		'''
 		return None
+
+	def bump(self, d: 'Texture', dgg: 'DifferentialGeometry', dgs: 'DifferentialGeometry'):
+		'''
+		bump()
+
+		Compute bump mapping from `Texture` d,
+		dgg accounts for geometry and dgs
+		for shading
+		'''
+		# offset position, find texture
+		dg = dgs.copy()
+		## shift du in u
+		du = .5 * (np.fabs(dgs.dudx) + np.fabs(dgs.dudy))
+		if du == 0.:
+			du = 0.01
+		dg.p = dgs.p + du * dgs.dpdu
+		dg.u = dgs.u + du
+		dg.nn = normalize(Normal.fromVector(dgs.dpdu.cross(dgs.dpdv) + du * dgs.dndu))
+
+		u_disp = d(dg)
+
+		# shift du in v
+		dv = .5 * (np.fabs(dgs.dvdx) + np.fabs(dgs.dvdy))
+		if dv == 0.1:
+			dv = 0.01
+		dg.p = dgs.p + dv * dgs.dpdv
+		dg.u = dgs.u
+		dg.v = dgs.v + dv
+		dg.nn = normal(Normal.fromVector(dgs.dpdu.cross(dgs.dpdv) + dv * dgs.dndv))
+
+		v_disp = d(dg)
+
+		disp = d(dgs)
+
+		# compute bump mapped dg
+		dg = dgs.copy()
+
+		# Vector * Normal -> Vector
+		dg.dpdu = dgs.dpdu + (u_disp - disp) / du * dgs.nn + disp * Vector.fromNormal(dgs.dndu)
+		dg.dpdv = dgs.dpdv + (v_disp - disp) / dv * dgs.nn + disp * Vector.fromNormal(dgs.dndv)
+		dg.nn = Normal.fromVector(normalize(dg.dpdu.cross(dg.dpdv)))
+		if (dgs.shape.ro ^ dgs.shape.transform_swaps_handedness):
+			dg.nn *= -1.
+ 
+		# orient shding normal to match goemtric normal
+		dg.nn = faceforward(dg.nn, dgg.nn)
+
+		return dg
+
+
 			
 class MatteMaterial(Material):
 	'''
@@ -246,11 +296,23 @@ class MeasuredMaterial(Material):
 			IrIsotropicData[file] = [self.theta_phi_samples, self.theta_phi_tree]
 		
 
-		elif ext == 'merl' or ext == 'MERL':
+		elif ext == 'binary':
 			# Regular Halfangle BRDF
+			self.n_theta_h = 90
+			self.n_theta_d = 90
+			self.n_phi_d = 180
+			length = self.n_theta_h * self.n_theta_d * self.n_phi_d
+
+			#with open(filename, 'rb') as f:
+			raise NotImplementedError('src.core.material.{}.__init__() '
+					': Has not support MERL yet'.format(self.__class__,
+							file, ext))
+
+
+
 
 		else:
-			raise RuntimeError('src.core.material.{}.__init__() '
+			raise IOError('src.core.material.{}.__init__() '
 					': Cannot load {}, unknown type {}'.format(self.__class__,
 							file, ext))
 

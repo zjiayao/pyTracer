@@ -37,7 +37,7 @@ FILTER_TABLE_SIZE = 16
 
 # Global Static
 IrIsotropicData = {}
-
+ReHalfangleData = {}
 
 # Global Functions
 
