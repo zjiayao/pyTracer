@@ -80,6 +80,16 @@ class Sample(CameraSample):
 		self.oneD = [None for _ in range(len(self.n1D))]
 		self.twoD = [None for _ in range(len(self.n2D))]
 
+	def duplicate(self, cnt: 'INT') -> ['Sample']:
+		ret = []
+		for i range(cnt):
+			smp = Sample()
+			smp.n1D = self.n1D.copy()
+			smp.n2D = self.n2D.copy()
+			smp.oneD = [None for _ in range(len(smp.n1D))]
+			smp.twoD = [None for _ in range(len(smp.n2D))]
+			ret.append(smp)
+		return ret
 
 	def add_1d(self, num: INT) -> INT:
 		'''
@@ -124,6 +134,9 @@ class Sampler(object, metaclass=ABCMeta):
 				.format(self.__class__, self.xPixel_start, self.xPixel_end,
 						self.yPixel_strat, self.yPixel_end, self.spp)
 
+	def __iter__(self):
+		return self
+
 	@abstractmethod
 	def __next__(self, rng=None) -> 'np.ndarray':
 		'''
@@ -155,7 +168,7 @@ class Sampler(object, metaclass=ABCMeta):
 										'called'.format(self.__class__)) 		
 
 	def report_results(self, samples: ['Sample'], rays: ['RayDifferential'],
-			ls: 'Spectrum', isects: ['Intersection'], cnt: INT) -> bool:
+			ls: 'Spectrum', isects: ['Intersection']) -> bool:
 		'''
 		For adaptive samplers
 		'''
@@ -226,6 +239,7 @@ class StratifiedSampler(Sampler):
 		returns an np object array holding `Sample`s
 		'''
 		if self.yPos == self.yPixel_end:
+			raise StopIteration
 			return None
 		nSamples = self.xSamples * self.ySamples
 		# generate stratified samples
@@ -315,6 +329,7 @@ class StratifiedSampler(Sampler):
 		returns an np object array holding `Sample`s
 		'''
 		if self.yPos == self.yPixel_end:
+			raise StopIteration
 			return None
 		nSamples = self.xSamples * self.ySamples
 		# generate stratified samples

@@ -26,7 +26,7 @@ class DifferentialGeometry:
 	Differential Geometry class
 	'''
 	def __init__(self, P: 'Point', DPDU: 'Vector', DPDV: 'Vector',
-				 DNDU: 'Vector', DNDV: 'Vector', uu: 'FLOAT',
+				 DNDU: 'Normal', DNDV: 'Normal', uu: 'FLOAT',
 				 vv: 'FLOAT', sh: 'Shape'):
 		self.p = P.copy()
 		self.dpdu = DPDU.copy()
@@ -44,12 +44,25 @@ class DifferentialGeometry:
 			(sh.ro ^ sh.transform_swaps_handedness):
 			self.nn = -1. * self.nn
 
+		# for anti-aliasing
+		self.dudx = self.dvdx = self.dudy = self.dvdy = FLOAT(0.)
+		self.dpdx = self.dpdy = Vector(0., 0., 0.)
+
 	def __repr__(self):
 		return "{}\nNormal Vector: {}".format(self.__class__, self.nn)
 
 	def copy(self):
 		return DifferentialGeometry(self.p, self.dpdu, self.dpdv,
 				self.dndu, self.dndv, self.u, self.v, self.shape)
+
+	def compute_differential(self, ray:'RayDifferential'):
+		if ray.has_differential:
+			# estimate screen space change in p and (u, v)
+		else:
+			self.dudx = self.dvdx = self.dudy = self.dvdy = FLOAT(0.)
+			self.dpdx = self.dpdy = Vector(0., 0., 0.)
+
+
 
 
 
