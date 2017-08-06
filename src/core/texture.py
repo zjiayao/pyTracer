@@ -447,7 +447,7 @@ class MIPMap(object):
 		for i in range(nres):
 			# resampling weights for i-th pixel
 			ctr = (i + .5) * ores / nres
-			wts[i][0] = INT(np.floor(ctr - fil_width + .5)) # +.5 is necessary for flooring
+			wts[i][0] = ftoi(ctr - fil_width + .5) # +.5 is necessary for flooring
 			wts[i][1:5] = Lanczos((wts[i][0] + np.arange(4) + .5 - ctr) / fil_width)
 			
 			# normalize filter weights
@@ -586,7 +586,7 @@ class MIPMap(object):
 		def __triagle(self, level: UINT, s: FLOAT, t: FLAOT):
 			level = np.clip(level, 0, self.__n_levels - 1)
 			s, t = [s, t] * np.shape(self.__pyramid[level]) - .5
-			s0, t0 = INT(np.floor(s)), INT(np.floor(t))
+			s0, t0 = ftoi(s), ftoi(t)
 			ds = s - s0
 			dt = t - t0
 			return  (1. - ds) * (1. - dt) * self.texel(level, s0, t0) + \
@@ -626,10 +626,10 @@ class MIPMap(object):
 			invDet = 1. / det
 			u_sq = np.sqrt(det * C)
 			v_sq = np.srqt(det * A)
-			s0 = INT(np.ceil(s - 2. * invDet * u_sq))
-			s1 = INT(np.floor(s + 2. * invDet * u_sq))
-			t0 = INT(np.ceil(t - 2. * invDet * v_sq))
-			t1 = INT(np.floor(t + 2. * invDet * v_sq))
+			s0 = ctoi(s - 2. * invDet * u_sq)
+			s1 = ftoi(s + 2. * invDet * u_sq)
+			t0 = ctoi(t - 2. * invDet * v_sq)
+			t1 = ftoi(t + 2. * invDet * v_sq)
 
 			# scan over bound and compute quad eqn.
 			ret = self.typename(0.)
@@ -676,7 +676,7 @@ class MIPMap(object):
 				elif level >= self.__n_levels - 1:
 					return self.__triangle(self.__n_levels, 0, 0)
 				else:
-					i_level = INT(np.floor(level))
+					i_level = ftoi(level)
 					delta = level - i_level
 					return (1. - delta) * self.__triangle(i_level, s, t) + \
 								delta * self.__triangle(i_level + 1, s, t)
@@ -706,16 +706,103 @@ class MIPMap(object):
 
 				# choose level of detail and perform EWA filtering
 				lod = max(0., self.__n_levels - 1. + np.log2(minor_len))
-				lodi = INT(np.floor(lod))
+				lodi = ftoi(lod)
 
 				d = lod - lodi
 
 				return (1. - d) * self.__EWA(lodi, s, t, ds0, dt0, ds1, dt1) + \
 						d       * self.__EWA(lodi + 1, s, t, ds0, dt0, ds1, dt1)
 
+# Procedural Texture
+class UVTexture(Texture):
+	'''
+	UVTexture Class
+	'''
+	def __init__(self, mapping: 'TextureMapping2D'):
+		self.mapping = mapping
+
+	def __call__(self, dg: 'DifferentialGeometry'):
+		s, t, _, _, _, _ = self.mapping(ds)
+		return Spectrum.fromRGB([s - ftoi(s), t - ftoi(t), 0.])
+
+class Chekcerboard2DTexture(Texture):
+	'''
+	Chekcerboard2DTexture Class
+
+	Checks are one unit wide in each direction.
+	Alternating checks are shaded using passing
+	`Texture`s.
+	'''
+	class aaMethod(Enum):
+		NONE = 0
+		CLOSEDFORM = 1
+
+	def __init__(self, mapping: 'TextureMapping2D', tex1: 'Texture', tex2: 'Texture', aa: str='closedform'):
+		self.mapping = mapping
+		self.tex1 = tex1
+		self.tex2 = tex2
+		# aa specifies anti-aliasing method
+		if aa is None or aa.lower() == 'none':
+			self.method = aaMethod.NONE
+		elif aa.lower() == 'closedform':
+			self.method = aaMethod.CLOSEDFORM
+		else:
+			print('src.core.texture.{}.__init__(): unsupported antialiasing method '
+					'{}, using CLOSEDFORM'.format(self.__class__, aa))
+			self.method = aaMethod.CLOSEDFORM
 
 
+	def __call__(self, dg: 'DifferentialGeometry'):
+		s, t, dsdx, dtdx, dsdy, dtdy = self.mapping(dg)
+		if self.method == aaMethod.NONE:
+			# point sample texture
+			if (ftoi(s) + ftoi(t)) % 2 == 0):
+				return self.tex1(dg)
+			return self.tex2(dg)
+		else:
+			# compute closed-form box-filtered texture value
+			## single check if filter inside
+			ds = max(np.fabs(dsdx), np.fabs(dsdy))
+			dt = max(np.fabs(dtdx), np.fabs(dtdy))
+			s0 = s - ds
+			s1 = s + ds
+			t0 = t - dt
+			t1 = t + dt
+			if ftoi(s0) == ftoi(s1) and ftoi(t0) == ftoi(t1):
+				# inside
+				if (ftoi(s) + ftoi(t)) % 2 == 0):
+					return self.tex1(dg)
+				return self.tex2(dg)
 
+			## box filtering check region
+			ftoi(x / 2) + 2. * max(x / 2 - ftoi(x / 2) -.5, 0)
+			si = ((ftoi(s1 / 2) + 2. * max(s1 / 2 - ftoi(s1 / 2) - .5, 0)) - 
+				  (ftoi(s0 / 2) + 2. * max(s0 / 2 - ftoi(s0 / 2) - .5, 0))) / \
+				 (2. * ds)
+			ti = ((ftoi(t1 / 2) + 2. * max(t1 / 2 - ftoi(t1 / 2) - .5, 0)) - 
+				  (ftoi(t0 / 2) + 2. * max(t0 / 2 - ftoi(t0 / 2) - .5, 0))) / \
+				 (2. * dt)	
+			area_sq = si * ti - 2. * si * ti
+			if ds > 1. or dt > 1.:
+				area_sq = .5
+			return (1. - area_sq * tex1(dg)) + area_sq * tex2(dg)
+
+
+class Checkboard3DTexture(Texture):
+	'''
+	Chekcerboard3DTexture Class
+	'''
+	def __init__(self, mapping: 'TextureMapping2D', tex1: 'Texture', tex2: 'Texture'):
+		self.mapping = mapping
+		self.tex1 = tex1
+		self.tex2 = tex2
+
+	def __call__(self, dg: 'DifferentialGeometry'):
+		p, _, _ = self.mapping(dg)
+
+		if (ftoi(p.x) + ftoi(p.y) + ftoi(p.z)) % 2 == 0:
+			return self.tex1(dg)
+		return self.tex2(dg)
 
 
 
