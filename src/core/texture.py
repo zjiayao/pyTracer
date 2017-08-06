@@ -756,7 +756,7 @@ class Chekcerboard2DTexture(Texture):
 		s, t, dsdx, dtdx, dsdy, dtdy = self.mapping(dg)
 		if self.method == aaMethod.NONE:
 			# point sample texture
-			if (ftoi(s) + ftoi(t)) % 2 == 0):
+			if (ftoi(s) + ftoi(t)) % 2 == 0:
 				return self.tex1(dg)
 			return self.tex2(dg)
 		else:
@@ -770,7 +770,7 @@ class Chekcerboard2DTexture(Texture):
 			t1 = t + dt
 			if ftoi(s0) == ftoi(s1) and ftoi(t0) == ftoi(t1):
 				# inside
-				if (ftoi(s) + ftoi(t)) % 2 == 0):
+				if (ftoi(s) + ftoi(t)) % 2 == 0:
 					return self.tex1(dg)
 				return self.tex2(dg)
 
@@ -805,8 +805,104 @@ class Checkboard3DTexture(Texture):
 		return self.tex2(dg)
 
 
+# Noise Methods
+from src.data.noise import NOISE_PERM_SIZE, NOISE_PERM
+
+@jit 
+def grad(x: INT, y: INT, z: INT, dx, dy, dz):
+	h = NOISE_PERM[NOISE_PERM[NOISE_PERM[x] + y] + z]
+	h &= INT(15) # lowest 4 bits
+	u = dx if h < 8 or h == 12 or h == 13 else dy
+	v = dy if h < 4 or h == 12 or h == 13 else dz
+	if h & 1:
+		u = -1
+	if h & 2:
+		v = -v
+	return u + v
+
+# @jit
+# def noise_wt(t: FLOAT):
+# 	return t * t * t (10. - 15. * t + 6. * t * t)
 
 
+@jit
+def noise(pnt: 'Point') -> FLOAT:
+	'''
+	noise()
+
+	Implementes Perlin's noise function, generate
+	noise for given point in space.
+	parameter:
+		- pnt
+			array-like
+	'''
+	# compute noise cell coord. and offsets
+	xi = ftoi(pnt[0])
+	yi = ftoi(pnt[1])
+	zi = ftoi(pnt[2])
+	dx = pnt[0] - xi
+	dy = pnt[1] - yi
+	dz = pnt[2] - zi
+
+	# compute gradient wwights
+	xi &= (NOISE_PERM_SIZE - 1)
+	yi &= (NOISE_PERM_SIZE - 1)
+	zi &= (NOISE_PERM_SIZE - 1)
+	w000 = grad(xi  , yi  , zi  , dx  , dy  , dz)
+	w100 = grad(xi+1, yi  , zi  , dx-1, dy  , dz)
+	w010 = grad(xi  , yi+1, zi  , dx  , dy-1, dz)
+	w110 = grad(xi+1, yi+1, zi  , dx-1, dy-1, dz)
+	w001 = grad(xi  , yi  , zi+1, dx  , dy  , dz-1)
+	w101 = grad(xi+1, yi  , zi+1, dx-1, dy  , dz-1)
+	w011 = grad(xi  , yi+1, zi+1, dx  , dy-1, dz-1)
+	w111 = grad(xi+1, yi+1, zi+1, dx-1, dy-1, dz-1)
+
+	# compute trilinear interpolation of weights
+	# smooth function to ensure cont. second and third derivative
+	wx = dx * dx * dx * (10. - 15. * dx + 6. * dx * dx)
+	wy = dy * dy * dy * (10. - 15. * dy + 6. * dy * dy)
+	wz = dz * dz * dz * (10. - 15. * dz + 6. * dz * dz)
+	x00 = Lerp(wx, w000, w100)
+	x10 = Lerp(wx, w010, w110)
+	x01 = Lerp(wx, w001, w101)
+	x11 = Lerp(wx, w011, w111)
+	y0 = Lerp(wy, x00, x10)
+	y1 = Lerp(wz, x01, x11)
+	return Lerp(wz, y0, y1)
+
+
+class DotsTexture(Texture):
+	'''
+	DotsTexture Class
+
+	Random Polka Dots
+	'''
+	def __init__(self, mapping: 'TextureMapping2D', inside: 'Texture',
+					outside: 'Texture'):
+		self.mapping = mapping
+		self.inside_dot = inside
+		self.outside_dot = outside
+
+	def __call__(self, dg: 'DifferentialGeometry'):
+		# compute cell indices
+		s, t, _, _, _, _ = self.mapping(dg)
+		sc = ftoi(s + .5)
+		tc = ftoi(t + .5)
+
+		# return insidedot result if inside
+		if noise(sc + .5 , tc + .5) > 0. :
+			rad = .35
+			max_shift = .5 - rad
+			s_ctr = sc + max_shift * noise(sc + 1.5, tc + 2.8)
+			t_ctr = tc + max_shift * noise(sc + 4.5, tc + 9.8)
+			ds = s - s_ctr
+			dt = t - t_ctr
+			if ds * ds + dt * dt < rad * rad:
+				# inside
+				self.inside_dot(dg)
+
+
+		return self.outside_dot(dg)
 
 
 
