@@ -38,6 +38,130 @@ def Lanczos(x: FLOAT, tau: FLOAT=2.):
 		return 0.
 	return np.sinc(x * tau) * np.sinc(x)
 
+@jit
+def smooth_step(lo: FLOAT, hi: FLOAT, val: FLOAT):
+	'''
+	smooth_step()
+
+	Clip but with smooth interpolation
+	'''
+	v = np.clip(val, lo, hi)
+	return v * v * (3. - 2. * v)
+
+@jit
+def FBm(p: 'Point', dpdx: 'Vector', dpdy: 'Vector', omega: FLOAT, max_octaves: INT):
+	'''
+	FBm()
+
+	Implements Fractional Brownian Motion
+	'''
+	# number of octaves
+	s2 = max(dpdx.sq_length(), dpdy.sq_length())
+	foct = min(max_octaves, 1. - .5 * np.log2(s2))
+	octaves = ftoi(foct)
+
+	# sum of octaves of noise
+	s = 0.
+	l = 1.
+	o = 1.
+	for i in range(octaves):
+		sum += o * noise(l * p)
+		l *= 1.99 # not 2, since noise() returns 0. at integral grids 
+		o *= omega
+	par = foct - octaves
+	s += o * smooth_step(.3, .7, par) * noise(l * p)
+
+	return s
+
+@jit
+def turbulence(p: 'Point', dpdx: 'Vector', dpdy: 'Vector', omega: FLOAT, max_octaves: INT):
+	'''
+	turbulence()
+
+	L1 sum of noise terms
+	'''
+	# number of octaves
+	s2 = max(dpdx.sq_length(), dpdy.sq_length())
+	foct = min(max_octaves, 1. - .5 * np.log2(s2))
+	octaves = ftoi(foct)
+
+	# sum of octaves
+	s = 0.
+	l = 1.
+	o = 1.
+	for i in range(octaves):
+		sum += o * np.fabs(noise(l * p))
+		l *= 1.99 # not 2, since noise() returns 0. at integral grids 
+		o *= omega
+	par = foct - octaves
+	s += o * smooth_step(.3, .7, par) * np.fabs(noise(l * p))
+
+# Noise Methods
+from src.data.noise import NOISE_PERM_SIZE, NOISE_PERM
+
+@jit 
+def grad(x: INT, y: INT, z: INT, dx, dy, dz):
+	h = NOISE_PERM[NOISE_PERM[NOISE_PERM[x] + y] + z]
+	h &= INT(15) # lowest 4 bits
+	u = dx if h < 8 or h == 12 or h == 13 else dy
+	v = dy if h < 4 or h == 12 or h == 13 else dz
+	if h & 1:
+		u = -1
+	if h & 2:
+		v = -v
+	return u + v
+
+# @jit
+# def noise_wt(t: FLOAT):
+# 	return t * t * t (10. - 15. * t + 6. * t * t)
+
+
+@jit
+def noise(pnt: 'Point') -> FLOAT:
+	'''
+	noise()
+
+	Implementes Perlin's noise function, generate
+	noise for given point in space.
+	parameter:
+		- pnt
+			array-like
+	'''
+	# compute noise cell coord. and offsets
+	xi = ftoi(pnt[0])
+	yi = ftoi(pnt[1])
+	zi = ftoi(pnt[2])
+	dx = pnt[0] - xi
+	dy = pnt[1] - yi
+	dz = pnt[2] - zi
+
+	# compute gradient wwights
+	xi &= (NOISE_PERM_SIZE - 1)
+	yi &= (NOISE_PERM_SIZE - 1)
+	zi &= (NOISE_PERM_SIZE - 1)
+	w000 = grad(xi  , yi  , zi  , dx  , dy  , dz)
+	w100 = grad(xi+1, yi  , zi  , dx-1, dy  , dz)
+	w010 = grad(xi  , yi+1, zi  , dx  , dy-1, dz)
+	w110 = grad(xi+1, yi+1, zi  , dx-1, dy-1, dz)
+	w001 = grad(xi  , yi  , zi+1, dx  , dy  , dz-1)
+	w101 = grad(xi+1, yi  , zi+1, dx-1, dy  , dz-1)
+	w011 = grad(xi  , yi+1, zi+1, dx  , dy-1, dz-1)
+	w111 = grad(xi+1, yi+1, zi+1, dx-1, dy-1, dz-1)
+
+	# compute trilinear interpolation of weights
+	# smooth function to ensure cont. second and third derivative
+	wx = dx * dx * dx * (10. - 15. * dx + 6. * dx * dx)
+	wy = dy * dy * dy * (10. - 15. * dy + 6. * dy * dy)
+	wz = dz * dz * dz * (10. - 15. * dz + 6. * dz * dz)
+	x00 = Lerp(wx, w000, w100)
+	x10 = Lerp(wx, w010, w110)
+	x01 = Lerp(wx, w001, w101)
+	x11 = Lerp(wx, w011, w111)
+	y0 = Lerp(wy, x00, x10)
+	y1 = Lerp(wz, x01, x11)
+	return Lerp(wz, y0, y1)
+
+
 class TextureMapping2D(object, metaclass=ABCMeta):
 	def __repr__(self):
 		return "{}".format(self.__class__)
@@ -805,70 +929,6 @@ class Checkboard3DTexture(Texture):
 		return self.tex2(dg)
 
 
-# Noise Methods
-from src.data.noise import NOISE_PERM_SIZE, NOISE_PERM
-
-@jit 
-def grad(x: INT, y: INT, z: INT, dx, dy, dz):
-	h = NOISE_PERM[NOISE_PERM[NOISE_PERM[x] + y] + z]
-	h &= INT(15) # lowest 4 bits
-	u = dx if h < 8 or h == 12 or h == 13 else dy
-	v = dy if h < 4 or h == 12 or h == 13 else dz
-	if h & 1:
-		u = -1
-	if h & 2:
-		v = -v
-	return u + v
-
-# @jit
-# def noise_wt(t: FLOAT):
-# 	return t * t * t (10. - 15. * t + 6. * t * t)
-
-
-@jit
-def noise(pnt: 'Point') -> FLOAT:
-	'''
-	noise()
-
-	Implementes Perlin's noise function, generate
-	noise for given point in space.
-	parameter:
-		- pnt
-			array-like
-	'''
-	# compute noise cell coord. and offsets
-	xi = ftoi(pnt[0])
-	yi = ftoi(pnt[1])
-	zi = ftoi(pnt[2])
-	dx = pnt[0] - xi
-	dy = pnt[1] - yi
-	dz = pnt[2] - zi
-
-	# compute gradient wwights
-	xi &= (NOISE_PERM_SIZE - 1)
-	yi &= (NOISE_PERM_SIZE - 1)
-	zi &= (NOISE_PERM_SIZE - 1)
-	w000 = grad(xi  , yi  , zi  , dx  , dy  , dz)
-	w100 = grad(xi+1, yi  , zi  , dx-1, dy  , dz)
-	w010 = grad(xi  , yi+1, zi  , dx  , dy-1, dz)
-	w110 = grad(xi+1, yi+1, zi  , dx-1, dy-1, dz)
-	w001 = grad(xi  , yi  , zi+1, dx  , dy  , dz-1)
-	w101 = grad(xi+1, yi  , zi+1, dx-1, dy  , dz-1)
-	w011 = grad(xi  , yi+1, zi+1, dx  , dy-1, dz-1)
-	w111 = grad(xi+1, yi+1, zi+1, dx-1, dy-1, dz-1)
-
-	# compute trilinear interpolation of weights
-	# smooth function to ensure cont. second and third derivative
-	wx = dx * dx * dx * (10. - 15. * dx + 6. * dx * dx)
-	wy = dy * dy * dy * (10. - 15. * dy + 6. * dy * dy)
-	wz = dz * dz * dz * (10. - 15. * dz + 6. * dz * dz)
-	x00 = Lerp(wx, w000, w100)
-	x10 = Lerp(wx, w010, w110)
-	x01 = Lerp(wx, w001, w101)
-	x11 = Lerp(wx, w011, w111)
-	y0 = Lerp(wy, x00, x10)
-	y1 = Lerp(wz, x01, x11)
-	return Lerp(wz, y0, y1)
 
 
 class DotsTexture(Texture):
@@ -904,7 +964,94 @@ class DotsTexture(Texture):
 
 		return self.outside_dot(dg)
 
+class FBmTexture(Texture):
+	'''
+	FBmTexture Class
+
+	Bump mapping using fractional Brownian motion.
+	'''
+	def __init__(self, octaves: INT, roughness: FLOAT, mapping: 'TextureMapping3D'):
+		self.omega = roughness
+		self.octaves = octaves
+		self.mapping = mapping
+
+	def __call__(self, dg: 'DifferentialGeometry'):
+		p, dpdx, dpdy = self.mapping(dg)
+		return FBm(P, dpdx, dpdy, self.omega, self.octaves)
+
+class WrinkledTexture(Texture):
+	'''
+	WrinkledTexture Class
+
+	Bump mapping using turbulence().
+	'''
+	def __init__(self, octaves: INT, roughness: FLOAT, mapping: 'TextureMapping3D'):
+		self.omega = roughness
+		self.octaves = octaves
+		self.mapping = mapping
+
+	def __call__(self, dg: 'DifferentialGeometry'):
+		p, dpdx, dpdy = self.mapping(dg)
+		return turbulence(P, dpdx, dpdy, self.omega, self.octaves)
 
 
+class WindyTexture(Texture):
+	'''
+	WindyTexture Class
 
+	Two calls to fractional Brownian motion functions:
+	1. low frequency variations over the surface (wind strength)
+	2. amplitude of the wave at point (independent of wind)
+	'''
+	def __init__(self, mapping: 'TextureMapping3D'):
+		self.mapping = mapping
 
+	def __call__(self, dg: 'DifferentialGeometry'):
+		p, dpdx, dpdy = self.mapping(dg)
+		wind = FBm(.1 * p, .1 * dpdx, .1 * dpdy, .5, 3)
+		wave = FBm(p, dpdx, dpdy, .5, 6)
+		return np.fabs(wind) * wave
+
+class MarbleTexture(Texture):
+	'''
+	MarbleTexture Class
+
+	Used for perturbing texture coordinates before
+	using another `Texture`.
+	'''
+	spline = [  [ .58, .58, .6 ], [ .58, .58, .6 ], [ .58, .58, .6 ],
+				[ .5, .5, .5 ], [ .6, .59, .58 ], [ .58, .58, .6 ],
+				[ .58, .58, .6 ], [.2, .2, .33 ], [ .58, .58, .6 ], ]
+	spline_num = INT(27)
+	def __init__(self, octaves: INT, roughness: FLOAT, scale: FLOAT, var: FLOAT, mapping: 'TextureMapping3D'):
+		self.octaves = octaves
+		self.omega = roughness
+		self.scale = scale
+		self.var = var
+		self.mapping = mapping
+
+	def __call__(self, dg: 'DifferentialGeometry'):
+		p, dpdx, dpdy = self.mapping(dg)
+		p *= self.scale
+		marble = p.y + self.var * FBm(p, self.scale * dpdx, self.scale * dpdy, self.omega, self.octaves)
+		wind = FBm(.1 * p, .1 * dpdx, .1 * dpdy, .5, 3)
+		wave = FBm(p, dpdx, dpdy, .5, 6)
+		t = .5 * .5 * np.sin(marble)
+
+		# evaluate marble spline at $t$
+		fst = ftoi(t * self.spline_num - 3)
+		t = t * (self.spline_num - 3) - fst
+		c0 = Spectrum.fromRGB(self.spline[fst:fst+3])
+		c1 = Spectrum.fromRGB(self.spline[fst+1:fst+4])
+		c2 = Spectrum.fromRGB(self.spline[fst+2:fst+5])
+		c3 = Spectrum.fromRGB(self.spline[fst+3:fst+6])
+
+		# Bezier spline evaluated with de Castilejau's algorithm
+		s0 = (1. - t) * c0 + t * c1
+		s1 = (1. - t) * c1 + t * c2
+		s2 = (1. - t) * c2 + t * c3
+
+		s0 = (1. - t) * s0 + t * s1
+		s1 = (1. - t) * s1 + t * s2
+
+		return 1.5 * ((1. - t) * s0 + t * s1)	# 1.5 to increase variation
