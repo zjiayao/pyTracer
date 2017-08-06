@@ -29,7 +29,7 @@ def rgb2xyz(rgb: [FLOAT]) -> [FLOAT]:
 					0.019334 * rgb[0] + 0.119193 * rgb[1] + 0.950227 * rgb[2]])
 
 # Spectral Data
-from src.spectral.data import *
+from src.data.spectral import *
 
 # Spectrum Definitions
 class SpectrumType(Enum):

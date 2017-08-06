@@ -1,5 +1,5 @@
 '''
-src.spectral.data.py
+src.data.spectral
 
 Spectral Data
 
