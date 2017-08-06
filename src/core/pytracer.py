@@ -15,7 +15,6 @@ import numpy as np
 from scipy import spatial # cKdTree
 import PIL.Image
 
-
 # Type Alias
 
 KdTree = spatial.cKDTree
@@ -57,7 +56,54 @@ def Lerp(t: FLOAT, v1: FLOAT, v2: FLOAT):
 	'''
 	return (1. - t) * v1 + t * v2
 
+def round_pow_2(x: INT) -> UINT: return UINT(2 ** np.round(np.log2(x)))
+def next_pow_2(x: INT) -> UINT: return UINT(2 ** np.ceil(np.log2(x)))
+def is_pow_2(x: INT) -> bool: return True if x == 0 else (np.log2(x) % 1) == 0.
+
 ufunc_lerp = np.frompyfunc(Lerp, 3, 1)
+
+# Utilities
+from src.core.spectrum import *
+
+
+def read_image(filename: str) -> 'Spectrum':
+	'''
+	Reads an image and returns a list
+	of `Spectrum` list, width and height
+	'''
+	if filename is None:
+		raise IOError('scr.core.pytracer.read_image(): filename cannot be None')
+
+	specs = None
+	with PIL.Image.open(filename) as pic:
+		img = np.array(pic)
+		width, height, chn = np.shape(img) # note the order of height and width
+
+		# avoid expensive resizing in src.core.texture.MIPMap.__init__()
+		if (not is_pow_2(width)) or (not is_pow_2(height)):
+			# resample to power of 2
+			width = next_pow_2(sres)
+			height = next_pow_2(tres)
+			pic.resize((width, height))
+			img = np.array(pic)
+
+		specs = np.empty([height, width], dtype=object)
+		if chn == 3:
+			for t in range(height):
+				for s in range(width):
+					specs[t, s] = Spectrum.fromRGB(img[t,s,:])
+		# monochrome
+		elif chn == 1:
+			for t in range(height):
+				for s in range(width):
+					specs[t, s] = img[t,s]	
+
+		else:
+			raise TypeError('src.core.pytracer.read_image(): unsupported '
+				'type of file {}'.format(filename))
+
+	return specs
+
 
 @jit
 def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
@@ -65,7 +111,7 @@ def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
 				xOffset: INT, yOffset: INT):
 
 	if filename is None or rgb is None:
-		raise RuntimeError('scr.core.pytracer.write_image(): filename and rgb cannot '
+		raise IOError('scr.core.pytracer.write_image(): filename and rgb cannot '
 							'be None')
 	for i in range(3):
 		rgb[:,:,i] = (255 * rgb[:,:,i]) / np.max(rgb[:,:,i])
