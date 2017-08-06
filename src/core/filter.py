@@ -104,12 +104,12 @@ class LanczosSincFilter(Filter):
 				elif xx > 1.:
 					x[i] = 0.
 				else:
-					x[i] = np.sinc(xx * self.tau) / np.sinc(xx)
+					x[i] = np.sinc(xx * self.tau) * np.sinc(xx)
 			return np.array(x)
 
 		if x < EPS:
 			return 1.
 		elif x > 1.:
 			return 0.
-		return np.sinc(x * self.tau) / np.sinc(x)
+		return np.sinc(x * self.tau) * np.sinc(x)
 

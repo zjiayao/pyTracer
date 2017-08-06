@@ -86,7 +86,7 @@ class SamplerRenderer(Renderer):
 		## numer of samples
 		n_pixels = self.camera.film.xResolution * self.camera.film.yResolution
 		n_tasks = max(32 *  multiprocessing.cpu_count(), n_pixels / (16 * 16))
-		n_tasks = INT(2 ** np.round(np.log2(n_tasks)))
+		n_tasks = round_pow_2(n_tasks)
 		
 		render_tasks = []
 		for i in range(n_tasks):

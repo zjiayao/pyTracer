@@ -54,9 +54,9 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 		return "{}\nNumber of Samples: {}".format(self.__class__, self.nSamples)
 
 	def copy(self):
-		other = self.__class__(self.nSamples)
-		other.c = self.c.copy()
-		return other
+		copied = self.__class__(self.nSamples)
+		copied.c = self.c.copy()
+		return copied
 
 	@classmethod
 	def fromArray(cls, sample: 'np.ndarray'):
@@ -77,8 +77,16 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 	def __add__(self, other):
 		return self.__class__.fromArray(self.c + other.c)
 
+	def __iadd__(self, other):
+		self.c += other.c
+		return self	
+
 	def __sub__(self, other):
 		return self.__class__.fromArray(self.c - other.c)
+
+	def __isub__(self, other):
+		self.c -= other.c
+		return self
 
 	def __mul__(self, other):
 		if isinstance(other, CoefficientSpectrum):

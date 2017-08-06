@@ -82,7 +82,7 @@ class Sample(CameraSample):
 
 	def duplicate(self, cnt: 'INT') -> ['Sample']:
 		ret = []
-		for i range(cnt):
+		for i in range(cnt):
 			smp = Sample()
 			smp.n1D = self.n1D.copy()
 			smp.n2D = self.n2D.copy()
