@@ -19,6 +19,8 @@ class Material(object, metaclass=ABCMeta):
 	'''
 	Material Class
 	'''
+	def __repr__(self):
+		return "{}\n".format(self.__class__)
 
 	@abstractmethod	
 	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
@@ -38,8 +40,9 @@ class Material(object, metaclass=ABCMeta):
 		dg_s: Shading DG object
 		'''
 		return None
-
-	def bump(self, d: 'Texture', dgg: 'DifferentialGeometry', dgs: 'DifferentialGeometry'):
+	@staticmethod
+	@jit
+	def bump(d: 'Texture', dgg: 'DifferentialGeometry', dgs: 'DifferentialGeometry'):
 		'''
 		bump()
 
@@ -157,7 +160,7 @@ class PlasticMaterial(Material):
 	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
 		# possibly bump mapping
 		if self.bump_map is not None:
-			dgs = self.bump(self.bump_map, dg_g, dg_s)
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 
@@ -327,7 +330,7 @@ class MeasuredMaterial(Material):
 		BSDF in m1 (i.e., `m1.bdfs`) is modified
 		'''
 		if self.bump_map is not None:
-			dgs = self.bump(self.bump_map, dg_g, dg_s)
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 
@@ -346,10 +349,85 @@ class MeasuredMaterial(Material):
 
 
 
+class SubsurfaceMaterial(Material):
+	'''
+	SubsurfaceMaterial Class
+
+	Models translucent objects
+	'''
+	def __init__(self, scale: FLOAT, kr: 'Texture', sigma_a: 'Texture',
+					sigma_prime_s: 'Texture', eta: 'Texture', bump_map: 'Texture'):
+		self.scale = scale
+		self.kr = kr
+		self.sigma_a = sigma_a
+		self.sigma_prime_s = sigma_prime_s
+		self.eta = eta
+		self.bump_map = bump_map
+
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+		if self.bump_map is not None:
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
+		else:
+			dgs = dg_s.copy()
+		R = self.kr(dgs).clip()
+		brdf = BSDF(dgs, dg_g.nn)
+
+		if not R.is_black():
+			brdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
+
+		return bsdf
+
+
+	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF:
+		'''
+		get_BSSRDF()
+
+		Specified in terms of reciprocal
+		distance ($m^{-1}$).
+		'''
+		return BSSRDF(self.scale * self.sigma_a(dg_s), self.scale * sigma_prime_s(dg_s), self.eta(dg_s))
 
 
 
 
+class KdSubsurfaceMaterial(Material):
+	'''
+	SubsurfaceMaterial Class
+
+	Models translucent objects
+	'''
+	def __init__(self, kd: 'Texture, kr: 'Texture', mfp: 'Texture',
+					eta: 'Texture', bump_map: 'Texture'):
+		self.kd = kd
+		self.kr = kr
+		self.mfp = mfp # mean free path
+		self.eta = eta
+		self.bump_map = bump_map
+
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+		if self.bump_map is not None:
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
+		else:
+			dgs = dg_s.copy()
+
+		R = self.kr(dgs).clip()
+		brdf = BSDF(dgs, dg_g.nn)
+
+		if not R.is_black():
+			brdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
+
+		return bsdf
 
 
+	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF:
+		'''
+		get_BSSRDF()
+
+		Specified in terms of reciprocal
+		distance ($m^{-1}$).
+		'''
+		e = self.eta(dg_s)
+		sigma_a, sigma_prime_s = subsurface_from_diffuse(self.kd(dg_s).clip(), self.mfp(dg_s), e)
+
+		return BSSRDF(sigma_a, sigma_prime_s, e)
 

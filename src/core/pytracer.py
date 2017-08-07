@@ -53,7 +53,7 @@ def ftoi(x: FLOAT): return INT(np.floor(x))
 def ctoi(x: FLOAT): return INT(np.ceil(x))
 def rtoi(x: FLOAT): return INT(np.round(x))
 
-
+@jit
 def Lerp(t: FLOAT, v1: FLOAT, v2: FLOAT):
 	'''
 	Lerp
