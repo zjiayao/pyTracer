@@ -51,6 +51,20 @@ class Intersection(object):
 		self.dg.compute_differential(ray)
 		return self.primitive.get_BSSRDF(dg, o2w)
 
+	def le(self, w: 'Vector') -> 'Spectrum':
+		'''
+		le()
+
+		Compute the emitted radiance
+		at a surface point intersected by
+		a ray.
+		'''
+		area = self.primitive.get_area_light()
+		if area is None:
+			return Spectrum(0.)
+		return area.l(self.dg.p, self.dg.nn, w)
+
+
 class Primitive(object, metaclass=ABCMeta):
 
 	__primitiveId = 0
