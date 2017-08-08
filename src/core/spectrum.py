@@ -239,7 +239,14 @@ class SampledSpectrum(CoefficientSpectrum):
 	rgbIllum2SpectBlue  = None
 
 	def __init__(self, v: FLOAT = 0.):
-		super().__init__(N_SPECTRAL_SAMPLES, v)
+		if hasattr(v, '__iter__'):
+			self.nSamples = len(v)
+			self.c = v.copy()
+		elif isinstance(v, CoefficientSpectrum):
+			self.nSamples = v.nSamples
+			self.c = v.c.copy()
+		else:
+			super().__init__(N_SPECTRAL_SAMPLES, v)		
 
 	@classmethod
 	@jit
@@ -448,7 +455,14 @@ class RGBSpectrum(CoefficientSpectrum):
 	model RGB spectrum.
 	'''
 	def __init__(self, v: FLOAT = 0.):
-		super().__init__(3, v)
+		if hasattr(v, '__iter__'):
+			self.nSamples = len(v)
+			self.c = v.copy()
+		elif isinstance(v, CoefficientSpectrum):
+			self.nSamples = v.nSamples
+			self.c = v.c.copy()
+		else:
+			super().__init__(3, v)
 
 	@classmethod
 	@jit

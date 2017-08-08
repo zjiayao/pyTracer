@@ -584,8 +584,8 @@ class MIPMap(object):
 	weight_lut = None
 
 	@jit
-	def __init__(self, typename: type, img: 'np.ndarray', trilinear: bool,
-					max_aniso: FLOAT, wrap: 'ImageWrap'):
+	def __init__(self, typename: type, img: 'np.ndarray', trilinear: bool=False,
+					max_aniso: FLOAT=8., wrap: 'ImageWrap'=ImageWrap.REPEAT):
 		'''
 		image is the np.ndarray of type `typename`
 		'''
