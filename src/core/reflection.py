@@ -19,6 +19,7 @@ from src.core.geometry import *
 from src.core.diffgeom import *
 from src.core.spectrum import *
 from src.core.sampler import stratified_sample_2d	# used in BSDF
+from src.core.montecarlo import *
 
 # inline functions
 def cos_theta(w: 'Vector'): return w.z
@@ -212,35 +213,78 @@ class BDF(object, metaclass=ABCMeta):
 		decoupled.
 		'''
 		raise NotImplementedError('src.core.reflection.{}.f(): abstract method '
-									'called'.format(self.__class__)) 			
+									'called'.format(self.__class__)) 		
 
-	@abstractmethod
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		'''
+		pdf()
+
+		Returns pdf of given direction
+		'''
+		if wo.z * wi.z > 0.:
+			# same hemisphere
+			return abs_cos_theta(wi) * INV_PI
+		return 0.
+
+
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
 							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
 		'''
 		Handles scattering discribed by delta functions
 		or random sample directions.
 		Returns the spectrum, incident vector and pdf used in MC sampling.
-		'''
-		raise NotImplementedError('src.core.reflection.{}.sample_f(): abstract method '
-									'called'.format(self.__class__)) 	
 
-	@abstractmethod
-	def rho_hd(self, wo: 'Vector', nSamples: INT, samples: [FLOAT]) -> 'Spectrum':
+		By default samples from a hemeisphere with
+		cosine-wighted distribution.
+
+		Returns:
+		[pdf, wi, Spectrum]
+		'''
+		# cosine sampling
+		wi = cosine_sample_hemishpere(u1, u2)
+		if wo.z < 0.:
+			wi.z *= -1.
+
+		return [self.pdf(wo, wi), self.f(wo, wi), wi]
+
+	@jit
+	def rho_hd(self, w: 'Vector', samples: [FLOAT]) -> 'Spectrum':
 		'''
 		Computs hemispherical-directional reflectance function.
 
+		- w
+			Incoming 'Vector'
+		- samples
+			2d np array
 		'''
-		raise NotImplementedError('src.core.reflection.{}.sample_f(): abstract method '
-									'called'.format(self.__class__)) 
-	@abstractmethod
+		r = Spectrum(0.)
+		for smp samples:
+			wi, pdf, f = self.sample_f(w, smp[0], smp[1])
+			if pdf > 0.:
+				r += f * abs_cos_theta(wi) / pdf
+
+		r /= nSamples
+		return r
+
 	def rho_hh(self, nSamples: INT, samples_1: [FLOAT], samples_2: [FLOAT]) -> 'Spectrum':
 		'''
 		Computs hemispherical-hemispherical reflectance function.
 
+		- samples_1, samples_2
+			2d np array
 		'''
-		raise NotImplementedError('src.core.reflection.{}.sample_f(): abstract method '
-									'called'.format(self.__class__)) 
+		r = Spectrum(0.)
+		for i in range(nSamples):
+			wo = uniform_sample_hemisphere(samples_1[i][0], samples_1[i][1])
+			pdf_o = INV_2PI
+
+			pdf_i, wi, f = self.sample_f(wo, samples_2[i][0], samples_2[i][1])
+
+			if pdf_i > 0.:
+				r += f * abs_cos_theta(wi) * abs_cos_theta(wo) / (pdf_o * pdf_i)
+
+		r /= nSamples
+		return r
 
 	def match_flag(self, flag: 'BDFType') -> bool:
 		return (self.type & flag) == type
@@ -270,8 +314,7 @@ class BRDF2BTDF(BDF):
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
 					u2: FLOAT): return self.brdf.sample_f(wo, self.switch(wi),
 															u1, u2, pdf)	
-	def rho_hd(self, wo: 'Vector', nSamples: INT,
-				samples: [FLOAT]): return self.brdf.rho_hd(wo, nSamples, samples)
+	def rho_hd(self, wo: 'Vector', samples: [FLOAT]): return self.brdf.rho_hd(wo, samples)
 	def rho_hh(self, nSamples: INT, samples_1: [FLOAT],
 					samples_2: [FLOAT]): return self.brdf.rho_hh(nSamples, samples_1, samples_2)
 
@@ -293,8 +336,7 @@ class ScaledBDF(BDF):
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
 					u2: FLOAT): return self.s * self.brdf.sample_f(wo, wi,
 															u1, u2, pdf)	
-	def rho_hd(self, wo: 'Vector', nSamples: INT,
-				samples: [FLOAT]): return self.s * self.brdf.rho_hd(wo, nSamples, samples)
+	def rho_hd(self, wo: 'Vector', samples: [FLOAT]): return self.s * self.brdf.rho_hd(wo, samples)
 	def rho_hh(self, nSamples: INT, samples_1: [FLOAT],
 					samples_2: [FLOAT]): return self.s * self.brdf.rho_hh(nSamples, samples_1, samples_2)
 
@@ -315,6 +357,9 @@ class SpecularReflection(BDF):
 		will be handled in light transport routines.
 		'''
 		return Spectrum(0.)
+
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		return 0.
 
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
 							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
@@ -345,6 +390,9 @@ class SpecularTransmission(BDF):
 		will be handled in light transport routines.
 		'''
 		return Spectrum(0.)
+
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		return 0.
 
 	@jit
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
@@ -393,7 +441,7 @@ class Lambertian(BDF):
 		'''
 		return INV_PI * self.R
 
-	def rho_hd(self, wo: 'Vector', nSamples: INT, samples: [FLOAT]) -> 'Spectrum':
+	def rho_hd(self, wo: 'Vector', samples: [FLOAT]) -> 'Spectrum':
 		return self.R
 
 
@@ -470,6 +518,17 @@ class MicrofacetDistribution(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.reflection.{}.D(): abstract method '
 									'called'.format(self.__class__)) 
 
+	@abstractmethod
+	def sample_f(self, wo: 'Vector', u1: FLOAT, 
+							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
+		raise NotImplementedError('src.core.reflection.{}.sample_f(): abstract method '
+									'called'.format(self.__class__)) 
+
+	@abstractmethod
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		raise NotImplementedError('src.core.reflection.{}.pdf(): abstract method '
+									'called'.format(self.__class__)) 
+
 # Blinn Model
 class Blinn(MicrofacetDistribution):
 	'''
@@ -491,6 +550,34 @@ class Blinn(MicrofacetDistribution):
 	def D(self, wh: 'Vector') -> FLOAT:
 		return (self.e + 2) * INV_2PI * np.power(abs_cos_theta(wh), self.e)
 
+	def sample_f(self, wo: 'Vector', u1: FLOAT, 
+							u2: FLOAT) -> [FLOAT, 'Vector']:
+		# compute sampled half-angle vector
+		ct = np.power(u1, 1. / (self.e + 1))
+		st = np.sqrt(max(0., 1. - ct * ct))
+		phi = u2 * 2. * PI
+		wh = spherical_direction(st, ct, phi)
+
+		if wo.z * wh.z <= 0.:
+			wh *= -1.
+
+		# incident direction by reflection
+		wi = -wo + 2. * wo.dot(wh) * wh
+
+		# pdf
+		pdf = ((self.e + 1.) * np.ower(ct, self.e)) / \
+				(2. * PI * 4. * wo.dot(wh))
+
+		if wo.dot(wh) <= 0.:
+			pdf = 0.
+
+		return [pdf, wi]
+
+
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		raise NotImplementedError('src.core.reflection.{}.pdf(): abstract method '
+									'called'.format(self.__class__)) 
+
 # Anisotropic, Ashikhmin and Shirley
 class Anisotropic(MicrofacetDistribution):
 	def __init__(self, ex: FLOAT, ey: FLOAT):
@@ -507,6 +594,69 @@ class Anisotropic(MicrofacetDistribution):
 		e = (self.ex * wh.x * wh.x + self.ey * wh.y * wh.y) / d	
 		return np.sqrt((self.ex + 2.) * (self.ey + 2.)) * INV_2PI * np.power(cth, e)
 
+	def __sample_first_quad(self, u1: FLOAT, u2: FLAOT) -> [FLOAT, FLOAT]:
+		'''
+		__sample_first_quad()
+
+		Samples a direction in the first quadrant of
+		unit hemisphere. Returns [phi, cos(theta)]
+		'''
+		if self.ex == self.ey:
+			phi = PI * u1 * .5
+		else:
+			phi = np.arctan(np.sqrt((self.ex + 1.) / (self.ey + 1.)) * np.tan(PI * u1 * .5))
+
+		cp = np.cos(phi)
+		sp = np.sin(phi)
+
+		return [phi, np.power(u2, 1. / (self.ex * cp * cp + self.ey * sp * sp + 1.))]
+
+	def sample_f(self, wo: 'Vector', u1: FLOAT, 
+							u2: FLOAT) -> [FLOAT, 'Vector']:
+		# sample from first quadrant and remap to hemisphere to sample w_h
+		if u1 < .25:
+			phi, ct = self.__sample_first_quad(4. * u1, u2)
+		elif u1 < .5:
+			u1 = 4. * (.5 - u1)
+			phi, ct = self.__sample_first_quad(u1, u2)
+			phi = PI - phi
+		elif u1 < .75:
+			u1 = 4. * (u1 - .5)
+			phi, ct = self.__sample_first_quad(u1, u2)
+			phi += PI
+		else:
+			u1 = 4. * (1. - u1)
+			phi, ct = self.__sample_first_quad(u1, u2)
+			phi = 2. * PI - phi
+
+		st = np.sqrt(max(0., 1. - ct * ct))
+		wh = spherical_direction(st, ctm phi)
+		if wo.z * wh.z <= 0.:
+			wh *= -1.
+
+		# incident direction by reflection
+		wi = -wo + 2. * wo.dot(wh) * wh
+
+		# compute pdf for w_i
+		ct = abs_cos_theta(wh)
+		ds = 1. - ct * ct
+		if ds > 0. and wo.dot(wh) > 0.:
+			return [(np.sqrt((self.ex + 1.) * (self.ey + 1.)) * INV_2PI * np.power(ct, 
+								(self.ex * wh.x * wh.x + self.ey * wh.y * wh.y) / ds)) / \
+						(4. * wo.dot(wh)), wi]
+		else:
+			return [0., wi]
+
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		wh = normalize(wo + wi)
+		ct = abs_cos_theta(wh)
+		ds = 1. - ct * ct
+		if ds > 0. and wo.dot(wh) > 0.:
+			return (np.sqrt((self.ex + 1.) * (self.ey + 1.)) * INV_2PI * np.power(ct, 
+								(self.ex * wh.x * wh.x + self.ey * wh.y * wh.y) / ds)) / \
+						(4. * wo.dot(wh))
+		else:
+			return 0.
 class Microfacet(BDF):
 	'''
 	Microfacet Class
@@ -538,6 +688,22 @@ class Microfacet(BDF):
 		return min(1., min( (2. * abs_cos_theta(wh) * abs_cos_theta(wo) / wo.abs_dot(wh)),
 							(2. * abs_cos_theta(wh) * abs_cos_theta(wi) / wo.abs_dot(wh))))
 
+	def sample_f(self, wo: 'Vector', u1: FLOAT, 
+							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
+		[pdf, wi, spec] = self.distribution.sample_f(wo, u1, u2)
+		if wi.z * wo.z <= 0.:
+			return [pdf, wi, Spectrum(0.)]
+		return [pdf, wi, self.f(wo, wi)]
+
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		if wi.z * wo.z <= 0.:
+			return 0.
+		return self.distribution.pdf(wo, wi)
+
+
+
+
+
 # Fresnel Blend Model, Ashikhmin and Shirley
 # Account for, e.g., glossy on diffuse
 class FresnelBlend(BDF):
@@ -561,6 +727,26 @@ class FresnelBlend(BDF):
 		'''
 		return self.Rs + np.power(1. - ct, 5.) * (Spectrum(1.) - self.Rs)
 
+	def sample_f(self, wo: 'Vector', u1: FLOAT, 
+							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
+		if u1 < .5:
+			u1 = 2. * u1
+			# cosine sample the hemisphere
+			wi = cosine_sample_hemishpere(u1, u2)
+			if wo.z < 0.:
+				wi.z *= -1.
+		else:
+			u1 = 2. * (u1 - .5)
+			pdf, wi = self.distribution.sample_f(wo, u1, u2)
+			if wo.z * wi.z <= 0.:
+				# not on the same hemisphere
+				return [pdf, wi, Spectrum(0.)]
+		return [self.pdf(wo, wi), wi, self.f(wo, wi)]
+
+	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
+		if wo.z * wi.z <= 0.:
+			return 0.
+		return .5 * (abs_cos_theta(wi) * INV_PI + self.distribution.pdf(wo, wi))
 	@jit
 	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
 		diffuse = (28. / (23. * PI)) * self.Rd * \
@@ -665,7 +851,43 @@ class ReHalfangleBRDF(BDF):
 		return Spectrum.fromRGB(self.brdf[wht_idx][wdt_idx][wdp_idx])
 
 
+class BSDFSample(object):
+	'''
+	BSDFSample Class
 
+	Encapsulate samples used
+	by BSDF.sample_f()
+	'''
+	def __init__(self, up0: FLOAT=0., up1: FLOAT=0., u_com: FLOAT=0.):
+		self.u_dir = [up0, up1]
+		self.u_com = u_com
+
+	def __repr__(self):
+		return "{}\nDirection: ({},{})\nComponent: {}\n".format(self.__class__, self.u_dir[0], self.u_dir[1], self.u_com)
+
+	@classmethod
+	def fromRand(cls, rng=np.random.rand):
+		self = cls(rng(), rng(), rng())
+		return self
+
+	@classmethod
+	def fromSample(cls, sample: 'Sample', offset: 'BSDFSampleOffset', n: UINT):
+		self = cls(sample.twoD[offset.offset_dir][0],
+				   sample.twoD[offset.offset_dir][1],
+				   sample.oneD[offset.offset_com])
+		return self
+
+class BSDFSampleOffset(object):
+	'''
+	BSDFSampleOffset Class
+
+	Encapsulate offsets provided
+	by sampler
+	'''
+	def __init__(self, nSamples: INT, sample: 'Sample'):
+		self.nSamples = nSamples
+		self.offset_com = sample.add_1d(nSamples)
+		self.offset_dir = sample.add_2d(nSamples)
 
 
 class BSDF(object):
@@ -699,6 +921,72 @@ class BSDF(object):
 	def __repr__(self):
 		return "{}\nBDF Count: {}\nPoint: {}".format(self.__class__,
 						self.nBDF, self.dgs.p)
+	@jit
+	def sample_f(self, wo_w: 'Vector', bsdf_smp: 'BSDFSample',
+				flags: 'BDFType') -> [FLOAT, 'Vector', 'BDFType' 'Spectrum']:
+		'''
+		sample_f()
+
+		returns [pdf, wi_w, sample_type, spectrum]
+		'''
+		# choose BDFs
+		smp_type = None
+		n_match = self.n_components(flags)
+		if n_match == 0:
+			return [0., None, None, Spectrum(0.)]
+
+		cnt = last = min(ftoi(bsdf_smp.u_com * n_match), n_match - 1)
+		for func in self.bdfs:
+			if func.match_flag(flags):
+				cnt -= 1
+				if cnt == 0:
+					bdf = func
+					break
+		# sample BDFs
+		wo = self.w2l(wo_w)
+		pdf, wi, f = bdf.sample_f(wo, bsdf_smp.u_dir[0], bsdf_smp.u_dir[1])
+		wi_w = self.l2w(wi)
+
+		if pdf == 0.:
+			return [pdf, wi_w, bdf.type, Spectrum(0.)]
+
+		# compute overall pdf
+		if (not (bdf.type & BDFType.SPECULAR)) and n_match > 1:
+			for func in self.bdfs:
+				if func != bdf and func.match_flag(flags):
+					pdf += func.pdf(wo, wi)
+
+		if n_match > 1:
+			pdf /= n_match
+
+		# compute value of BSDF for sampled direction
+		if not bdf.type & BDFType.SPECULAR:
+			f = Spectrum(0.)
+			if wi_w.dot(self.ng) * wo_w.dot(self.ng) > 0.:
+				# ignore BTDF
+				flags = BDFType(flags & ~BDFType.TRANSMISSION)
+			else:
+				# ignore BRDF
+				flags = BDFType(flags & ~BDFType.REFLECTION)
+
+			for func in self.bdfs:
+				if func.match_flag(flags):
+					f += func.f(wo, wi)
+
+		return [pdf, wi_w, bdf.type, f]
+
+	def pdf(self, wo: 'Vector', wi: 'Vector', flags: 'BDFType'=BDFType.ALL) -> FLOAT:
+		if self.n_BDF == 0: return 0.
+		wo = self.w2l(wo_w)
+		wi = self.w2l(wi_w)
+		pdf = 0.
+		n_match = 0
+		for bdf in self.bdfs:
+			if bdf.match_flag(flags):
+				n_match += 1
+				pdf += bdf.pdf(wo, wi)
+
+		return pdf / n_match if n_match > 0 else 0.
 
 	def push_back(self, bdf: 'BDF'):
 		'''
@@ -769,7 +1057,7 @@ class BSDF(object):
 		sp = Spectrum(0.)
 		for bdf in self.bdfs:
 			if bdf.match_flag(flags):
-				sp += bdf.rho_hd(wo, nSamples, smp)
+				sp += bdf.rho_hd(wo, smp)
 
 		return sp
 
