@@ -110,11 +110,11 @@ def create_loop_subdiv(o2w: 'Transform', w2o: 'Transform',
 	
 
 class Shape(object, metaclass=ABCMeta):
-	"""
+	'''
 	Shape Class
 
 	Base class of shapes.
-	"""
+	'''
 
 	next_shapeId = 1
 
@@ -166,6 +166,57 @@ class Shape(object, metaclass=ABCMeta):
 	@abstractmethod
 	def area(self) -> FLOAT:
 		raise NotImplementedError('unimplemented Shape.area() method called') 
+
+	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+		'''
+		sample()
+
+		Returns the position and
+		surface normal randomly chosen
+		'''
+		raise NotImplementedError('unimplemented {}.sample() method called'
+			.format(self.__class__)) 
+
+	def sample_p(self, pnt: 'Point', u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+		'''
+		sample_p()
+
+		Returns the position and
+		surface normal randomly chosen
+		s.t. visible to `pnt`
+		'''
+		return self.sample(u1, u2)
+
+
+	def pdf(self, pnt: 'Point') -> FLOAT:
+		'''
+		pdf()
+
+		Return the sampling pdf
+		'''
+		return 1. / self.area()
+
+	def pdf_p(self, pnt: 'Point', wi: 'Vector') -> FLOAT:
+		'''
+		pdf_p()
+
+		Return the sampling pdf w.r.t.
+		the sample_p() method.
+		Transforms the density from one
+		defined over area to one defined
+		over solid angle from `pnt`.
+		'''
+		# intersect sample ray with area light
+		ray = Ray(pnt, wi, EPS)
+
+		hit, thit, rEps, dg_light = self.intersect(ray)
+		if not hit:
+			return 0.
+
+		# convert light sample weight to solid angle measure
+		return (p - ray(thit)).sq_length() / (dg_light.nn.abs_dot(-wi) * self.area())
+
+
 
 class LoopSubdiv(Shape):
 	'''
@@ -609,6 +660,22 @@ class Triangle(Shape):
 		p3 = self.mesh.p[self.v+2]			
 		return BBox(p1, p2).union(p3)
 
+	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+		b1, b2 = uniform_sample_triangle(u1, u2)
+
+		p = b1 * self.mesh.p[self.v] + \
+			b2 * self.mesh.p[self.v+1] + \
+			(1. - b1 - b2) * self.mesh.p[self.v+2]	
+
+		Ns = normalize(Normal.fromVector(
+			(self.mesh.p[self.v+1] - self.mesh.p[self.v]) \
+				.cross(self.mesh.p[self.v+2]-self.mesh.p[self.v])))
+
+		if self.ro:
+			Ns *= -1.
+
+		return [p, Ns]
+
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
 		'''
 		Determine whether intersects
@@ -911,6 +978,74 @@ class Sphere(Shape):
 	def object_bound(self) -> 'BBox':
 		return BBox(Point(-self.radius, -self.radius, self.zmin),
 					Point(self.radius, self.radius, self.zmax))
+	@jit
+	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+		'''
+		account for partial sphere
+		'''
+		v = uniform_sample_sphere(u1, u2)	
+		phi = spherical_theta(v) * self.phiMax * INV_2PI	
+		theta = self.thetaMin + spherical_theta(v) * (self.thetaMax - self.thetaMin)
+		
+		v = spherical_direction(np.sin(theta), np.cos(theta), phi) * radius
+		v.z = self.zmin + v.z * (self.zmax - self.zmin)	
+
+		Ns = normalize(self.o2w(Normal(p.x, p.y, p.z)))
+		if self.ro:
+			Ns *= -1.
+		return [self.o2w(p), Ns]			
+
+		# '''
+		# Not account for partial sphere
+		# '''
+		# p = Point.fromVector(radius * uniform_sample_sphere(u1, u2))
+		# Ns = normalize(self.o2w(Normal(p.x, p.y, p.z)))
+		# if self.ro:
+		# 	Ns *= -1.
+		# return [self.o2w(p), Ns]
+
+	def sample_p(self, pnt: 'Point', u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+		'''
+		uniformly sample the sphere
+		visible (of certain solid angle)
+		to the point
+		'''
+		# compute coords for sampling
+		ctr = self.o2w(Point(0., 0., 0.))
+		wc = normalize(ctr - pnt)
+		_, wc_x, wc_y = coordinate_system(wc)
+
+		# sample uniformly if p is inside
+		if pnt.sq_dist(ctr) - self.radius * self.radius < EPS:
+			return self.sample(u1, u2)
+
+		# sample inside subtended cone
+		st_max_sq = self.radius * self.radius / pnt.sq_dist(ctr)
+		ct_max = np.sqrt(max(0., 1. - st_max_sq))
+
+		r = Ray(pnt, uniform_sample_cone(u1, u2 ct_max, wc_x, wc_y, wc), EPS)
+		hit, thit, _, _ = self.intersect(r)
+
+		if not hit:
+			thit = (ctr - p).dot(normalize(r.d))
+
+		ps = r(hit)
+		ns = Normal.fromVector(normalize(ps - ctr))
+		if self.ro:
+			ns *= -1.
+
+		return [ps, ns]
+
+	def pdf_p(self, pnt: 'Point', wi: 'Vector') -> FLOAT:
+		ctr = self.o2w(Point(0., 0., 0.))
+		# return uniform weight if inside
+		if pnt.sq_dist(ctr) - self.radius * self.radius < EPS:
+			return super().pdf_p(pnt, wi)
+
+		# general weight
+		st_max_sq = self.radius * self.radius / pnt.sq_dist(ctr)
+		ct_max = np.sqrt(max(0., 1. - st_max_sq))
+		return uniform_cone_pdf(ct_max)
 
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
 		'''
@@ -1087,6 +1222,18 @@ class Cylinder(Shape):
 		return BBox(Point(-self.radius, -self.radius, self.zmin),
 					Point(self.radius, self.radius, self.zmax))
 
+	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+		z = Lerp(u1, self.zmin, self.zmax)
+		t = u2 * self.phiMax
+		p = Point(self.radius * np.cos(t), self.radius * np.sin(t), z)
+		Ns = normalize(self.o2w(Normal(p.x, p.y, 0.)))
+
+		if self.ro:
+			Ns *= -1.
+
+		return [self.o2w(p), Ns]
+
+
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
 		'''
 		Returns:
@@ -1252,6 +1399,21 @@ class Disk(Shape):
 	def object_bound(self) -> 'BBox':
 		return BBox(Point(-self.radius, -self.radius, self.height),
 					Point(self.radius, self.radius, self.height))
+
+	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
+
+		# account for partial disk
+		x, y = concentric_sample_disk(u1, u2)
+		phi = np.arctan2(y, x) * self.phiMax * INV_2PI
+		r = self.inner + np.sqrt(x * x + y * y) * (self.radius - self.inner)
+
+		p = Point(r * np.cos(phi), r * np.sin(phi), self.height)
+
+		Ns = normalize(self.o2w(p))
+		if self.ro:
+			Ns *= -1.
+
+		return [self.o2w(p), Ns]
 
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
 		'''

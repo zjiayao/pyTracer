@@ -265,6 +265,25 @@ class DensityRegion(VolumeRegion):
 	def sigma_t(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
 		return self(self.w2v(p)) * (self.sig_a + self.sig_s)
 
+	def tau(self, r: 'Ray', step_size: FLOAT, u: FLOAT) -> 'Spectrum':
+		tau = Spectrum(0.
+			)
+		length = r.d.length()
+		if length == 0.:
+			return tau
+
+		rn = Ray(r.o, r.d / length, r.mint * length, r.maxt * length, r.time)
+		hit, t0, t1 = self.intersectP(rn)
+		if not hit:
+			return tau
+
+		t0 += u * step_size
+		while t0 < t1:
+			tau += self.sigma_t(rn(t0), -rn.d, r.time)
+			t0 += step_size
+
+		return tau * step_size
+
 
 class VolumeGridDensity(DensityRegion):
 	'''
