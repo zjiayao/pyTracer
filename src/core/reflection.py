@@ -872,9 +872,9 @@ class BSDFSample(object):
 
 	@classmethod
 	def fromSample(cls, sample: 'Sample', offset: 'BSDFSampleOffset', n: UINT):
-		self = cls(sample.twoD[offset.offset_dir][0],
-				   sample.twoD[offset.offset_dir][1],
-				   sample.oneD[offset.offset_com])
+		self = cls(sample.twoD[offset.offset_dir][n][0],
+				   sample.twoD[offset.offset_dir][n][1],
+				   sample.oneD[offset.offset_com][n])
 		return self
 
 class BSDFSampleOffset(object):
@@ -888,6 +888,9 @@ class BSDFSampleOffset(object):
 		self.nSamples = nSamples
 		self.offset_com = sample.add_1d(nSamples)
 		self.offset_dir = sample.add_2d(nSamples)
+
+	def __repr__(self):
+		return "{}\nSamples: {}\n".format(self.__class__, self.nSamples)
 
 
 class BSDF(object):
