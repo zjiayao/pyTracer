@@ -1023,7 +1023,7 @@ class Sphere(Shape):
 		st_max_sq = self.radius * self.radius / pnt.sq_dist(ctr)
 		ct_max = np.sqrt(max(0., 1. - st_max_sq))
 
-		r = Ray(pnt, uniform_sample_cone(u1, u2 ct_max, wc_x, wc_y, wc), EPS)
+		r = Ray(pnt, uniform_sample_cone(u1, u2, ct_max, wc_x, wc_y, wc), EPS)
 		hit, thit, _, _ = self.intersect(r)
 
 		if not hit:

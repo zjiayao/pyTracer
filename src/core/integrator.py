@@ -38,6 +38,81 @@ def compute_light_sampling_cdf(scene: 'Scene') -> 'Distribution1D':
 		power.append(light.power(scene).y())
 
 	return Distribution1D(power)
+
+@jit
+def uniform_sample_all_lights(scene: 'Scene', renderer: 'Renderer', p: 'Point', n: 'Normal', 
+		wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_offsets: ['LightSampleOffset'], 
+		bsdf_offsets: ['BSDFSampleOffset'], rng=np.random.rand):
+	'''
+	uniform_sample_all_lights()
+
+	Estimate contribution by each light
+	individually using MC.
+	'''
+	L = Spectrum(0.)
+
+	for i, light in enumerate(scene.lights):
+		n_smp = 1 if light_sample_offsets is None else light_sample_offsets[i].nSamples
+		# estimate direct lighting
+		## find light and bsdf for estimating
+		Ld = Spectrum(0.)
+		for j in range(n_smp):
+			if light_sample_offsets is not None and bsdf_sample_offsets is not None:
+				light_smp = LightSample.fromSample(sample, light_sample_offsets[i], j)
+				bsdf_smp = BSDFSample.fromSample(sample, bsdf_sample_offsets[i], j)
+			else:
+				light_smp = LightSample.fromRand(rng)
+				bsdf_smp = BSDFSample.fromRand(rng)
+
+			Ld += estimate_direct(scene, renderer, light, p, n, wo, rEps, time, bsdf,
+						light_smp, bsdf_smp, BDFType(BDFType.ALL & ~BDFType.SPECULAR), rng)
+
+		L += Ld / n_smp
+
+	return L
+
+
+@jit
+def uniform_sample_one_lights(scene: 'Scene', renderer: 'Renderer', p: 'Point', n: 'Normal', 
+		wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_num_offset: INT,
+		light_offsets: ['LightSampleOffset'], bsdf_offsets: ['BSDFSampleOffset'], rng=np.random.rand):
+	'''
+	uniform_sample_one_lights()
+
+	random choose one light to sample
+	and multiply with number of lights
+	to compensate on average
+	'''
+	# choose a light
+	# light power based importance sampling
+	# is to implement
+	n_lights = len(scene.lights)
+	if n_lights == 0:
+		return Spectrum(0.)
+
+	if light_num_offset == -1:
+		# use random
+		light_num = ftoi(rand() * n_lights)
+	else:
+		light_num = ftoi(sample.oneD[light_num_offset][0] * n_lights)
+
+	light_num = min(light_num, n_lights - 1)
+	light = scene.lights[light_num]
+
+	# init
+	if light_sample_offsets is not None and bsdf_sample_offsets is not None:
+		light_smp = LightSample.fromSample(sample, light_sample_offsets[0], 0)
+		bsdf_smp = BSDFSample.fromSample(sample, bsdf_sample_offsets[0], 0)
+	else:
+		light_smp = LightSample.fromRand(rng)
+		bsdf_smp = BSDFSample.fromRand(rng)	
+
+
+	
+	return n_lights * estimate_direct(scene, renderer, light, p, n, wo, rEps, time, bsdf,
+						light_smp, bsdf_smp, BDFType(BDFType.ALL & ~BDFType.SPECULAR), rng)
+
+
 @jit
 def specular_reflect(ray: 'RayDifferential', bsdf: 'BSDF', isect: 'Intersection',
 			renderer: 'Renderer', scene: 'Scene', sample: 'Sample', rng) -> 'Spectrum':
@@ -116,6 +191,62 @@ def specular_transmit(ray: 'RayDifferential', bsdf: 'BSDF', isect: 'Intersection
 		L = f * Li * wi.abs_dot(n) / pdf
 
 	return L
+
+
+@jit
+def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'Point', n: 'Normal', 
+			wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', light_smp: 'LightSample', bsdf_smp: 'BSDFSample',
+			flags: 'BDFType', rng=np.random.rand) -> 'Spectrum':
+	'''
+	estimate_direct()
+
+	Estimate direct lighting
+	using MC Multiple Importance Sampling.
+	'''
+	Ld = Spectrum(0.)
+	# sample light source
+	Li, wi, light_pdf, vis = light.sample_l(p, rEps, light_smp, time)
+	if light_pdf > 0. and not Li.is_black():
+		f = bsdf.f(wo, wi, flags)
+		if not f.is_black() and vis.unoccluded(scene):
+			# add contribution to reflected radiance
+			## account for attenuation due to participating media,
+			## left for `VolumeIntegrator` to do
+			Li *= vis.transmittance(scene, renderer, None, rng) 
+			if light.is_delta_light():
+				Ld += f * Li * (wi.abs_dot(n) / light_pdf)
+			else:
+				bsdf_pdf = bsdf.pdf(wo, wi, flags)
+				weight = power_heuristic(1, light_pdf, 1, bsdf_pdf) # Power heuristic for HG phase function
+				Ld += f * Li * (wi.abs_dot(n) * weight / light_pdf)
+
+	# sample BSDF
+	## no need if delta light
+	if not light.is_delta_light():
+		bsdf_pdf, wi, smp_type, f = bsdf.sample_f(wo, bsdf_smp, flags)
+		if not f.is_black() and bsdf_pdf > 0.:
+			wt = 1.
+			if not smp_type & BDFType.SPECULAR:	# MIS not apply to specular direction
+				light_pdf = light.pdf(p, wi)
+				if light_pdf == 0.:
+					return Ld
+				wt = power_heuristic(1, bsdf_pdf, 1, light_pdf)
+				# add contribution
+				Li = Spectrum(0.)
+				ray = RayDifferential(p, wi, rEps, np.inf, time)
+				hit, light_isect = scene.intersect(ray)
+				if hit:
+					if light_isect.primitive.get_area_light() == light:
+						Li = light_isect.le(-wi)
+				else:
+					Li = light.le(ray) # light illum.
+
+				if not Li.is_black():
+					Li *= renderer.transmittance(scene, ray, None, rng) # attenuation
+					Ld += f * Li * wi.abs_dot(n) * wt / bsdf_pdf
+
+	return Ld
+
 
 
 # Integrator Classes
@@ -209,7 +340,7 @@ class WhittedIntegrator(SurfaceIntegrator):
 		if ray.depth + 1 < self.max_depth:
 			# trace rays for reflection and refraction
 			L += specular_reflect(ray, bsdf, isect, renderer, scene, sample, rng)
-			L += specular_transmit(ray, bsdf isect, renderer, scene, sample, rng)
+			L += specular_transmit(ray, bsdf, isect, renderer, scene, sample, rng)
 
 		return L
 
@@ -280,21 +411,23 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 		# compute emitted light if ray hit light src
 		L += isec.le(wo)
 
-		# iterate through all lights
-		for lgt in scene.lights:
-			Li, wi, pdf, vis = lgt.sample_l(p, isec.rEps, LightSample.fromRand(rng), ray.time)
-			if Li.is_black() or pdf == 0.:
-				continue
+		# compute direct lighting
+		if len(scene.lights) > 0:
+			if self.strategy == LightStrategy.SAMPLE_ALL_UNIFORM:
+				L += uniform_sample_all_lights(scene, renderer, p, n, wo, isect.rEps, ray.time, 
+						bsdf, sample, self.light_sample_offsets, self.bsdf_sample_offsets, rng)
 
-			# add contribution
-			f = bsdf.f(wo, wi)
-			if not f.is_black() and vis.unoccluded(scene):
-				L += f * Li * wi.abs_dot(n) * vis.transmittance(scene, renderer, sample, rng) / pdf
+			elif self.strategy == LightStrategy.SAMPLE_ONE_UNIFORM:
+				L += uniform_sample_one_lights(scene, renderer, p, n, wo, isect.rEps, ray.time, 
+						bsdf, sample, self.light_num_offset, self.light_sample_offsets, self.bsdf_sample_offsets, rng)
+
+			else:
+				raise RuntimeError("Unknown LightStrategy")
 
 		if ray.depth + 1 < self.max_depth:
 			# trace rays for reflection and refraction
 			L += specular_reflect(ray, bsdf, isect, renderer, scene, sample, rng)
-			L += specular_transmit(ray, bsdf isect, renderer, scene, sample, rng)
+			L += specular_transmit(ray, bsdf, isect, renderer, scene, sample, rng)
 
 		return L
 

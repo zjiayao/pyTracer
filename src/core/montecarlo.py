@@ -171,9 +171,8 @@ def concentric_sapmle_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 
 	return [r * np.cos(theta), r * np.sin(theta)]
 
-
 @jit
-def cosine_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector:
+def cosine_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	'''
 	cosine_sapmle_hemisphere()
 
@@ -188,7 +187,7 @@ def cosine_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector:
 	vec.z = np.sqrt(max(0., 1. - vec.x * vec.x - vex.y * vec.y))
 	return vec
 
-def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT) -> FLAOT:
+def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT) -> FLOAT:
 	'''
 	cosine_hemisphere_pdf()
 
@@ -212,14 +211,14 @@ def uniform_sample_triangle(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 
 @jit
 def uniform_sample_cone(u1: FLOAT, u2: FLOAT, ct_max: FLOAT,
-			x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector:
+			x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector':
 	'''
 	uniform_sample_cone()
 
 	Sample from a uniform distribution
 	over the cone of directions.
 	'''
-	if x is None or y is None or z is None"
+	if x is None or y is None or z is None:
 		ct = (1. - u1) + u1 * ct_max
 		st = np.sqrt(1. - ct * ct)
 		phi = u2 * 2. * PI
@@ -252,14 +251,14 @@ def sample_hg(w: 'Vector', g: FLOAT, u1: FLOAT, u2: FLOAT) -> 'Vector':
 		ct = 1. - 2. * u1
 	else:
 		sqr = (1. - g * g) / (1. - g + 2. * g * u1)
-		ct = (1. + g 8 g - sqr * sqr) / (2. * g)
+		ct = (1. + g * g - sqr * sqr) / (2. * g)
 
 	st = np.sqrt(max(0., 1 - ct * ct))
 	phi = 2. * PI * u2
 	_, v1, v2 = coordinate_system(w)
 	return spherical_direction(st, ct, phi, v1, v2, w)
 
-def hg_pdf(w: 'Vector', wp: 'Vector', g: FLAOT) -> FLOAT:
+def hg_pdf(w: 'Vector', wp: 'Vector', g: FLOAT) -> FLOAT:
 	'''
 	hg_pdf()
 	'''

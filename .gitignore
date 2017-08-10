@@ -1,0 +1,7 @@
+__pycache__/
+.cache
+*.png
+*.swp
+/tmp
+/src/shapes
+/src/spectral

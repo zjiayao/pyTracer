@@ -188,8 +188,7 @@ class Light(object, metaclass=ABCMeta):
 					'transforms should not contain scale'.format(self.__class__))
 
 	def __repr__(self):
-		return "{}\nNumber of Samples: {}\nLight-to-World "
-					"Transformation: {}\n".format(self.__class__, self.ns, self.l2w)
+		return '{}\nNumber of Samples: {}\nLight-to-World Transformation: {}\n'.format(self.__class__, self.ns, self.l2w)
 
 	@abstractmethod
 	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
@@ -226,9 +225,8 @@ class Light(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.light.{}.pdf(): abstract method '
 									'called'.format(self.__class__)) 		
 
-
-	@abstractmethod
 	@property
+	@abstractmethod
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		'''
 		power()
@@ -551,7 +549,7 @@ class GonioPhotometricLight(Light):
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
-		retrun 4. * PI * self.intensity * \
+		return 4. * PI * self.intensity * \
 					Spectrum(self.mipmap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)					
 	def is_delta_light(self) -> bool:
 		return True
@@ -609,7 +607,7 @@ class DistantLight(Light):
 		'''
 		_, rad = scene.world_bound().bounding_sphere()
 	
-		retrun self.l * PI * rad * rad	
+		return self.l * PI * rad * rad	
 
 	def is_delta_light(self) -> bool:
 		return True
@@ -825,7 +823,7 @@ class InfiniteAreaLight(Light):
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		_, rad = scene.world_bound().bounding_sphere()
-		retrun  PI * rad * rad	* Spectrum(self.radMap.look_up([.5, .5, .5], SpectrumType.ILLUMINANT)
+		return PI * rad * rad * Spectrum(self.radMap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)
 
 	def is_delta_light(self) -> bool:
 		return False

@@ -258,7 +258,7 @@ class BDF(object, metaclass=ABCMeta):
 			2d np array
 		'''
 		r = Spectrum(0.)
-		for smp samples:
+		for smp in samples:
 			wi, pdf, f = self.sample_f(w, smp[0], smp[1])
 			if pdf > 0.:
 				r += f * abs_cos_theta(wi) / pdf
@@ -594,7 +594,7 @@ class Anisotropic(MicrofacetDistribution):
 		e = (self.ex * wh.x * wh.x + self.ey * wh.y * wh.y) / d	
 		return np.sqrt((self.ex + 2.) * (self.ey + 2.)) * INV_2PI * np.power(cth, e)
 
-	def __sample_first_quad(self, u1: FLOAT, u2: FLAOT) -> [FLOAT, FLOAT]:
+	def __sample_first_quad(self, u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 		'''
 		__sample_first_quad()
 
@@ -630,7 +630,7 @@ class Anisotropic(MicrofacetDistribution):
 			phi = 2. * PI - phi
 
 		st = np.sqrt(max(0., 1. - ct * ct))
-		wh = spherical_direction(st, ctm phi)
+		wh = spherical_direction(st, ctm, phi)
 		if wo.z * wh.z <= 0.:
 			wh *= -1.
 

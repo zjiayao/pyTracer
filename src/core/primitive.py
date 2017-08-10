@@ -489,7 +489,6 @@ class BVHAccel(Aggregate):
 		for i, prim in enumerate(self.primitives):
 			bbox = prim.world_bound()
 			build_data[i] = BVHPrimInfo(i, bbox)
-			root = 
 
 
 		## build BVH tree recursively

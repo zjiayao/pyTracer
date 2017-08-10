@@ -784,14 +784,19 @@ class MIPMap(object):
 			EWA:
 			param := [s, t, dsdx, dtdx, dsdy, dtdy]
 			'''
-			if len(param) == 3:
+			if len(param) == 2 or len(param) == 3:
 				# Isotropic Triangle Filter
 				# Chooses a level which filter covers
 				# four texels
-				level, s, t = param
+				if len(param) == 2:
+					s, t = param
+					width = 0.
+
+				else:
+					s, t, width = param
 
 				# mipmap level
-				level = self.__n_levels - 1 + np.log2(max(self.width, EPS))
+				level = self.__n_levels - 1 + np.log2(max(width, EPS))
 
 				# trilinear interpolation
 				# for smooth MIPMap transittion

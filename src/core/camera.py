@@ -86,7 +86,7 @@ class ProjectiveCamera(Camera):
 		## compute projective screen transfomations
 		s2r = Transform.scale(f.xResolution, f.yResolution, 1.) * \
 				Transform.scale(1./(scr_win[1] - scr_win[0]),
-								1./(scr_win[2] - scr_win[3]), 1.) * \ 
+								1./(scr_win[2] - scr_win[3]), 1.) * \
 				Transform.translate(Vector(-scr_win[0], -scr_win[3], 0.)) # upper-left corner to origin
 
 		r2s = s2r.inverse()
@@ -125,8 +125,8 @@ class OrthoCamera(ProjectiveCamera):
 			## todo: concentric_sample_disk
 			lens_u, lens_v = \
 				src.sampler.monte_carlo.concentric_sample_disk(sample.lens_u, sample.lens_v)
-				lens_u *= self.lens_rad
-				lens_v *= self.lens_rad
+			lens_u *= self.lens_rad
+			lens_v *= self.lens_rad
 
 			# compute point on focal plane
 			ft = self.focal_dist / ray.d.z
@@ -164,8 +164,8 @@ class PerspectiveCamera(ProjectiveCamera):
 	'''
 	def __init__(self, c2w: 'AnimatedTransform', scr_win: [FLOAT],
 					s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, fov: FLOAT, f: 'Film'):
-		super().__init__(c2w, Transform.perspective(fov, .001, 1000.),  # non-raster based, set arbitrarily
-							scr_win: [FLOAT], s_open, s_close, lensr, focald, f)
+		super().__init__(c2w, Transform.perspective(fov, .001, 1000.), # non-raster based, set arbitrarily
+				scr_win, s_open, s_close, lensr, focald, f)
 		# compute differential changes in origin
 		self.dxCam = self.r2c(Point(1., 0., 0.)) - self.r2c(Point(0., 0., 0.))
 		self.dyCam = self.r2c(Point(0., 1., 0.)) - self.r2c(Point(0., 0., 0.))
@@ -187,8 +187,8 @@ class PerspectiveCamera(ProjectiveCamera):
 			## todo: concentric_sample_disk
 			lens_u, lens_v = \
 				src.sampler.monte_carlo.concentric_sample_disk(sample.lens_u, sample.lens_v)
-				lens_u *= self.lens_rad
-				lens_v *= self.lens_rad
+			lens_u *= self.lens_rad
+			lens_v *= self.lens_rad
 
 			# compute point on focal plane
 			ft = self.focal_dist / ray.d.z
