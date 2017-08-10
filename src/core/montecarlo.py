@@ -188,7 +188,7 @@ def cosine_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector:
 	vec.z = np.sqrt(max(0., 1. - vec.x * vec.x - vex.y * vec.y))
 	return vec
 
-def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT):
+def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT) -> FLAOT:
 	'''
 	cosine_hemisphere_pdf()
 
@@ -209,6 +209,63 @@ def uniform_sample_triangle(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	Returns the baricentric coord [u, v]
 	'''
 	return [1. - np.sqrt(u1), u2 * np.sqrt(u1)]
+
+@jit
+def uniform_sample_cone(u1: FLOAT, u2: FLOAT, ct_max: FLOAT,
+			x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector:
+	'''
+	uniform_sample_cone()
+
+	Sample from a uniform distribution
+	over the cone of directions.
+	'''
+	if x is None or y is None or z is None"
+		ct = (1. - u1) + u1 * ct_max
+		st = np.sqrt(1. - ct * ct)
+		phi = u2 * 2. * PI
+		return Vector(np.scos(phi) * st, np.sin(phi) * st, ct)
+	else:
+		ct = Lerp(u1, ct_max, 1.)
+		st = np.sqrt(1. - ct * ct)
+		phi = u2 * 2. * PI
+		return np.cos(phi) * st * x + np.sin(phi) * st * y + ct * z
+
+
+def uniform_cone_pdf(ct_max: FLOAT) -> FLOAT:
+	'''
+	uniform_cone_pdf()
+	'''
+	return 1. / (2. * PI * (1. - ct_max))
+
+@jit
+def sample_hg(w: 'Vector', g: FLOAT, u1: FLOAT, u2: FLOAT) -> 'Vector':
+	'''
+	sample_hg()
+
+	Sampling from Henyey-Greestein
+	phase function, i.e.,
+	$$
+	\cos(\theta) = \frac{1}{2g}\left(1 + g^2 - \left( \frac{1-g^2}{1-g+2g\zeta} \right) ^2 \right))
+	$$
+	'''
+	if np.fabs(g) < EPS:
+		ct = 1. - 2. * u1
+	else:
+		sqr = (1. - g * g) / (1. - g + 2. * g * u1)
+		ct = (1. + g 8 g - sqr * sqr) / (2. * g)
+
+	st = np.sqrt(max(0., 1 - ct * ct))
+	phi = 2. * PI * u2
+	_, v1, v2 = coordinate_system(w)
+	return spherical_direction(st, ct, phi, v1, v2, w)
+
+def hg_pdf(w: 'Vector', wp: 'Vector', g: FLAOT) -> FLOAT:
+	'''
+	hg_pdf()
+	'''
+	return phase_hg(w, wp, g)
+
+
 
 # Utility Classes
 class Distribution1D(object):
