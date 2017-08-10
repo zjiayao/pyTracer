@@ -16,6 +16,7 @@ from src.core.diffgeom import *
 from src.core.spectrum import *
 from src.core.reflection import *
 from src.core.texture import *
+from src.core.montecarlo import *
 
 # Utility Classes
 
@@ -95,11 +96,75 @@ def ShapeSet(object):
 			self.areas.push_back(area)
 			self.sum_area += area
 
-		# TODO
-		# area_distribution
+		self.area_dist = Distribution1D(self.areas)
+
+	def __repr__(self):
+		return "{}\nNumber of Shapes: {}\n".format(self.__class__, len(self.shapes))
+
+	def sample(self, p: 'Point', ls: 'LightSample') -> ['Point', 'Normal']:
+		sn, _ = self.area_dist.sample_dis(ls.u_com)
+		pt, ns = self.shapes[sn].sample_p(p, ls.u_pos[0], ls.u_pos[1])
+
+		# find cloest intersection
+		r = Ray(p, pt - p, EPS, np.inf)
+		any_hit = False
+
+		# inefficient
+		for sh in self.shapes:
+			hit, thit, _, dg = sh.intersect(r)
+			any_hit |= hit
+		if any_hit:
+			ns = dg.nn
+
+		return [r(thit), ns]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT:
+		pdf = 0.
+		for sh in self.shapes:
+			pdf += self.areas[i] * sh.pdf_p(p, wi)
+		return pdf / self.sum_area
+
+class LightSampleOffset(object):
+	'''
+	LightSampleOffset Class
+
+	Encapsulate offsets provided
+	by sampler
+	'''
+	def __init__(self, nSamples: INT, sample: 'Sample'):
+		self.nSamples = nSamples
+		self.offset_com = sample.add_1d(nSamples)
+		self.offset_pos = sample.add_2d(nSamples)
+
+	def __repr__(self):
+		return "{}\nSamples: {}\n".format(self.__class__, self.nSamples)
 
 
+class LightSample(object):
+	'''
+	LightSample Class
 
+	Encapsulate Light samples,
+	i.e., three dimensional random samples.
+	'''
+	def __init__(self, p0: FLOAT=0., p1: FLOAT=0., u_com: FLOAT=0.):
+		self.u_pos = [p0, p1]
+		self.u_com = u_com
+
+	def __repr__(self):
+		return "{}\nDirection: ({},{})\nComponent: {}\n".format(self.__class__, self.u_pos[0], self.u_pos[1], self.u_com)
+
+	@classmethod
+	def fromRand(cls, rng=np.random.rand):
+		self = cls(rng(), rng(), rng())
+		return self
+
+	@classmethod
+	def fromSample(cls, sample: 'Sample', offset: 'LightSampleOffset', n: UINT):
+		self = cls(sample.twoD[offset.offset_pos][n][0],
+				   sample.twoD[offset.offset_pos][n][1],
+				   sample.oneD[offset.offset_com][n])
+		return self
 
 
 # Light Classes
@@ -128,7 +193,7 @@ class Light(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+			time: FLOAT) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
 		'''
 		sample_l()
 
@@ -139,6 +204,28 @@ class Light(object, metaclass=ABCMeta):
 		'''
 		raise NotImplementedError('src.core.light.{}.sample_l(): abstract method '
 									'called'.format(self.__class__)) 		
+
+	@abstractmethod
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:	
+		'''
+		sample_r()
+
+		Samples a ray *leaving* the light source.
+
+		Returns [Ray, Normal, pdf, spectrum]
+		'''
+		raise NotImplementedError('src.core.light.{}.sample_r(): abstract method '
+									'called'.format(self.__class__)) 
+
+	@abstractmethod
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT:
+		'''
+		pdf()
+		'''
+		raise NotImplementedError('src.core.light.{}.pdf(): abstract method '
+									'called'.format(self.__class__)) 		
+
 
 	@abstractmethod
 	@property
@@ -194,6 +281,17 @@ class PointLight(Light):
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / (self.pos - p).sq_length(), wi, pdf, vis]
 
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		ray = Ray(self.pos, uniform_sample_sphere(ls.u_pos[0], ls.u_pos[1]),
+						0., np.inf, time)
+		Ns = Normal.fromVector(ray.d)
+		pdf = uniform_sphere_pdf()
+		return [ray, Ns, pdf, self.intensity]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+
+
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		return 4. * PI * self.intensity
@@ -247,6 +345,18 @@ class SpotLight(Light):
 		vis = VisibilityTester()
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / self.__falloff(-wi), wi, pdf, vis]
+
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		
+		v = uniform_sample_cone(ls.u_pos[0], ls.u_pos[1], self.cos_width)
+
+		ray = Ray(self.pos, self.l2w(v), 0., np.inf, time)
+		Ns = Normal.fromVector(ray.d)
+		pdf = uniform_cone_pdf(self.cos_width)
+		return [ray, Ns, pdf, self.intensity * self.__falloff(ray.d)]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
@@ -343,6 +453,19 @@ class ProjectionLight(Light):
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / self.__projection(-wi), wi, pdf, vis]
 
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		
+		v = uniform_sample_cone(ls.u_pos[0], ls.u_pos[1], self.cos_width)
+
+		ray = Ray(self.pos, self.l2w(v), 0., np.inf, time)
+		Ns = Normal.fromVector(ray.d)
+		pdf = uniform_cone_pdf(self.cos_width)
+		return [ray, Ns, pdf, self.intensity * self.__projection(ray.d)]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+
+
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		'''
@@ -416,6 +539,16 @@ class GonioPhotometricLight(Light):
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / self.__scale(-wi), wi, pdf, vis]
 
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		ray = Ray(self.pos, uniform_sample_sphere(ls.u_pos[0], ls.u_pos[1]),
+						0., np.inf, time)
+		Ns = Normal.fromVector(ray.d)
+		pdf = uniform_sphere_pdf()
+		return [ray, Ns, pdf, self.intensity * self.__scale(ray.d)]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		retrun 4. * PI * self.intensity * \
@@ -444,6 +577,27 @@ class DistantLight(Light):
 		vis = VisibilityTester()
 		vis.set_ray(p, pEps, self.pos, wi, time)
 		return [self.l.copy(), wi, pdf, vis]
+
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		'''
+		Create a bounding disk
+		and uniformly sample
+		on it.
+		'''
+		# choose point on disk oriented towards light
+		ctr, rad = scene.world_bound().bounding_sphere()
+		_, v1, v2 = coordinate_system(self.di)
+		d1, d2 = concentric_sample_disk(ls.u_pos[0], ls.u_pos[1])
+		pnt = ctr + rad * (d1 * v1 + d2 * v2)
+
+		# set ray
+		ray = Ray(pnt + rad * self.di, -self.di, 0., np.inf, time)
+		Ns = Normal.fromVector(ray.d)
+		pdf = 1. / (PI * rad * rad)
+		return [ray, Ns, pdf, self.l]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
@@ -502,42 +656,40 @@ class DiffuseAreaLight(Light):
 	# def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
 	# 		time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
 
+	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+		ps, ns = self.shape_set.sample(p, ls)
+		wi = normalize(ps - p)
+		pdf = self.shape_set.pdf(p, wi)
+		vis = VisibilityTester()
+		vis.set_segment(p, pEps, ps, EPS, time)
+		return [self.l(ps, ns, -wi), wi, pdf, vis]
+
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		'''
+		Create a bounding disk
+		and uniformly sample
+		on it.
+		'''
+		org, nS = self.shape_set.sample(ls)
+		di = uniform_sample_sphere(u1, u2)
+		if di.dot(Ns) < 0.:
+			di *= -1.
+		ray = Ray(org, di, EPS, np.inf, time)
+		pdf = self.shape_set.pdf(org) * INV_2PI
+		return [ray, Ns, pdf, self.l(org, Ns, Di)]
+
+	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return self.shape_set.pdf(p, wi)
+
+
+
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		return self.le * self.area * PI
 
 	def is_delta_light(self) -> bool:
 		return False
-
-
-
-
-class PointLight(Light):
-	'''
-	PointLight Class
-	
-	By defauly positioned at the origin.
-	'''
-	def __init__(self, l2w: 'Transform', intensity: 'Spectrum'):
-		super().__init__(l2w)
-		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
-		self.intensity = intensity
-
-
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
-		wi = normalize(self.pos - p)
-		pdf = 1.
-		vis = VisibilityTester()
-		vis.set_segment(p, pEps, self.pos, 0., time)
-		return [self.intensity / (self.pos - p).sq_length(), wi, pdf, vis]
-
-	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
-		return 4. * PI * self.intensity
-
-	def is_delta_light(self) -> bool:
-		return True
 
 
 
@@ -569,6 +721,22 @@ class InfiniteAreaLight(Light):
 			self.radMap = None
 
 		# init sampling PDFs <725>
+		## compute image for envir. map
+		img = np.empty([height, width], dtype=FLOAT)
+		filt = 1. / max(width, height)
+
+		for v in range(height):
+			vp = v / height
+			st = np.sin(PI * (v + .5) / height)
+			for u in range(width):
+				up = u / width
+				img[v][u] = self.radMap.look_up([up, vp, filt]).y()
+
+		## compute sampling distribution
+		self.dit = Distribution2D(img)
+
+
+
 
 	def le(self, rd: 'RayDifferential') -> 'Spectrum':
 		wh = normalize(self.w2l(rd.d))
@@ -576,10 +744,83 @@ class InfiniteAreaLight(Light):
 		t = spherical_theta(wh) * INV_PI
 		return Spectrum(self.radMap.look_up(s, t), SpectrumType.ILLUMINANT)		
 
-	# TODO use MCMC
-	# def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-	# 		time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+	@jit
+	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+		# find (u, v) sample coords in inf. light texture
+		uv, pdf = self.dist.sample_cont(ls.u_pos[0], ls.u_pos[1])
 
+		# convert inf light smaple pnt to direction
+		theta = uv[1] * PI
+		phi = uv[0] * 2. * PI
+		ct = np.cos(theta)
+		st = np.sin(theta)
+		sp = np.sin(phi)
+		cp = np.cos(phi)
+
+		wi = self.l2w(Vector(st * cp, st * sp, ct))
+
+		# compute pdf for sampled inf light direction
+		pdf = pdf / (2. * PI * PI *st)
+		if st == 0.:
+			pdf = 0.
+
+		# return radiance value
+		vis = VisibilityTester()
+		vis.set_ray(p, pEps, wi, time)
+
+		return [Spectrum(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT),
+					wi, pdf, vis]
+
+	@jit
+	def pdf(self, p: 'Point', w: 'Vector') -> FLOAT:
+		wi = self.w2l(w)
+		theta = spherical_theta(wi)
+		phi - spherical_phi(wi)
+		st = np.sin(theta)
+		if st == 0.:
+			return 0.
+		return self.dist.pdf(phi * INV_2PI, theta * INV_PI / 
+				(2. * PI * PI * st))
+
+	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+		'''
+		Create a bounding disk
+		and uniformly sample
+		on it.
+		'''
+		# find (u, v) sample coords in inf. light texture
+		uv, pdf = self.dist.sample_cont(ls.u_pos[0], ls.u_pos[1])
+		if pdf == 0.:
+			return [None, None, 0., Spectrum(0.)]
+
+		theta = uv[1] * PI
+		phi = uv[0] * 2. * PI
+		ct = np.cos(theta)
+		st = np.sin(theta)
+		sp = np.sin(phi)
+		cp = np.cos(phi)
+		d = -self.l2w(Vector(st * cp, st * sp, ct))
+		Ns = Normal.fromVector(d)
+
+		# choose point on disk oriented towards light
+		ctr, rad = scene.world_bound().bounding_sphere()
+		_, v1, v2 = coordinate_system(self.di)
+		d1, d2 = concentric_sample_disk(ls.u_pos[0], ls.u_pos[1])
+		pnt = ctr + rad * (d1 * v1 + d2 * v2)
+
+		# set ray
+		ray = Ray(pnt + rad * (-d), d, 0., np.inf, time)
+
+		# compute pdf
+		dir_pdf = pdf / (2. * PI * PI * st)
+		area_pdf = 1. / (PI * rad * rad)
+		pdf = dir_pdf * area_pdf
+		if st == 0.:
+			pdf == 0.
+
+		return [ray, Ns, pdf, Spectrum(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT)]
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':

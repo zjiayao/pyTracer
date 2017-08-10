@@ -255,11 +255,16 @@ class Point(np.ndarray):
 	def length(self) -> FLOAT:
 		return np.sqrt(self.sq_length())
 
+	@jit
 	def sq_dist(self, other) -> FLOAT:
-		return (self - other).sq_length()
-	
+		return (self.x - other.x) * (self.x - other.x) + \
+			   (self.y - other.y) * (self.y - other.y) + \
+			   (self.z - other.z) * (self.z - other.z)
+	@jit
 	def dist(self, other) -> FLOAT:
-		return (self - other).length()
+		return np.sqrt((self.x - other.x) * (self.x - other.x) + 
+					   (self.y - other.y) * (self.y - other.y) + 
+					   (self.z - other.z) * (self.z - other.z))
 
 class Normal(np.ndarray):
 	'''
