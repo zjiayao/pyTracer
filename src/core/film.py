@@ -61,7 +61,6 @@ class Film(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.film {}.get_pixel_extent(): abstract method '
 									'called'.format(self.__class__)) 	
 
-	@abstractmethod
 	def update_display(self, x0: INT, y0: INT, x1: INT, y1: INT, splat_scale: FLOAT) -> [INT]:
 		'''
 		Update the window while rendering,

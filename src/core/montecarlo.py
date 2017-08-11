@@ -59,9 +59,9 @@ def rejection_sample_disk(rng=np.random.rand) -> [FLOAT, FLOAT]:
 	return [x, y]
 
 @jit
-def uniform_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
+def uniform_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	'''
-	uniform_sapmle_hemisphere()
+	uniform_sample_hemisphere()
 
 	Sampling unifromly
 	on a unit hemishpere.
@@ -82,9 +82,9 @@ def uniform_hermisphere_pdf() -> FLOAT:
 	return INV_2PI
 
 @jit
-def uniform_sapmle_sphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
+def uniform_sample_sphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	'''
-	uniform_sapmle_sphere()
+	uniform_sample_sphere()
 
 	Sampling unifromly
 	on a unit shpere.
@@ -108,9 +108,9 @@ def uniform_sphere_pdf() -> FLOAT:
 
 
 @jit
-def uniform_sapmle_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
+def uniform_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	'''
-	uniform_sapmle_disk()
+	uniform_sample_disk()
 
 	Sampling unifromly
 	on a unit disk.
@@ -123,9 +123,9 @@ def uniform_sapmle_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 
 
 @jit
-def concentric_sapmle_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
+def concentric_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	'''
-	concentric_sapmle_disk()
+	concentric_sample_disk()
 
 	Concentric sampling on
 	unit disk by Peter Shirley.
@@ -172,9 +172,9 @@ def concentric_sapmle_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	return [r * np.cos(theta), r * np.sin(theta)]
 
 @jit
-def cosine_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
+def cosine_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	'''
-	cosine_sapmle_hemisphere()
+	cosine_sample_hemisphere()
 
 	Sampling from a cosine-weighted
 	hemishpere distribution by projecting
@@ -183,7 +183,7 @@ def cosine_sapmle_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	`u1` and `u2` are two
 	random numbers passed in.
 	'''
-	vec = concentric_sapmle_disk(u1, u2)
+	vec = concentric_sample_disk(u1, u2)
 	vec.z = np.sqrt(max(0., 1. - vec.x * vec.x - vex.y * vec.y))
 	return vec
 
@@ -192,7 +192,7 @@ def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT) -> FLOAT:
 	cosine_hemisphere_pdf()
 
 	Returns the pdf w.r.t.
-	the solid angle of cosine_sapmle_hemisphere()
+	the solid angle of cosine_sample_hemisphere()
 	'''
 	return costheta * INV_PI
 

@@ -33,8 +33,8 @@ from src.core.transform import *
 from src.core.shape import *
 
 class Intersection(object):
-	def __init__(self, dg: 'DifferentialGeometry', pr: 'Primitive',
-			w2o: 'Transform', o2w: 'Transform', sh_id: INT, pr_id: INT, rEps: FLOAT):
+	def __init__(self, dg: 'DifferentialGeometry'=None, pr: 'Primitive'=None,
+			w2o: 'Transform'=None, o2w: 'Transform'=None, sh_id: INT=0, pr_id: INT=0, rEps: FLOAT=0.):
 		self.dg = dg
 		self.primitive = pr
 		self.w2o = w2o
@@ -71,7 +71,7 @@ class Primitive(object, metaclass=ABCMeta):
 	next_primitiveId = 1
 	def __init__(self):
 		Primitive.__primitiveId = Primitive.next_primitiveId
-		GP.next_primitiveId += 1
+		Primitive.next_primitiveId += 1
 
 	def __repr__(self):
 		return "{}\nPrimitive ID: {}\nNext Primitive ID: {}" \

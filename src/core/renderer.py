@@ -13,6 +13,7 @@ import  multiprocessing
 
 from src.core.pytracer import *
 from src.core.scene import *
+from src.core.sampler import *
 
 class Renderer(object, metaclass=ABCMeta):
 	'''
@@ -75,26 +76,32 @@ class SamplerRenderer(Renderer):
 
 	def render(self, scene: 'Scene'):
 		# integrator proprocessing
-		self.surf_integrator.preprocess(scene, self.camera, self)
-		self.vol_integrator.preprocess(scene, self.camera, self)
+		if self.surf_integrator is not None:
+			self.surf_integrator.preprocess(scene, self.camera, self)
+		if self.vol_integrator is not None:
+			self.vol_integrator.preprocess(scene, self.camera, self)
 
 		# init sample
 		sample = Sample(self.sampler, self.surf_integrator, self.vol_integrator,
 							scene)		
 		
+
+		task = SamplerRendererTask(scene, self, self.camera, 
+									self.sampler, sample, 1, 1)
+		task()		
 		# main rendering loop: launch tasks
 		## numer of samples
-		n_pixels = self.camera.film.xResolution * self.camera.film.yResolution
-		n_tasks = max(32 *  multiprocessing.cpu_count(), n_pixels / (16 * 16))
-		n_tasks = round_pow_2(n_tasks)
-		
-		render_tasks = []
-		for i in range(n_tasks):
-			render_tasks.append(SamplerRendererTask(scene, self, self.camera, 
-									self.sampler, sample, n_tasks-1-i, n_tasks))
-		enqueue_tasks(render_tasks)
-		wait_for_tasks()
-
+		#n_pixels = self.camera.film.xResolution * self.camera.film.yResolution
+		#n_tasks = max(32 *  multiprocessing.cpu_count(), n_pixels / (16 * 16))
+		#n_tasks = round_pow_2(n_tasks)
+		# n_tasks = 1
+		# render_tasks = []
+		# for i in range(n_tasks):
+			# render_tasks.append(SamplerRendererTask(scene, self, self.camera, 
+									# self.sampler, sample, n_tasks-1-i, n_tasks))
+		#enqueue_tasks(render_tasks)
+		#wait_for_tasks()
+		# render_tasks[0]()
 		# store result
 		self.camera.film.write_image()
 
@@ -119,12 +126,13 @@ class SamplerRendererTask():
 
 	def __call__(self):
 		# get sub-sampler
-		sampler = self.main_sampler.get_subsampler(self.task_num, self.task_cnt)
+		# sampler = self.main_sampler.get_subsampler(self.task_num, self.task_cnt)
+		sampler = self.main_sampler
 		if sampler is None:
 			return
 
 		# variables for rendering loop
-		# memory managed by pytohn
+		# memory managed by python
 		rng = np.random.rand
 
 		# allocate space for samples and isects
@@ -134,12 +142,18 @@ class SamplerRendererTask():
 		Ts = [Spectrum() for _ in range(max_smp)]
 		isects = [Intersection() for _ in range(max_smp)]
 
+
 		# get samples and update image
 		for samples in sampler:
 			assert(samples is not None)
+
+			print('Rendering: ({},{})\n'.format(sampler.xPos, sampler.yPos))
+
 			cnt = len(samples)
 			# generate camera ray and compute radiance
 			for i, sample in enumerate(samples):
+				print('    Sample: {}/{}\n'.format(i+1, cnt))
+
 				## find camera ray for i-th sample
 				wt, rays[i] = self.camera.generate_ray_differential(sample)
 				rays[i].scale_differential(1. / np.sqrt(sampler.spp))
@@ -151,7 +165,7 @@ class SamplerRendererTask():
 					Ls[i] = Spectrum(0.)
 					Ts[i] = Spectrum(1.)
 			# report results, add contribution
-			if sampler.report_results(samples, ray, Ls, isect):
+			if sampler.report_results(samples, rays, Ls, isects):
 				for i, sample in enumerate(samples):
 					self.camera.film.add_sample(sample, ls[i])
 

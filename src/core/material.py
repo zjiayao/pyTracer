@@ -23,7 +23,7 @@ class Material(object, metaclass=ABCMeta):
 		return "{}\n".format(self.__class__)
 
 	@abstractmethod	
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		'''
 		dg_g: Geometric DG object
 		dg_s: Shading DG object
@@ -31,7 +31,7 @@ class Material(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.material.{}.get_BSDF: abstract method '
 									'called'.format(self.__class__)) 	
 
-	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF:
+	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF':
 		'''
 		get_BSSRDF()
 
@@ -113,7 +113,7 @@ class MatteMaterial(Material):
 		self.bump_map = bump_map
 
 
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		# possibly bump mapping
 		if self.bump_map is not None:
 			dgs = self.bump(self.bump_map, dg_g, dg_s)
@@ -157,7 +157,7 @@ class PlasticMaterial(Material):
 		self.bump_map = bump_map
 
 
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		# possibly bump mapping
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
@@ -200,7 +200,7 @@ class MixMaterial(Material):
 		self.scale = scale
 
 
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		'''
 		BSDF in m1 (i.e., `m1.bdfs`) is modified
 		'''
@@ -244,7 +244,7 @@ class MeasuredMaterial(Material):
 		name, ext = os.path.splitext(file)
 
 		# Irregular Sampled Isotropic BRDF
-		if ext == 'brdf' or ext == 'BRDF':
+		if ext == '.brdf' or ext == '.BRDF':
 			if file in IrIsotropicData:
 				# already read
 				self.theta_phi_tree, self.theta_phi_sample = IrIsotropicData[file]
@@ -299,7 +299,7 @@ class MeasuredMaterial(Material):
 			IrIsotropicData[file] = [self.theta_phi_samples, self.theta_phi_tree]
 		
 
-		elif ext == 'binary':
+		elif ext == '.binary':
 			# Regular Halfangle BRDF
 			self.n_theta_h = 90
 			self.n_theta_d = 90
@@ -325,7 +325,7 @@ class MeasuredMaterial(Material):
 
 
 
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		'''
 		BSDF in m1 (i.e., `m1.bdfs`) is modified
 		'''
@@ -364,7 +364,7 @@ class SubsurfaceMaterial(Material):
 		self.eta = eta
 		self.bump_map = bump_map
 
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
@@ -378,7 +378,7 @@ class SubsurfaceMaterial(Material):
 		return bsdf
 
 
-	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF:
+	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF':
 		'''
 		get_BSSRDF()
 
@@ -396,7 +396,7 @@ class KdSubsurfaceMaterial(Material):
 
 	Models translucent objects
 	'''
-	def __init__(self, kd: 'Texture, kr: 'Texture', mfp: 'Texture',
+	def __init__(self, kd: 'Texture', kr: 'Texture', mfp: 'Texture',
 					eta: 'Texture', bump_map: 'Texture'):
 		self.kd = kd
 		self.kr = kr
@@ -404,7 +404,7 @@ class KdSubsurfaceMaterial(Material):
 		self.eta = eta
 		self.bump_map = bump_map
 
-	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF:
+	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
@@ -419,7 +419,7 @@ class KdSubsurfaceMaterial(Material):
 		return bsdf
 
 
-	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF:
+	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF':
 		'''
 		get_BSSRDF()
 

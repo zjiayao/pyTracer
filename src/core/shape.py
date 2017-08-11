@@ -1003,6 +1003,13 @@ class Sphere(Shape):
 		# if self.ro:
 		# 	Ns *= -1.
 		# return [self.o2w(p), Ns]
+		
+	def refine(self) -> ['Shape']:
+		'''
+		If `Shape` cannot intersect,
+		return a refined subset
+		'''
+		raise NotImplementedError('Intersecable shapes are not refineable')
 
 	def sample_p(self, pnt: 'Point', u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
 		'''

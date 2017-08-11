@@ -10,6 +10,8 @@ from numba import jit
 from abc import ABCMeta, abstractmethod  
 import numpy as np
 from src.core.pytracer import *
+from src.core.transform import *
+from src.core.montecarlo import *
 
 
 class Camera(object, metaclass=ABCMeta):
@@ -92,6 +94,8 @@ class ProjectiveCamera(Camera):
 		r2s = s2r.inverse()
 		self.r2c = self.c2s.inverse() * r2s
 
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'Ray']:
+		pass
 
 class OrthoCamera(ProjectiveCamera):
 	'''
@@ -120,11 +124,11 @@ class OrthoCamera(ProjectiveCamera):
 		ray = Ray(Pcam, Vector(0., 0., 1.), 0., np.inf)
 		
 		# modify ray for dof
-		if lensr > 0.:
+		if self.lens_rad > 0.:
 			# sample point on lens
 			## todo: concentric_sample_disk
 			lens_u, lens_v = \
-				src.sampler.monte_carlo.concentric_sample_disk(sample.lens_u, sample.lens_v)
+				concentric_sample_disk(sample.lens_u, sample.lens_v)
 			lens_u *= self.lens_rad
 			lens_v *= self.lens_rad
 
@@ -164,6 +168,7 @@ class PerspectiveCamera(ProjectiveCamera):
 	'''
 	def __init__(self, c2w: 'AnimatedTransform', scr_win: [FLOAT],
 					s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, fov: FLOAT, f: 'Film'):
+
 		super().__init__(c2w, Transform.perspective(fov, .001, 1000.), # non-raster based, set arbitrarily
 				scr_win, s_open, s_close, lensr, focald, f)
 		# compute differential changes in origin
@@ -182,11 +187,11 @@ class PerspectiveCamera(ProjectiveCamera):
 
 		ray = Ray(Point(0., 0., 0.), Pcam, 0., np.inf) # ray.d is a Vector init from a Point
 		# modify ray for dof
-		if lensr > 0.:
+		if self.lens_rad > 0.:
 			# sample point on lens
 			## todo: concentric_sample_disk
 			lens_u, lens_v = \
-				src.sampler.monte_carlo.concentric_sample_disk(sample.lens_u, sample.lens_v)
+				concentric_sample_disk(sample.lens_u, sample.lens_v)
 			lens_u *= self.lens_rad
 			lens_v *= self.lens_rad
 

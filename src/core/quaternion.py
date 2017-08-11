@@ -65,6 +65,44 @@ def fromTransform(t: 'Transform') -> 'Quaternion':
 
 		return Quaternion(q[0], q[1], q[2], w)
 
+
+@jit
+def fromArr(t: 'np.ndarray') -> 'Quaternion':
+	m = t
+	tr = m.trace()
+
+	if tr > .0:
+		s = np.sqrt(tr + 1.)
+		w = s / 2.
+		s = .5 / s
+		x = (m[2, 1] - m[1, 2]) * s
+		y = (m[0, 2] - m[2, 0]) * s
+		z = (m[1, 0] - m[0, 1]) * s
+		return Quaternion(x, y, z, w)
+
+	else:
+		nxt = [1, 2, 0]
+		q = [0, 0, 0]
+		i = 0
+		if m[1, 1] > m[0, 0]:
+			i = 1
+		if m[2, 2] < m[i, i]:
+			i = 2
+		j = nxt[i]
+		k = nxt[j]
+
+		s = np.sqrt((m[i, i] - (m[j, j] + m[k, k])) + 1.)
+
+		q[i] = s * .5
+		if s != .0:
+			s = .5 / s
+		w = (m[k, j] - m[j, k]) * s
+		q[j] = (m[j, i] + m[i, j]) * s
+		q[k] = (m[k, i] + m[i, k]) * s
+
+		return Quaternion(q[0], q[1], q[2], w)
+
+
 @jit
 def slerp(t: FLOAT, q1: 'Quaternion', q2: 'Quaternion') -> 'Quaternion':
 	cosTheta = Dot(q1, q2)

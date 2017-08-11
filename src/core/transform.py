@@ -240,7 +240,7 @@ class Transform(object):
 	@jit
 	def perspective(cls, fov: FLOAT, n: FLOAT, f: FLOAT, dtype=FLOAT):
 		# projective along z
-		m = np.eye((4,4), dtype=dtype)
+		m = np.eye(4, dtype=dtype)
 		m[2, 2] = f / (f - n)
 		m[2, 3] = -f * n / (f - n)
 		m[3, 2] = 1.
@@ -278,15 +278,15 @@ class AnimatedTransform(object):
 		self.endTransform = t2
 		self.animated = (t1 != t2)
 		T = R = S = [None, None]
-		T[0], R[0], S[0] = AnimatedTransform.Decompose(self.startTransform.m)
-		T[1], R[1], S[1] = AnimatedTransform.Decompose(self.endTransform.m)
+		T[0], R[0], S[0] = AnimatedTransform.Decompose(t1.m)
+		T[1], R[1], S[1] = AnimatedTransform.Decompose(t2.m)
 
 	def __repr__(self):
 		return "{}\nTime: {} - {}\nAnimated: {}".format(self.__class__,
 				self.startTime, self.endTime, self.animated)
 
 	def __call__(self, arg_1, arg_2=None):
-		if isinstance(arg1, 'Ray') and arg_2 is None:
+		if isinstance(arg_1, Ray) and arg_2 is None:
 			r = arg_1
 			if not self.animated or r.time < self.startTime:
 				tr = self.startTransform(r)
@@ -297,8 +297,8 @@ class AnimatedTransform(object):
 			tr.time = r.time
 			return tr
 
-		elif isinstance(arg1, FLOAT) and isinstance(arg_2, 'Point'):
-			time = arg1
+		elif isinstance(arg_1, FLOAT) and isinstance(arg_2, Point):
+			time = arg_1
 			p  = arg_2
 			if not self.animated or time < self.startTime:
 				return self.startTransform(p)
@@ -306,8 +306,8 @@ class AnimatedTransform(object):
 				return self.endTransform(p)
 			return self.interpolate(time)(p)
 
-		elif isinstance(arg1, FLOAT) and isinstance(arg_2, 'Vector'):
-			time = arg1
+		elif isinstance(arg_1, FLOAT) and isinstance(arg_2, Vector):
+			time = arg_1
 			v  = arg_2
 			if not self.animated or time < self.startTime:
 				return self.startTransform(v)
@@ -357,8 +357,9 @@ class AnimatedTransform(object):
 			D = np.fabs(Rnext - Rit)[0:3, 0:3]
 			norm = max(norm, np.max( np.sum(D, axis=0) ))
 			R = Rnext
-		Rquat = quat.fromTransform(R)
-		S = np.linalg.inv(R).mul(M)
+
+		Rquat = quat.fromArr(R)
+		S = np.linalg.inv(R).dot(M)
 
 		return T, Rquat, S
 
