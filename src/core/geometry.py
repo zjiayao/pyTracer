@@ -410,7 +410,21 @@ class RayDifferential(Ray):
 		initialize from a ray, analogous to a copy constructor
 		'''
 		return cls(r.o, r.d, r.mint, r.maxt, r.depth, r.time)
-	
+
+	@classmethod
+	def fromRD(cls, r: 'RayDifferential'):
+		'''
+		initialize from a `RayDifferential`, analogous to a copy constructor
+		'''
+		self = cls(r.o, r.d, r.mint, r.maxt, r.depth, r.time)		
+		self.hasDifferentials = r.hasDifferentials
+		self.rxOrigin    = r.rxOrigin.copy()
+		self.ryOrigin    = r.ryOrigin.copy()
+		self.rxDirection = r.rxDirection.copy()
+		self.ryDirection = r.ryDirection.copy()
+		
+		return self
+
 	def scale_differential(self, s:FLOAT):
 		self.rxOrigin = o + (rxOrigin - o) * s
 		self.ryOrigin = o + (ryOrigin - o) * s

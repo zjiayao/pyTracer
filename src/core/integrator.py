@@ -73,11 +73,11 @@ def uniform_sample_all_lights(scene: 'Scene', renderer: 'Renderer', p: 'Point', 
 
 
 @jit
-def uniform_sample_one_lights(scene: 'Scene', renderer: 'Renderer', p: 'Point', n: 'Normal', 
-		wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_num_offset: INT,
-		light_offsets: ['LightSampleOffset'], bsdf_offsets: ['BSDFSampleOffset'], rng=np.random.rand):
+def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'Point', n: 'Normal', 
+		wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_num_offset: INT=-1,
+		light_offsets: ['LightSampleOffset']=None, bsdf_offsets: ['BSDFSampleOffset']=None, rng=np.random.rand):
 	'''
-	uniform_sample_one_lights()
+	uniform_sample_one_light()
 
 	random choose one light to sample
 	and multiply with number of lights
@@ -418,7 +418,7 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 						bsdf, sample, self.light_sample_offsets, self.bsdf_sample_offsets, rng)
 
 			elif self.strategy == LightStrategy.SAMPLE_ONE_UNIFORM:
-				L += uniform_sample_one_lights(scene, renderer, p, n, wo, isect.rEps, ray.time, 
+				L += uniform_sample_one_light(scene, renderer, p, n, wo, isect.rEps, ray.time, 
 						bsdf, sample, self.light_num_offset, self.light_sample_offsets, self.bsdf_sample_offsets, rng)
 
 			else:
@@ -433,9 +433,126 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 
 
 
+class PathIntegrator(SurfaceIntegrator):
+	'''
+	PathIntegrator
 
+	Path tracing using Russian roulette.
+	Also support maximum depth.
+	'''
+	SAMPLE_DEPTH = 3
 
+	def __init__(self, max_depth: INT=5):
+		self.max_depth = max_depth
+		self.__light_num_offset = [0 for _ in PathIntegrator.SAMPLE_DEPTH]
+		self.__light_sample_offsets = [None for _ in PathIntegrator.SAMPLE_DEPTH]
+		self.__bsdf_sample_offsets = [None for _ in PathIntegrator.SAMPLE_DEPTH]
+		self.__path_sample_offsets = [None for _ in PathIntegrator.SAMPLE_DEPTH]
 
+	def request_samples(self, sampler: 'Sampler', sample: 'Sample', scene: 'Scene'):
+		# after first few bounces switches to uniform random
+		for i in range(self.SAMPLE_DEPTH):
+			self.__light_sample_offsets[i] = LightSampleOffset(1, sample)
+			self.__light_num_offset[i] = sample.add1d(1)
+			self.__bsdf_sample_offsets[i] = BSDFSampleOffset(1, sample)
+			self.__path_sample_offsets[i] = BSDFSampleOffset(1, sample)
+
+	@jit
+	def li(self, scene: 'Scene', renderer: 'Renderer', r: 'RayDifferential',
+			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
+		# common variables
+		## product of BSDF and cosines for vertices
+		## generated so far, divided by pdf's
+		path_throughput = Spectrum(1.)
+
+		## radiance from the running total of amount of
+		## scattered ($\sum P(\bar{p_i})$)
+		L = Spectrum(0.)
+
+		## next ray to be traced to extend the path
+		ray = r#RayDifferential.fromRD(r)
+
+		## records if last outgoing direction sample
+		## was due to specular reflection
+		specular_bounce = False
+
+		## most recently added vertex
+		isectp = isect
+
+		## subsequent vertex
+		local_isect = Intersection()
+
+		bounce_cnt = 0
+		while True:
+			# add possibly emitted light
+			if bounce_cnt == 0 or specular_bounce:
+				## emitted light is included by
+				## previous tracing via direct lighting
+				## exceptions for the first tracing or sampling a
+				## specular direction since it is omitted from estimate_direct()
+				L += path_throughput * isectp.le(-ray.d)
+
+			# sample illumination from lights
+			bsdf = isectp.get_BSDF(ray)
+			p = bsdf.dgs.p
+			n = bsdf.dgs.nn
+			wo = -ray.d
+
+			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
+				# use samples
+				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,
+						isectp.rEps, ray.time, bsdf, sample, self.__light_num_offset[bounce_cnt],
+						self.__light_sample_offsets[bounce_cnt], self.__bsdf_sample_offsets[bounce_cnt], rng=rng)
+			else:
+				# use uniform random
+				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,
+						isectp.rEps, ray.time, bsdf, sample, rng=rng)
+
+			# sample BSDF to get new direction
+			## get BSDFSample for new direction
+			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
+				out_bsdf_smp = BSDFSample.fromSample(sample, self.__path_sample_offsets[bounce_cnt], 0)
+			else:
+				out_bsdf_smp = BSDFSample.fromRand(rng)
+
+			pdf, wi, flags, f = bsdf.sample_f(wo, out_bsdf_smp, BDFType.ALL)
+
+			if f.is_black() or pdf == 0.:
+				break
+
+			specular_bounce = (flags & BDFType.SPECULAR) != 0
+			path_throughput *= f * wi.abs_dot(n) / pdf
+			ray = RayDifferential(p, wi, ray, isectp.rEps)
+
+			# possibly terminate
+			if bounce_cnt > PathIntegrator.SAMPLE_DEPTH:
+				cont_prob = min(.5, path_throughput.y())	# high prob for terminating for low contribution paths
+				if rng() > cont_prob:
+					break
+
+				# otherwise apply Russian roulette
+				path_throughput /= cont_prob
+
+			if bounce_cnt == self.max_depth:
+				break
+
+			# find next vertex
+			hit, local_isect = scene.intersect(ray)
+			if not hit:
+				# ambient light
+				if specular_bounce:
+					for light in scene.lights:
+						L += path_throughput * light.le(ray)
+				break
+
+			if bounce_cnt > 1:
+				path_throughput *= renderer.transmittance(scene, ray, None, rng)
+
+			isectp = local_isect
+
+			bounce_cnt += 1
+
+		return L
 
 
 
