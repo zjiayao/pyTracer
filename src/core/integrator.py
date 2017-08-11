@@ -444,16 +444,16 @@ class PathIntegrator(SurfaceIntegrator):
 
 	def __init__(self, max_depth: INT=5):
 		self.max_depth = max_depth
-		self.__light_num_offset = [0 for _ in PathIntegrator.SAMPLE_DEPTH]
-		self.__light_sample_offsets = [None for _ in PathIntegrator.SAMPLE_DEPTH]
-		self.__bsdf_sample_offsets = [None for _ in PathIntegrator.SAMPLE_DEPTH]
-		self.__path_sample_offsets = [None for _ in PathIntegrator.SAMPLE_DEPTH]
+		self.__light_num_offset = [0 for _ in range(PathIntegrator.SAMPLE_DEPTH)]
+		self.__light_sample_offsets = [None for _ in range(PathIntegrator.SAMPLE_DEPTH)]
+		self.__bsdf_sample_offsets = [None for _ in range(PathIntegrator.SAMPLE_DEPTH)]
+		self.__path_sample_offsets = [None for _ in range(PathIntegrator.SAMPLE_DEPTH)]
 
 	def request_samples(self, sampler: 'Sampler', sample: 'Sample', scene: 'Scene'):
 		# after first few bounces switches to uniform random
 		for i in range(self.SAMPLE_DEPTH):
 			self.__light_sample_offsets[i] = LightSampleOffset(1, sample)
-			self.__light_num_offset[i] = sample.add1d(1)
+			self.__light_num_offset[i] = sample.add_1d(1)
 			self.__bsdf_sample_offsets[i] = BSDFSampleOffset(1, sample)
 			self.__path_sample_offsets[i] = BSDFSampleOffset(1, sample)
 
