@@ -5,3 +5,5 @@ __pycache__/
 /tmp
 /src/shapes
 /src/spectral
+/testcase
+rt.py
