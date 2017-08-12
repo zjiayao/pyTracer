@@ -13,7 +13,6 @@ import quaternion
 from src.core.pytracer import *
 from src.core.transform import *
 
-Quaternion = np.quaternion
 
 @jit
 def Dot(q1: 'Quaternion', q2: 'Quaternion') -> 'FLOAT':

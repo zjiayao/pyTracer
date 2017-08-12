@@ -1,18 +1,19 @@
-'''
+"""
 pytracer.py
 
 This module is part of the pyTracer, which
 holds global definitions
 
 Created by Jiayao on July 27, 2017
-'''
+"""
 
 from __future__ import print_function
 import os, sys, glob
 
 from numba import jit
 import numpy as np
-from scipy import spatial # cKdTree
+import quaternion
+from scipy import spatial  # cKdTree
 import PIL.Image
 
 # Type Alias
@@ -20,11 +21,11 @@ import PIL.Image
 KdTree = spatial.cKDTree
 
 # Global Constant
-
+Quaternion = np.quaternion
 EPS = 1e-5
 INT = int
 UINT = np.uint32
-FLOAT = np.float64
+FLOAT = float
 DOUBLE = np.float64
 HANDNESS = 'left'
 
@@ -40,42 +41,58 @@ ReHalfangleData = {}
 
 # Global Functions
 
+
 def feq(x: FLOAT, y: FLOAT):
 	return np.isclose(x, y, atol=EPS)
 
+
 def eq_unity(x: FLOAT):
-	return x > 1. - EPS and x < 1. + EPS	
+	return (x > 1. - EPS) and (x < 1. + EPS)
+
 
 def ne_unity(x: FLOAT):
 	return x < 1. - EPS or x > 1. + EPS	
 
+
 def ftoi(x: FLOAT): return INT(np.floor(x))
+
+
 def ctoi(x: FLOAT): return INT(np.ceil(x))
+
+
 def rtoi(x: FLOAT): return INT(np.round(x))
+
 
 @jit
 def Lerp(t: FLOAT, v1: FLOAT, v2: FLOAT):
-	'''
+	"""
 	Lerp
 	Linear interpolation between `v1` and `v2`
-	'''
+	"""
 	return (1. - t) * v1 + t * v2
 
+
 def round_pow_2(x: INT) -> UINT: return UINT(2 ** np.round(np.log2(x)))
+
+
 def next_pow_2(x: INT) -> UINT: return UINT(2 ** np.ceil(np.log2(x)))
+
+
 def is_pow_2(x: INT) -> bool: return True if x == 0 else (np.log2(x) % 1) == 0.
 
+
 ufunc_lerp = np.frompyfunc(Lerp, 3, 1)
+
 
 # Utilities
 from src.core.spectrum import *
 
 
 def read_image(filename: str) -> 'Spectrum':
-	'''
+	"""
 	Reads an image and returns a list
 	of `Spectrum` list, width and height
-	'''
+	"""
 	if filename is None:
 		raise IOError('scr.core.pytracer.read_image(): filename cannot be None')
 
@@ -87,8 +104,8 @@ def read_image(filename: str) -> 'Spectrum':
 		# avoid expensive resizing in src.core.texture.MIPMap.__init__()
 		if (not is_pow_2(width)) or (not is_pow_2(height)):
 			# resample to power of 2
-			width = next_pow_2(sres)
-			height = next_pow_2(tres)
+			width = next_pow_2(width)
+			height = next_pow_2(height)
 			pic.resize((width, height))
 			img = np.array(pic)
 
@@ -133,7 +150,7 @@ def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
 		else:
 			if not os.path.exists(filename):
 				raise RuntimeError('scr.core.pytracer.write_image(): cannot find {} '
-									'to update'.format(filename))
+														'to update'.format(filename))
 			# update img
 			pic = PIL.Image.open(filename)
 			img = np.array(pic)

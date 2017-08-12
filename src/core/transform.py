@@ -18,7 +18,7 @@ class Transform(object):
 	'''
 	Transform class
 	'''
-	@jit
+
 	def __init__(self, m=None, mInv=None, dtype=FLOAT):
 		if m is None:
 			self.__m = np.eye(4,4, dtype=dtype)
@@ -72,6 +72,12 @@ class Transform(object):
 			# must be transformed by inverse transpose
 			res = self.mInv[0:3, 0:3].T.dot(arg)
 			return Normal(res[0], res[1], res[2])
+
+		elif isinstance(arg, RayDifferential):
+			r = RayDifferential.fromRD(arg)
+			r.o = self(r.o)
+			r.d = self(r.d)
+			return r
 
 		elif isinstance(arg, Ray):
 			r = Ray.fromRay(arg)
@@ -321,7 +327,7 @@ class AnimatedTransform(object):
 	@jit
 	def motion_bounds(self, b: 'BBox', useInv: bool) -> 'BBox':
 		if not self.animated:
-			return startTransform.inverse()(b)
+			return self.startTransform.inverse()(b)
 		ret = BBox()
 		steps = 128
 		for i in range(128):
@@ -375,8 +381,8 @@ class AnimatedTransform(object):
 		dt = (time - self.startTime) / (self.endTime - self.startTime)
 
 		trans = (1. - dt) * self.T[0] + dt * self.T[1]
-		rot = quat.slerp(dt, R[0], R[1])
-		scale = ufunc_lerp(dt, S[0], S[1])
+		rot = quat.slerp(dt, self.R[0], self.R[1])
+		scale = ufunc_lerp(dt, self.S[0], self.S[1])
 
 		t = Transform.translate(trans) * quat.toTransform(rot) * Transform(scale)
 

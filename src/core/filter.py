@@ -1,10 +1,10 @@
-'''
+"""
 filter.py
 
 The base class to model filters.
 
 Created by Jiayao on Aug 1, 2017
-'''
+"""
 
 from numba import jit
 from abc import ABCMeta, abstractmethod
@@ -13,9 +13,9 @@ import numpy as np
 from src.core.pytracer import *
 
 class Filter(object, metaclass=ABCMeta):
-	'''
+	"""
 	Filter class
-	'''
+	"""
 
 	def __init__(self, xw: FLOAT, yw: FLOAT):
 		self.xw = xw

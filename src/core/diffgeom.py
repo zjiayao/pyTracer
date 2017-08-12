@@ -1,4 +1,4 @@
-'''
+"""
 diffgeo.py
 
 This module is part of the pyTracer, which
@@ -6,25 +6,26 @@ defines differential geometric operations.
 
 v0.0
 Created by Jiayao on July 28, 2017
-'''
-'''
+"""
+"""
 imp.reload(src.core.pytracer)
 imp.reload(src.core.geometry)
 imp.reload(src.core.transform)
 from src.core.pytracer import *
 from src.core.geometry import *
 from src.core.transform import *
-'''
+"""
 
 import numpy as np
 from src.core.pytracer import *
 from src.core.geometry import *
 from src.core.shape import *
 
-class DifferentialGeometry:
-	'''
+
+class DifferentialGeometry(object):
+	"""
 	Differential Geometry class
-	'''
+	"""
 	def __init__(self, P: 'Point', DPDU: 'Vector', DPDV: 'Vector',
 				 DNDU: 'Normal', DNDV: 'Normal', uu: 'FLOAT',
 				 vv: 'FLOAT', sh: 'Shape'):
@@ -55,9 +56,8 @@ class DifferentialGeometry:
 		return DifferentialGeometry(self.p, self.dpdu, self.dpdv,
 				self.dndu, self.dndv, self.u, self.v, self.shape)
 
-	@jit
 	def compute_differential(self, ray:'RayDifferential'):
-		if ray.has_differential:
+		if ray.has_differentials:
 			# estimate screen space change in p and (u, v)
 			## compute intersections of incremental rays
 			d = -self.nn.dot(self.p)
@@ -89,12 +89,12 @@ class DifferentialGeometry:
 
 			try:
 				[self.dudx, self.dvdx] = np.linalg.solve(A, Bx)
-			except numpy.linalg.linalg.LinAlgError:
+			except np.linalg.linalg.LinAlgError:
 				[self.dudx, self.dvdx] = [0., 0.]
 
 			try:
 				[self.dudy, self.dvdy] = np.linalg.solve(A, By)
-			except numpy.linalg.linalg.LinAlgError:
+			except np.linalg.linalg.LinAlgError:
 				[self.dudy, self.dvdy] = [0., 0.]			
 
 		else:

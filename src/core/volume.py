@@ -1,18 +1,19 @@
-'''
+"""
 volume.py
 
 Model volume scatterings.
 
 Created by Jiayao on Aug 7, 2017
-'''
+"""
 from numba import jit
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 import numpy as np
 from src.core.pytracer import *
 from src.core.geometry import *
-from src.core.diffgeom import *
+
 from src.core.spectrum import *
+from src.core.diffgeom import *
 from src.core.reflection import *
 
 
@@ -20,7 +21,7 @@ from src.core.reflection import *
 ## Phase Functions
 @jit
 def phase_isotrophic(w: 'Vector', wp: 'Vector') -> FLOAT:
-	return 1. / (4. * PI
+	return 1. / (4. * PI)
 
 @jit
 def phase_rayleigh(w: 'Vector', wp: 'Vector') -> FLOAT:
@@ -39,10 +40,10 @@ def phase_mie_murky(w: 'Vector', wp: 'Vector') -> FLOAT:
 
 @jit
 def phase_hg(w: 'Vector', wp: 'Vector', g: FLOAT) -> FLOAT:
-	'''
+	"""
 	g: asymmetry parameter
 	controls the distribution of light
-	'''
+	"""
 	ct = w.dot(wp)
 	return ((1. - g * g) / np.power(1. + g * g - 2. * g * ct, 1.5)) / (4. * PI);
 
@@ -54,24 +55,25 @@ def phase_schlick(w: 'Vector', wp: 'Vector', g: FLOAT) -> FLOAT:
 
 ## Util Functions
 @jit
-def subsurface_from_diffuse(kd: 'Spectrum', mfp: FLOAT, eta: FLOAT): -> ['Spectrum', 'Spectrum']:
-	'''
+def subsurface_from_diffuse(kd: 'Spectrum', mfp: FLOAT, eta: FLOAT) -> ['Spectrum', 'Spectrum']:
+	"""
 	Subsurface from Diffuse
 	Returns:
 	[sigma_a: 'Spectrum', sigma_prime_s: 'Spectrum']
 	TODO
-	'''
+	"""
 	pass
+
 
 # Volume Interface
 
 class VolumeRegion(object, metaclass=ABCMeta):
-	'''
+	"""
 	VolumeRegion Class
 
 	Models volume scattering in a
 	region of the scene.
-	'''
+	"""
 	def __init__(self):
 		pass
 
@@ -86,93 +88,93 @@ class VolumeRegion(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def intersectP(self, ray: 'Ray') ->  [bool, FLOAT, FLOAT]:
-		'''
+		"""
 		intersectP()
 
 		Returns the parameter range of segment
 		that overlaps the volume
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.intersectP(): abstract method '
 									'called'.format(self.__class__)) 
 
 	@abstractmethod
 	def sigma_a(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		'''
+		"""
 		sigma_a()
 
 		Given world point, direction and time.
 		Returns absorption property.
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.sigma_a(): abstract method '
 									'called'.format(self.__class__)) 
 
 
 	@abstractmethod
 	def sigma_s(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		'''
+		"""
 		sigma_s()
 
 		Given world point, direction and time.
 		Returns scattering property.
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.sigma_s(): abstract method '
 									'called'.format(self.__class__)) 
 
 	@abstractmethod
 	def lve(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		'''
+		"""
 		lve()
 
 		Given world point, direction and time.
 		Returns emission property.
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.lve(): abstract method '
 									'called'.format(self.__class__)) 
 
 
 	@abstractmethod
 	def p(self, pnt: 'Point', wi: 'Vector', wo: 'Vector', tm: FLOAT) ->  FLOAT:
-		'''
+		"""
 		p()
 
 		Given world point, a pair of directions and time.
 		Returns value of phase function.
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.p(): abstract method '
 									'called'.format(self.__class__)) 
 
 	@abstractmethod
-	def tau(self, ray: 'Ray', step: FLOAT=1., offset: FLOAT=.5) ->  'Spectrum:
-		'''
+	def tau(self, ray: 'Ray', step: FLOAT=1., offset: FLOAT=.5) ->  'Spectrum':
+		"""
 		tau()
 
 		Returns optical thickness within ray
 		segment.
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.tau(): abstract method '
 									'called'.format(self.__class__)) 
 
 	@property
 	def sigma_t(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		'''
+		"""
 		sigma_t()
 
 		Given world point, direction and time.
 		Returns attenuation coefficient, the sum
 		of sigma_a and sigma_s by default.
-		'''
-		return self.sigma_a(p, w, tm) + self.sigma_s(p, w, tm)
+		"""
+		return self.sigma_a(pnt, vec, tm) + self.sigma_s(pnt, vec, tm)
 
 
 
 
 class HomogeneousVolumeDensity(VolumeRegion):
-	'''
+	"""
 	HomogeneousVolumeDensity Class
 
 	Models a box-shaped region of space
 	with homogeneous scattering properties.
-	'''
+	"""
 	def __init__(self, sig_a: 'Spectrum', sig_s: 'Spectrum', g: FLOAT, le: 'Spectrum', 
 					extent: 'BBox', v2w: 'Transform'):
 		self.sig_a = sig_a
@@ -205,11 +207,11 @@ class HomogeneousVolumeDensity(VolumeRegion):
 		return self.le if self.extent.inside(self.w2v(pnt)) else Spectrum(0.)
 
 	def p(self, pnt: 'Point', wi: 'Vector', wo: 'Vector', tm: FLOAT) ->  FLOAT:
-		if not self.extent.inside(self.w2v(p)):
+		if not self.extent.inside(self.w2v(pnt)):
 			return 0.
-		return phase_hg(wi, wo, g)
+		return phase_hg(wi, wo, tm)
 
-	def tau(self, ray: 'Ray', step: FLOAT=1., offset: FLOAT=.5) ->  'Spectrum:
+	def tau(self, ray: 'Ray', step: FLOAT=1., offset: FLOAT=.5) ->  'Spectrum':
 		isec, t0, t1 = self.intersectP(ray)
 		if isec:
 			return (ray(t1) - ray(t0)).length() * (self.sig_a + self.sig_s)
@@ -217,11 +219,11 @@ class HomogeneousVolumeDensity(VolumeRegion):
 
 # Density Region
 class DensityRegion(VolumeRegion):
-	'''
+	"""
 	DensityRegion Class
 
 	Obtain the particle density
-	'''
+	"""
 	def __init__(self, sig_a: 'Spectrum', sig_s: 'Spectrum', g: FLOAT, le: 'Spectrum',
 					v2w: 'Transform'):
 		self.sig_a = sig_a
@@ -232,38 +234,38 @@ class DensityRegion(VolumeRegion):
 
 	@abstractmethod
 	def __call__(self, pnt: 'Point') -> FLOAT:
-		'''
+		"""
 		__call__()
 
 		Returns the particle density at the given
 		point in *object space*.
 		Analogous to Density() in `pbrt`.
-		'''
+		"""
 		raise NotImplementedError('src.core.volume.{}.__call__(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	def sigma_a(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		return self(self.w2v(p)) * self.sig_a
+		return self(self.w2v(pnt)) * self.sig_a
 
 
 	def sigma_s(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		return self(self.w2v(p)) * self.sig_s		
+		return self(self.w2v(pnt)) * self.sig_s
 		
 
 	def lve(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		return self(self.w2v(p)) * self.le
+		return self(self.w2v(pnt)) * self.le
 
 	def p(self, pnt: 'Point', w: 'Vector', wp: 'Vector', tm: FLOAT) ->  FLOAT:
-		'''
+		"""
 		p()
 
 		Does not scale the phase function.
-		'''
-		return phase_hg(w, wp, g)
+		"""
+		return phase_hg(w, wp, tm)
 
 	@property
 	def sigma_t(self, pnt: 'Point', vec: 'Vector', tm: FLOAT) ->  'Spectrum':
-		return self(self.w2v(p)) * (self.sig_a + self.sig_s)
+		return self(self.w2v(pnt)) * (self.sig_a + self.sig_s)
 
 	def tau(self, r: 'Ray', step_size: FLOAT, u: FLOAT) -> 'Spectrum':
 		tau = Spectrum(0.
@@ -286,11 +288,11 @@ class DensityRegion(VolumeRegion):
 
 
 class VolumeGridDensity(DensityRegion):
-	'''
+	"""
 	VolumeGridDensity Class
 
 	Stores densities at regular 3D grid.
-	'''
+	"""
 	def __init__(self, sig_a: 'Spectrum', sig_s: 'Spectrum', g: FLOAT, le: 'Spectrum',
 					v2w: 'Transform', d: 'np.ndarray'):
 		self.sig_a = sig_a
@@ -354,11 +356,11 @@ class VolumeGridDensity(DensityRegion):
 		return self.extent.intersectP(ray)
 
 class ExponentialDensity(DensityRegion):
-	'''
+	"""
 	ExponentialDensity Class
 
 	Exponentially decaying densities
-	'''
+	"""
 	def __init__(self, sig_a: 'Spectrum', sig_s: 'Spectrum', g: FLOAT, le: 'Spectrum',
 				extent: 'BBox', v2w: 'Transform', a: FLOAT, b: FLOAT, up: 'Vector'):
 		super().__init__(sig_a, sig_s, g, le, v2w)
@@ -383,12 +385,12 @@ class ExponentialDensity(DensityRegion):
 		return self.extent.intersectP(ray)
 
 class AggregateVolume(VolumeRegion):
-	'''
+	"""
 	AggregateVolume Class
 
 	Aggregate class for `VolumeRegion`.
 	By default uses inefficient implementation
-	'''
+	"""
 	def __init__(self, regions: list):
 		self.regions = regions
 		self.bound = BBox()
@@ -425,7 +427,7 @@ class AggregateVolume(VolumeRegion):
 			s += region.p(pnt, wi, wo, tm)
 		return s		
 
-	def tau(self, ray: 'Ray', step: FLOAT=1., offset: FLOAT=.5) ->  'Spectrum:
+	def tau(self, ray: 'Ray', step: FLOAT=1., offset: FLOAT=.5) ->  'Spectrum':
 		s = Spectrum(0.)
 		for region in self.regions:
 			s += region.tau(ray, step, offset)
@@ -449,12 +451,12 @@ class AggregateVolume(VolumeRegion):
 
 # BSSRDF
 class BSSRDF(object):
-	'''
+	"""
 	BSSRDF Class
 
 	Models low-level scattering properties.
 	Scattering computed by integrators.
-	'''
+	"""
 	def __init__(self, sig_a: 'Spectrum', sigp_s: 'Spectrum', e: FLOAT):
 		self.__e = e
 		self.__sig_a = sig_a
@@ -480,11 +482,11 @@ class BSSRDF(object):
 # measured data
 from src.data.volume import MEASURED_SUF_SC
 def get_volume_scattering(name: str) -> ['Spectrum', 'Spectrum']:
-	'''
+	"""
 	Load volume scattering data,
 	returns `Spectrum`s of
 	[sigma_a, sigma'_s]
-	'''
+	"""
 	if name in MEASURED_SUF_SC:
 		return [Spectrum.fromRGB(MEASURED_SUF_SC[name][0]),
 				Spectrum.fromRGB(MEASURED_SUF_SC[name][1])]

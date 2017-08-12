@@ -1,10 +1,10 @@
-'''
+"""
 renderer.py
 
 Renderer Class
 
 Created by Jiayao on Aug 5, 2017
-'''
+"""
 from numba import jit
 import numpy as np
 from abc import ABCMeta, abstractmethod
@@ -15,10 +15,11 @@ from src.core.pytracer import *
 from src.core.scene import *
 from src.core.sampler import *
 
+
 class Renderer(object, metaclass=ABCMeta):
-	'''
+	"""
 	Renderer Class
-	'''
+	"""
 
 	@abstractmethod
 	def render(self, scene: 'Scene'):
@@ -27,10 +28,9 @@ class Renderer(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def li(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
-			rng='np.random.rand', isect: 'Intersection'=None) -> 'Spectrum':
+			rng='np.random.rand') -> ['Spectrum', 'Intersection']:
 		raise NotImplementedError('src.core.renderer.{}.li(): abstract method '
 							'called'.format(self.__class__)) 
-
 
 	@abstractmethod
 	def transmittance(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
@@ -40,11 +40,11 @@ class Renderer(object, metaclass=ABCMeta):
 
 
 class SamplerRenderer(Renderer):
-	'''
+	"""
 	SamplerRenderer Class
 
 	Sample-driven renderer
-	'''
+	"""
 	def __init__(self, s: 'Sampler', c: 'Camera', si: 'SurfaceIntegrator', vi: 'VolumeIntegrator'):
 		self.sampler = s
 		self.camera = c
@@ -52,10 +52,8 @@ class SamplerRenderer(Renderer):
 		self.vol_integrator = vi
 
 	def li(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
-			rng='np.random.rand', isect: 'Intersection'=None) -> 'Spectrum':
-		# local variables 
-		if isect is None:
-			isect = Intersection()
+			rng=np.random.rand) -> ['Spectrum', 'Intersection']:
+		# local variables
 
 		li = Spectrum(0.)
 		is_hit, isect = scene.intersect(ray)
@@ -65,10 +63,12 @@ class SamplerRenderer(Renderer):
 			for light in scene.lights:
 				li += light.le(ray)
 
+		if self.vol_integrator is not None:
+			lvi, T = self.vol_integrator.li(scene, self, ray, sample, rng)
 
-		lvi, T = self.vol_integrator.li(scene, self, ray, sample, rng)
-
-		return T * li + lvi
+			return [T * li + lvi, T, isect]
+		else:
+			return [li, Spectrum(0.), isect]
 
 	def transmittance(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
 									rng='np.random.rand') -> 'Spectrum':
@@ -108,9 +108,9 @@ class SamplerRenderer(Renderer):
 
 
 class SamplerRendererTask():
-	'''
+	"""
 	SamplerRendererTask Class
-	'''
+	"""
 	def __init__(self, sc: 'Scene', ren: 'Renderer', c: 'Camera',
 					ms: 'Sampler', smp: 'Sample', tn: INT, tc: INT):
 		self.scene = sc
@@ -137,10 +137,10 @@ class SamplerRendererTask():
 
 		# allocate space for samples and isects
 		max_smp = sampler.maximum_sample_cnt()
-		rays = [RayDifferential() for _ in range(max_smp)]
-		Ls = [Spectrum() for _ in range(max_smp)]
-		Ts = [Spectrum() for _ in range(max_smp)]
-		isects = [Intersection() for _ in range(max_smp)]
+		rays = [None for _ in range(max_smp)]
+		Ls = [None for _ in range(max_smp)]
+		Ts = [None for _ in range(max_smp)]
+		isects = [None for _ in range(max_smp)]
 
 
 		# get samples and update image
@@ -160,14 +160,16 @@ class SamplerRendererTask():
 
 				## evaluate radiance
 				if wt > 0.:
-					Ls[i], Ts[i] = wt * self.renderer.li(self.scene, ray, sample, rng, isects[i])
+					Ls[i], Ts[i], isects[i] = self.renderer.li(self.scene, rays[i], sample, rng)
+					Ls[i] *= wt
+					Ts[i] *= wt
 				else:
 					Ls[i] = Spectrum(0.)
 					Ts[i] = Spectrum(1.)
 			# report results, add contribution
 			if sampler.report_results(samples, rays, Ls, isects):
 				for i, sample in enumerate(samples):
-					self.camera.film.add_sample(sample, ls[i])
+					self.camera.film.add_sample(sample, Ls[i])
 
 
 

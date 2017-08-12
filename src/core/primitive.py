@@ -1,4 +1,4 @@
-'''
+"""
 primitive.py
 
 This module is part of the pyTracer, which
@@ -6,31 +6,18 @@ defines `Primitive` classes.
 
 v0.0
 Created by Jiayao on July 30, 2017
-'''
-'''
-import src.core.pytracer
-import src.core.geometry
-import src.core.transform
-import src.core.shape
-import src.core.primitive
-imp.reload(src.core.pytracer)
-imp.reload(src.core.geometry)
-imp.reload(src.core.transform)
-imp.reload(src.core.shape)
-imp.reload(src.core.primitive)
-from src.core.pytracer import *
-from src.core.geometry import *
-from src.core.transform import *
-from src.core.shape import *
-from src.core.primitive import *
-'''
+"""
+
 import numpy as np
-from abc import ABCMeta, abstractmethod  
-import threading
+from abc import ABCMeta, abstractmethod
 from src.core.pytracer import *
 from src.core.geometry import *
+from src.core.diffgeom import *
 from src.core.transform import *
+import threading
 from src.core.shape import *
+from src.core.spectrum import *
+
 
 class Intersection(object):
 	def __init__(self, dg: 'DifferentialGeometry'=None, pr: 'Primitive'=None,
@@ -43,22 +30,28 @@ class Intersection(object):
 		self.primitiveId = pr_id
 		self.rEps = rEps
 
+	def __repr__(self):
+		"""
+		__repr__
+		"""
+		return "{}\nPrimitive ID: {}\nShape ID: {}\n".format(self.__class__, self.primitiveId, self.shapeId)
+
 	def get_BSDF(self, ray: 'RayDifferential') -> 'BSDF':
 		self.dg.compute_differential(ray)
-		return self.primitive.get_BSDF(dg, o2w)
+		return self.primitive.get_BSDF(self.dg, self.o2w)
 
 	def get_BSSRDF(self, ray: 'RayDifferential') -> 'BSSRDF':
 		self.dg.compute_differential(ray)
-		return self.primitive.get_BSSRDF(dg, o2w)
+		return self.primitive.get_BSSRDF(self.dg, self.o2w)
 
 	def le(self, w: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		le()
 
 		Compute the emitted radiance
 		at a surface point intersected by
 		a ray.
-		'''
+		"""
 		area = self.primitive.get_area_light()
 		if area is None:
 			return Spectrum(0.)
@@ -67,15 +60,16 @@ class Intersection(object):
 
 class Primitive(object, metaclass=ABCMeta):
 
-	__primitiveId = 0
+	#__primitiveId = 0
 	next_primitiveId = 1
+
 	def __init__(self):
-		Primitive.__primitiveId = Primitive.next_primitiveId
+		self.primitiveId = Primitive.next_primitiveId
 		Primitive.next_primitiveId += 1
 
 	def __repr__(self):
 		return "{}\nPrimitive ID: {}\nNext Primitive ID: {}" \
-			.format(self.__class__, Primitive.__primitiveId, Primitive.next_primitiveId)
+			.format(self.__class__, self.primitiveId, Primitive.next_primitiveId)
 
 	@abstractmethod
 	def world_bound(self) -> BBox:
@@ -129,7 +123,7 @@ class GeometricPrimitive(Primitive):
 		self.areaLight = a
 
 	def __repr__(self):
-		return super().__repr__(self) + '\n{}'.format(self.shape)
+		return super().__repr__() + '\n{}'.format(self.shape)
 
 	def intersect(self, r: 'Ray') -> [bool, 'Intersection']:
 		is_intersect, thit, rEps, dg = self.shape.intersect(r)
@@ -188,9 +182,9 @@ class TransformedPrimitive(Primitive):
 
 		if not w2p.is_identity():
 			isect.w2o = isect.w2o * w2p
-			isect.o2w = inverse(isec.w2o)
+			isect.o2w = isect.w2o.inverse()
 
-			p2w = inverse(w2p)
+			p2w = w2p.inverse()
 			dg = isect.dg
 			dg.p = p2w(dg.p)
 			dg.nn = normalize(p2w(dg.nn))
@@ -238,7 +232,7 @@ class Voxel():
 	def __repr__(self):
 		return "{}\nPrimitives: {}".format(self.__class__, len(self.primitives))
 
-	def add_primitive(prim: 'Primitive'):
+	def add_primitive(self, prim: 'Primitive'):
 		self.primitives.append(prim)
 
 	def intersect(self, ray: 'Ray', lock) -> [bool, 'Intersection']:
@@ -309,14 +303,16 @@ class GridAccel(Aggregate):
 		for prim in self.primitives:
 			self.bounds.union(prim.world_bound())
 		
-		delta = bounds.pMax - bounds.pMin
-		maxAxis = bounds.maximum_extent()
+		delta = self.bounds.pMax - self.bounds.pMin
+		maxAxis = self.bounds.maximum_extent()
 		invMaxWidth = 1. / delta[maxAxis]
 		cubeRoot = 3. * np.pow(len(self.primitive), 1./3.)
 		voxels_per_unit_dist = cubeRoot * invMaxWidth
 		
 		self.width = Vector()
 		self.invWidth = Vector()
+
+		nVoxels = [0., 0., 0.]
 
 		for axis in range(3):
 			nVoxels[axis] = np.int(delta[axis] * voxels_per_unit_dist)
@@ -331,21 +327,21 @@ class GridAccel(Aggregate):
 		# add primitives to voxels
 		for prim in self.primitives:
 			pb = prim.world_bound()
-			vmin = [pos2voxel(pb.pMin, axis) for axis in range(3)]
-			vmax = [pos2voxel(pb.pMax, axis) for axis in range(3)]
+			vmin = [self.pos2voxel(pb.pMin, axis) for axis in range(3)]
+			vmax = [self.pos2voxel(pb.pMax, axis) for axis in range(3)]
 
 			for z in range(vmin[2], vmax[2] + 1):
 				for y in range(vmin[1], vmax[1] + 1):
-					for x in range(vimn[0], vmax[0] + 1):
+					for x in range(vmin[0], vmax[0] + 1):
 						o = self.offset(x, y, z)
 
 						if self.voxels[o] is None:
 							# new voxel
-							voxels[o] = Voxel(prim)
+							self.voxels[o] = Voxel(prim)
 
 						else:
 							# add primitive
-							voxels[o].add_primitive(prim)
+							self.voxels[o].add_primitive(prim)
 
 		# create mutex for grid
 		self.lock = threading.Lock()
@@ -368,9 +364,9 @@ class GridAccel(Aggregate):
 
 		def intersect(self, ray: 'Ray') -> [bool, 'Intersection']:
 			# Check ray aginst overall bounds
-			if bounds.inside(ray(ray.mint)):
+			if self.bounds.inside(ray(ray.mint)):
 				rayT = ray.mint
-			elif not bounds.intersectP(ray):
+			elif not self.bounds.intersectP(ray):
 				return [False, None]
 			grid_intersect = ray(rayT)
 
@@ -413,9 +409,9 @@ class GridAccel(Aggregate):
 
 		def intersectP(self, ray: 'Ray') -> bool:
 			# Check ray aginst overall bounds
-			if bounds.inside(ray(ray.mint)):
+			if self.bounds.inside(ray(ray.mint)):
 				rayT = ray.mint
-			elif not bounds.intersectP(ray):
+			elif not self.bounds.intersectP(ray):
 				return False
 			grid_intersect = ray(rayT)
 
@@ -456,6 +452,8 @@ class GridAccel(Aggregate):
 
 			return anyHit
 
+# TODO
+"""
 # BVH Accelerator
 class BVHAccel(Aggregate):
 	class BVHPrimInfo():
@@ -471,7 +469,7 @@ class BVHAccel(Aggregate):
 		self.max_prims_in_node = min(mp, 255)
 		self.primitives = []
 		for i, prim in enumerate(p):
-			p[i].full_refine(primitives)
+			p[i].full_refine(self.primitives)
 
 		if algo == "sah" or algo == "surface area heuristic":
 			self.splitMethod = SPLIT_SAH
@@ -495,7 +493,7 @@ class BVHAccel(Aggregate):
 
 
 		## representation for DFS
-
+"""
 
 
 

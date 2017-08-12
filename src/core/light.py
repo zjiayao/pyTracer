@@ -1,10 +1,10 @@
-'''
+"""
 light.py
 
 Model physically plausible lights.
 
 Created by Jiayao on Aug 8, 2017
-'''
+"""
 
 from numba import jit
 from abc import ABCMeta, abstractmethod
@@ -12,18 +12,19 @@ from enum import Enum
 import numpy as np
 from src.core.pytracer import *
 from src.core.geometry import *
-from src.core.diffgeom import *
 from src.core.spectrum import *
-from src.core.reflection import *
+from src.core.diffgeom import *
 from src.core.texture import *
+from src.core.reflection import *
 from src.core.montecarlo import *
+from src.core.transform import *
 
 # Utility Classes
 
 class VisibilityTester(object):
-	'''
+	"""
 	VisibilityTester Class
-	'''
+	"""
 	def __init__(self, ray: 'Ray'=None):
 		self.ray = None
 
@@ -31,57 +32,57 @@ class VisibilityTester(object):
 		return "{}\nRay: {}\n".format(self.__class__, self.ray)
 
 	def set_segment(self, p1: 'Point', eps1: FLOAT, p2: 'Point', eps2: FLOAT, time: FLOAT):
-		'''
+		"""
 		set_segment()
 
 		The test is to be done within the
 		given segment.
-		'''
+		"""
 		dist = (p1 - p2).length()
 		self.ray = Ray(p1, (p2 - p1) / dist, eps1, dist * (1. - eps2), time)
 
 	def set_ray(self, p: 'Point', eps: FLOAT, w: 'Vector', time: FLOAT):
-		'''
+		"""
 		set_ray()
 
 		The test is to indicate whether there
 		is any object along a given direction.
-		'''
+		"""
 		self.ray = Ray(p, w, eps, np.inf, time)
 
 	def unoccluded(self, scene: 'Scene') -> bool:
-		'''
+		"""
 		unoccluded()
 
 		Traces a shadow ray
-		'''
+		"""
 		return not scene.intersectP(self.ray)
 
 	def transmittance(self, scene: 'Scene', renderer: 'Renderer', sample: 'Sample',
 						rng=np.random.rand):
-		'''
+		"""
 		transmittance()
 
 		Determines the fraction of illumincation from
 		the light to the point that is not extinguished
 		by participating media.
-		'''
+		"""
 		return renderer.transmittance(scene, RayDifferential.fromRay(self.ray), sample. rng)
 
 
 def ShapeSet(object):
-	'''
+	"""
 	ShapeSet Class
 
 	Wrapper for a set of `Shape`s.
-	'''
+	"""
 	def __init__(self, shape: 'Shape'):
 		self.shapes = []
-		tmp = [s]
+		tmp = [shape]
 		while len(tmp) > 0:
 			sh = tmp.pop()
 			if sh.can_intersect():
-				shapes.append(sh)
+				self.shapes.append(sh)
 			else:
 				tmp.extend(sh.refine())
 
@@ -120,17 +121,17 @@ def ShapeSet(object):
 
 	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT:
 		pdf = 0.
-		for sh in self.shapes:
+		for i, sh in enumerate(self.shapes):
 			pdf += self.areas[i] * sh.pdf_p(p, wi)
 		return pdf / self.sum_area
 
 class LightSampleOffset(object):
-	'''
+	"""
 	LightSampleOffset Class
 
 	Encapsulate offsets provided
 	by sampler
-	'''
+	"""
 	def __init__(self, nSamples: INT, sample: 'Sample'):
 		self.nSamples = nSamples
 		self.offset_com = sample.add_1d(nSamples)
@@ -141,12 +142,12 @@ class LightSampleOffset(object):
 
 
 class LightSample(object):
-	'''
+	"""
 	LightSample Class
 
 	Encapsulate Light samples,
 	i.e., three dimensional random samples.
-	'''
+	"""
 	def __init__(self, p0: FLOAT=0., p1: FLOAT=0., u_com: FLOAT=0.):
 		self.u_pos = [p0, p1]
 		self.u_com = u_com
@@ -170,15 +171,15 @@ class LightSample(object):
 # Light Classes
 
 class Light(object, metaclass=ABCMeta):
-	'''
+	"""
 	Light Class
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', ns: INT = 1):
-		'''
+		"""
 		l2w: Light-to-World `Transform`
 		ns:  number of samples for soft shadowing of
 		 	 area light
-		'''
+		"""
 		self.ns = max(1, ns)
 		self.l2w = l2w
 		self.w2l = l2w.inverse()
@@ -193,78 +194,78 @@ class Light(object, metaclass=ABCMeta):
 	@abstractmethod
 	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
 			time: FLOAT) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
-		'''
+		"""
 		sample_l()
 
 		Returns the radiance arriving at a
 		given point, the incident direction, 
 		pdf is used in MC sampling, i.e.,
 		[Spectrum, wi, pdf, tester]
-		'''
+		"""
 		raise NotImplementedError('src.core.light.{}.sample_l(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	@abstractmethod
 	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
 					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:	
-		'''
+		"""
 		sample_r()
 
 		Samples a ray *leaving* the light source.
 
 		Returns [Ray, Normal, pdf, spectrum]
-		'''
+		"""
 		raise NotImplementedError('src.core.light.{}.sample_r(): abstract method '
 									'called'.format(self.__class__)) 
 
 	@abstractmethod
 	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT:
-		'''
+		"""
 		pdf()
-		'''
+		"""
 		raise NotImplementedError('src.core.light.{}.pdf(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	@property
 	@abstractmethod
 	def power(self, scene: 'Scene') -> 'Spectrum':
-		'''
+		"""
 		power()
 
 		Returns the total emitted power
 		of the light.
-		'''
+		"""
 		raise NotImplementedError('src.core.light.{}.power(): abstract method '
 									'called'.format(self.__class__)) 	
 
 	@abstractmethod
 	def is_delta_light(self) -> bool:
-		'''
+		"""
 		is_delta_light()
 
 		Determines whether the light
 		follows delta distribution, e.g.,
 		point light, spotlight et.c.
-		'''
+		"""
 		raise NotImplementedError('src.core.light.{}.is_delta_light(): abstract method '
 									'called'.format(self.__class__)) 	
 
 	def le(self, rd: 'RayDifferential') -> 'Spectrum':
-		'''
+		"""
 		le()
 
 		Returns emitted radiance along
 		a ray hit nothing
-		'''
+		"""
 		return Spectrum(0.)
 
 
 class PointLight(Light):
-	'''
+	"""
 	PointLight Class
 	
 	By defauly positioned at the origin.
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', intensity: 'Spectrum'):
 		super().__init__(l2w)
 		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
@@ -300,17 +301,17 @@ class PointLight(Light):
 
 
 class SpotLight(Light):
-	'''
+	"""
 	SpotLight Class
 	
 	By defauly positioned at the origin
 	and light a cone towards +z.
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', intensity: 'Spectrum', width: FLOAT, falloff: FLOAT):
-		'''
+		"""
 		width: Overall angular width of the cone
 		fall: angle at which falloff starts
-		'''
+		"""
 		super().__init__(l2w)
 		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
 		self.intensity = intensity
@@ -319,12 +320,12 @@ class SpotLight(Light):
 
 	@jit
 	def __falloff(self, w: 'Vector') -> FLOAT:
-		'''
+		"""
 		__falloff()
 
 		Determines the falloff
 		given a vector in the world.
-		'''
+		"""
 		wl = normalize(self.w2l(w))
 		ct = wl.z
 		if ct < self.cos_width:
@@ -358,13 +359,13 @@ class SpotLight(Light):
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
-		'''
+		"""
 		power()
 
 		approximate by the integral over
 		spread angle cosine halfway
 		between width and falloff
-		'''
+		"""
 		return self.intensity * 2. * PI * (1. - .5 * (self.cos_falloff + self.cos_width))
 
 	def is_delta_light(self) -> bool:
@@ -373,11 +374,11 @@ class SpotLight(Light):
 
 
 class ProjectionLight(Light):
-	'''
+	"""
 	ProjectionLight Class
 	
 	Projecting light using texture.
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', intensity: 'Spectrum', texname: str, fov: FLOAT):
 		super().__init__(l2w)
 		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
@@ -385,11 +386,11 @@ class ProjectionLight(Light):
 
 		# create a MIPMap
 		try:
-			texels = read_image(filename)
+			texels = read_image(texname)
 			width, height = np.shape(texels)
 		except:
 			print('src.core.texture.{}.get_texture(): cannot process file {}, '
-					'use default one-valued MIPMap'.format(self.__class__, filename))
+					'use default one-valued MIPMap'.format(self.__class__, texname))
 			texels = None		
 		
 		if texels is not None:
@@ -412,20 +413,20 @@ class ProjectionLight(Light):
 
 		self.hither = EPS
 		self.yon = 1e30
-		self.projTrans = Transform.perspective(fov, hither, yon)
+		self.projTrans = Transform.perspective(fov, self.hither, self.yon)
 
 		# compute cosine of cone
 		self.cos_width = np.cos(np.arctan(np.tan(np.deg2rad(fov) / 2.) * np.sqrt(1. + 1. / (aspect * aspect))))
 
 
 	def __projection(self, w: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		__projection()
 
 		Utility method to determine
 		the amount of light projected
 		in the given direction.
-		'''
+		"""
 		wl = self.w2l(w)
 		# discard directions behind proj light
 		if wl.z < self.hither:
@@ -433,8 +434,8 @@ class ProjectionLight(Light):
 
 		# project point onto plane
 		pl = self.projTrans(Point(wl.x, wl.y, wl.z))
-		if pl.x < self.scr_x0 or pl.x > scr_x1 or \
-				pl.y < self.scr_y0 or py.y > scr_y1:
+		if pl.x < self.scr_x0 or pl.x > self.scr_x1 or \
+				pl.y < self.scr_y0 or pl.y > self.scr_y1:
 			return Spectrum(0.)
 		if self.projMap is None:
 			return Spectrum(1.)
@@ -466,13 +467,13 @@ class ProjectionLight(Light):
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
-		'''
+		"""
 		power()
 
 		first order approximate by the 
 		diagonal of the image, scaled
 		by the average intensity.
-		'''
+		"""
 		return Spectrum( self.projMap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT) * \
 					self.intensity * 2. * PI * (1. - self.cos_width)
 
@@ -482,11 +483,11 @@ class ProjectionLight(Light):
 
 
 class GonioPhotometricLight(Light):
-	'''
+	"""
 	GonioPhotometricLight Class
 	
 	Projecting light using texture.
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', intensity: 'Spectrum', texname: str):
 		super().__init__(l2w)
 		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
@@ -494,11 +495,11 @@ class GonioPhotometricLight(Light):
 
 		# create a MIPMap
 		try:
-			texels = read_image(filename)
+			texels = read_image(texname)
 			width, height = np.shape(texels)
 		except:
 			print('src.core.texture.{}.get_texture(): cannot process file {}, '
-					'use default one-valued MIPMap'.format(self.__class__, filename))
+					'use default one-valued MIPMap'.format(self.__class__, texname))
 			texels = None		
 		
 		if texels is not None:
@@ -508,7 +509,7 @@ class GonioPhotometricLight(Light):
 
 
 	def __scale(self, w: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		__scale()
 
 		Utility method to scale
@@ -516,7 +517,7 @@ class GonioPhotometricLight(Light):
 		in the given direction. Assume
 		the scale texture is encoded
 		using spherical coordinates.
-		'''
+		"""
 		if self.mipmap is None:
 			return Spectrum(1.)
 
@@ -556,13 +557,13 @@ class GonioPhotometricLight(Light):
 
 
 class DistantLight(Light):
-	'''
+	"""
 	DistantLight Class
 	
 	Modelling distant or directional
 	light, i.e., point light
 	at infinity.
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', radiance: 'Spectrum', di: 'Vector'):
 		super().__init__(l2w)
 		self.di = normalize(l2w(di))
@@ -578,11 +579,11 @@ class DistantLight(Light):
 
 	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
 					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
-		'''
+		"""
 		Create a bounding disk
 		and uniformly sample
 		on it.
-		'''
+		"""
 		# choose point on disk oriented towards light
 		ctr, rad = scene.world_bound().bounding_sphere()
 		_, v1, v2 = coordinate_system(self.di)
@@ -599,12 +600,12 @@ class DistantLight(Light):
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
-		'''
+		"""
 		power()
 
 		Approximate using a disk inside
 		the scene's bounding sphere.
-		'''
+		"""
 		_, rad = scene.world_bound().bounding_sphere()
 	
 		return self.l * PI * rad * rad	
@@ -615,9 +616,9 @@ class DistantLight(Light):
 
 # Interface for Area Light
 class AreaLight(Light):
-	'''
+	"""
 	AreaLight Class
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', ns: INT):
 		super().__init__(l2w, ns)
 	@abstractmethod
@@ -629,22 +630,22 @@ class AreaLight(Light):
 
 
 class DiffuseAreaLight(Light):
-	'''
+	"""
 	DiffuseAreaLight Class
 	
 	Basic area light source with a
 	uniform spatial and directional
 	radiance distribution.
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', le: 'Spectrum', ns: INT, shape: 'Shape'):
-		'''
+		"""
 		shape parameter will be a `ShapeSet`
 		instance which subclasses `Shape`
 		for easy implementation.
-		'''
+		"""
 		super().__init__(l2w, ns)
 		self.le = le
-		self.shape_set = ShapeSet(s)
+		self.shape_set = ShapeSet(shape)
 		self.area = self.shape_set.area()
 
 	def l(self, p: 'Point', n: 'Normal', w: 'Vector') -> 'Spectrum':
@@ -665,18 +666,18 @@ class DiffuseAreaLight(Light):
 
 	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
 					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
-		'''
+		"""
 		Create a bounding disk
 		and uniformly sample
 		on it.
-		'''
-		org, nS = self.shape_set.sample(ls)
+		"""
+		org, Ns = self.shape_set.sample(ls)
 		di = uniform_sample_sphere(u1, u2)
 		if di.dot(Ns) < 0.:
 			di *= -1.
 		ray = Ray(org, di, EPS, np.inf, time)
 		pdf = self.shape_set.pdf(org) * INV_2PI
-		return [ray, Ns, pdf, self.l(org, Ns, Di)]
+		return [ray, Ns, pdf, self.l(org, Ns, di)]
 
 	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return self.shape_set.pdf(p, wi)
 
@@ -692,25 +693,25 @@ class DiffuseAreaLight(Light):
 
 
 class InfiniteAreaLight(Light):
-	'''
+	"""
 	InfiniteAreaLight Class
 	
 	Models environment lighting
-	'''
+	"""
 	def __init__(self, l2w: 'Transform', l: 'Spectrum', ns: INT, texmap: str):
-		'''
+		"""
 		width: Overall angular width of the cone
 		fall: angle at which falloff starts
-		'''
+		"""
 		super().__init__(l2w, ns)
 		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
 		
 		try:
-			texels = read_image(filename)
+			texels = read_image(texmap)
 			width, height = np.shape(texels)
 		except:
 			print('src.core.texture.{}.get_texture(): cannot process file {}, '
-					'use default one-valued MIPMap'.format(self.__class__, filename))
+					'use default one-valued MIPMap'.format(self.__class__, texmap))
 			texels = None		
 		
 		if texels is not None:
@@ -774,7 +775,7 @@ class InfiniteAreaLight(Light):
 	def pdf(self, p: 'Point', w: 'Vector') -> FLOAT:
 		wi = self.w2l(w)
 		theta = spherical_theta(wi)
-		phi - spherical_phi(wi)
+		phi = spherical_phi(wi)
 		st = np.sin(theta)
 		if st == 0.:
 			return 0.
@@ -783,11 +784,11 @@ class InfiniteAreaLight(Light):
 
 	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
 					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
-		'''
+		"""
 		Create a bounding disk
 		and uniformly sample
 		on it.
-		'''
+		"""
 		# find (u, v) sample coords in inf. light texture
 		uv, pdf = self.dist.sample_cont(ls.u_pos[0], ls.u_pos[1])
 		if pdf == 0.:

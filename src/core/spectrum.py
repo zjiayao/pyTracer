@@ -68,9 +68,9 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 
 	@classmethod
 	def fromSpectrum(cls, spec: 'CoefficientSpectrum'):
-		if sample is None:
-			raise ValueError('Cannot initialized {} from None'.format(cls))		
-		self.nSamples = cls(spec.nSamples)
+		if spec is None:
+			raise ValueError('Cannot initialized {} from None'.format(cls))
+		self = cls(spec.nSamples)
 		self.c = spec.c.copy()
 		return self
 
@@ -136,7 +136,7 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 		of the current Spectrum
 		'''
 		ret = self.__class__(self.nSamples)
-		ret.c = np.sqrt(c)
+		ret.c = np.sqrt(self.c)
 		return ret
 
 	def exp(self) -> 'CoefficientSpectrum':
@@ -145,7 +145,7 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 		of the current Spectrum
 		'''
 		ret = self.__class__(self.nSamples)
-		ret.c = np.exp(c)
+		ret.c = np.exp(self.c)
 		return ret
 
 	def pow(self, n) -> 'CoefficientSpectrum':
@@ -177,23 +177,23 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 	@abstractmethod
 	def fromSampled(cls, lam: [FLOAT], v: [FLOAT], n: INT):
 		raise NotImplementedError('src.core.spectrum.{}.fromSampled(): abstract method '
-									'called'.format(self.__class__)) 
+									'called'.format(cls))
 	@classmethod
 	@abstractmethod
 	def fromRGB(cls, rgb: [FLOAT], tp: 'SpectrumType'):
 		raise NotImplementedError('src.core.spectrum.{}.fromRGB(): abstract method '
-									'called'.format(self.__class__)) 
+									'called'.format(cls))
 
 	@classmethod
 	@abstractmethod
 	def fromXYZ(cls, xyz: [FLOAT], tp: 'SpectrumType' = SpectrumType.REFLECTANCE):
 		raise NotImplementedError('src.core.spectrum.{}.fromXYZ(): abstract method '
-									'called'.format(self.__class__)) 
+									'called'.format(cls))
 	@classmethod
 	@abstractmethod
 	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
 		raise NotImplementedError('src.core.spectrum.{}.fromRGBSpectrum(): abstract method '
-									'called'.format(self.__class__))
+									'called'.format(cls))
 	@abstractmethod
 	def toXYZ(self):
 		raise NotImplementedError('src.core.spectrum.{}.toXYZ(): abstract method '
@@ -348,14 +348,14 @@ class SampledSpectrum(CoefficientSpectrum):
 		hi, me, lo = np.argsort(np.array(rgb))
 
 		if tp == SpectrumType.REFLECTANCE:
-			# relfectance spectrum from RGB
-			sepc = [cls.rgbRefl2SpectCyan,
+			# reflectance spectrum from RGB
+			spec = [cls.rgbRefl2SpectCyan,
 					cls.rgbRefl2SpectBlue,
 					cls.rgbRefl2SpectGreen]
 
 			self += rgb[lo] * cls.rgbRefl2SpectWhite
 			self += (rgb[me] - rgb[lo]) * spec[lo]
-			self += (rgb[hi] - rgb[me]) * sepc[hi]
+			self += (rgb[hi] - rgb[me]) * spec[hi]
 
 		elif tp == SpectrumType.ILLUMINANT:
 			# illuminance spectrum
@@ -365,7 +365,7 @@ class SampledSpectrum(CoefficientSpectrum):
 
 			self += rgb[lo] * cls.rgbIllum2SpectWhite
 			self += (rgb[me] - rgb[lo]) * spec[lo]
-			self += (rgb[hi] - rgb[me]) * sepc[hi]
+			self += (rgb[hi] - rgb[me]) * spec[hi]
 
 		else:
 			raise TypeError
@@ -382,7 +382,7 @@ class SampledSpectrum(CoefficientSpectrum):
 	@jit
 	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
 		rgb = r.toRGB()
-		return cls.fromRGB(rbg, t)
+		return cls.fromRGB(rgb, t)
 
 	@staticmethod
 	def init():
@@ -486,7 +486,7 @@ class RGBSpectrum(CoefficientSpectrum):
 
 	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
 		rgb = r.c.copy()
-		return cls.fromRGB(rbg, t)
+		return cls.fromRGB(rgb, t)
 
 	@classmethod
 	@jit

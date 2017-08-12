@@ -1,10 +1,10 @@
-'''
+"""
 film.py
 
 The base class to model film.
 
 Created by Jiayao on Aug 1, 2017
-'''
+"""
 
 from numba import jit
 from abc import ABCMeta, abstractmethod
@@ -17,9 +17,9 @@ from src.core.spectrum import *
 from src.core.filter import *
 
 class Film(object, metaclass=ABCMeta):
-	'''
+	"""
 	Film Class
-	'''
+	"""
 
 	def __init__(self, xr: INT, yr: INT):
 		self.xResolution = xr
@@ -36,62 +36,62 @@ class Film(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def splat(self, sample: 'CameraSample', spectrum: 'Spectrum'):
-		'''
+		"""
 		Used to sum the contribution
 		around a pixel sample
-		'''
+		"""
 		raise NotImplementedError('src.core.film {}.add_sample(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	@abstractmethod
 	def get_sample_extent(self) -> [INT]:
-		'''
+		"""
 		Determine the range of pixels to generate
 		samples, returns [xStart, xEnd, yStart, yEnd]
-		'''
+		"""
 		raise NotImplementedError('src.core.film {}.get_sample_extent(): abstract method '
 									'called'.format(self.__class__)) 	
 
 	@abstractmethod
 	def get_pixel_extent(self) -> [INT]:
-		'''
+		"""
 		Determine the range of pixels on
 		the actual image, returns [xStart, xEnd, yStart, yEnd]
-		'''
+		"""
 		raise NotImplementedError('src.core.film {}.get_pixel_extent(): abstract method '
 									'called'.format(self.__class__)) 	
 
 	def update_display(self, x0: INT, y0: INT, x1: INT, y1: INT, splat_scale: FLOAT) -> [INT]:
-		'''
+		"""
 		Update the window while rendering,
 		if needed
-		'''
+		"""
 		pass
 
 
 	@abstractmethod
 	def write_image(self, splat_scale: FLOAT=1.) -> [INT]:
-		'''
+		"""
 		Display or write image to file
-		'''
+		"""
 		raise NotImplementedError('src.core.film {}.write_image(): abstract method '
 									'called'.format(self.__class__))
 
 
 class ImageFilm(Film):
-	'''
+	"""
 	ImageFilm Class
 
 	Filter samples with a given reconstruction
 	filter
-	'''
+	"""
 
 	class Pixel(object):
-		'''
+		"""
 		Pixel Class
 
 		Inner class of `ImageFilm`
-		'''
+		"""
 		def __init__(self):
 			self.Lxyz = np.zeros(3, dtype=FLOAT)
 			self.splatXYZ = np.zeros(3, dtype=FLOAT)
@@ -132,10 +132,10 @@ class ImageFilm(Film):
 
 	@jit
 	def add_sample(self, sample: 'CameraSample', L: 'Spectrum'):
-		'''
+		"""
 		Assume different threads, if any,
 		cannot mutate the same pixel at the same time
-		'''
+		"""
 		# compute raster extent
 		# (x0, x1) to (y0, y1)
 		# inclusive
@@ -195,10 +195,10 @@ class ImageFilm(Film):
 
 	@jit
 	def splat(self, sample: 'CameraSample', L: 'Spectrum'):
-		'''
+		"""
 		Used to sum the contribution
 		around a pixel sample
-		'''
+		"""
 		xyz = L.toXYZ()
 
 		x = INT(np.floor(sample.imageX))
@@ -214,28 +214,28 @@ class ImageFilm(Film):
 		pxl.lock.release()
 
 	def get_sample_extent(self) -> [INT]:
-		'''
+		"""
 		Determine the range of pixels to generate
 		samples, returns [xStart, xEnd, yStart, yEnd]
-		'''
+		"""
 		return np.floor([self.xPixel_start + .5 - self.filter.xw,
 						 self.xPixel_start + .5 + self.xPixel_cnt + self.filter.xw,
 						 self.yPixel_start + .5 - self.filter.yw,
 						 self.yPixel_start + .5 +self.yPixel_cnt + self.filter.yw]).astype(INT)
 
 	def get_pixel_extent(self) -> [INT]:
-		'''
+		"""
 		Determine the range of pixels on
 		the actual image, returns [xStart, xEnd, yStart, yEnd]
-		'''
+		"""
 		return [self.xPixel_start, self.xPixel_start + self.xPixel_cnt,
 				self.yPixel_start, self.yPixel_start + self.yPixel_cnt]
 
 	@jit
 	def write_image(self, splat_scale: FLOAT=1.) -> [INT]:
-		'''
+		"""
 		Display or write image to file
-		'''
+		"""
 		# convert to RGB and compute pixel values
 		nPix = self.xPixel_cnt * self.yPixel_cnt
 		rgb = np.empty([self.xPixel_cnt, self.yPixel_cnt, 3], dtype=FLOAT)

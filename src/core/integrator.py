@@ -1,10 +1,10 @@
-'''
+"""
 integrator.py
 
 Model integrators.
 
 Created by Jiayao on Aug 9, 2017
-'''
+"""
 
 from numba import jit
 from abc import ABCMeta, abstractmethod
@@ -25,13 +25,13 @@ from src.core.montecarlo import *
 
 @jit
 def compute_light_sampling_cdf(scene: 'Scene') -> 'Distribution1D':
-	'''
+	"""
 	compute_light_sampling_cdf()
 
 	Creates a one dimensional
 	distribution based on the power
 	of all lights in the scene.
-	'''
+	"""
 	n_lights = len(scene.lights)
 	power = []
 	for light in scene.lights:
@@ -43,23 +43,23 @@ def compute_light_sampling_cdf(scene: 'Scene') -> 'Distribution1D':
 def uniform_sample_all_lights(scene: 'Scene', renderer: 'Renderer', p: 'Point', n: 'Normal', 
 		wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_offsets: ['LightSampleOffset'], 
 		bsdf_offsets: ['BSDFSampleOffset'], rng=np.random.rand):
-	'''
+	"""
 	uniform_sample_all_lights()
 
 	Estimate contribution by each light
 	individually using MC.
-	'''
+	"""
 	L = Spectrum(0.)
 
 	for i, light in enumerate(scene.lights):
-		n_smp = 1 if light_sample_offsets is None else light_sample_offsets[i].nSamples
+		n_smp = 1 if light_offsets is None else light_offsets[i].nSamples
 		# estimate direct lighting
 		## find light and bsdf for estimating
 		Ld = Spectrum(0.)
 		for j in range(n_smp):
-			if light_sample_offsets is not None and bsdf_sample_offsets is not None:
-				light_smp = LightSample.fromSample(sample, light_sample_offsets[i], j)
-				bsdf_smp = BSDFSample.fromSample(sample, bsdf_sample_offsets[i], j)
+			if light_offsets is not None and bsdf_offsets is not None:
+				light_smp = LightSample.fromSample(sample, light_offsets[i], j)
+				bsdf_smp = BSDFSample.fromSample(sample, bsdf_offsets[i], j)
 			else:
 				light_smp = LightSample.fromRand(rng)
 				bsdf_smp = BSDFSample.fromRand(rng)
@@ -76,13 +76,13 @@ def uniform_sample_all_lights(scene: 'Scene', renderer: 'Renderer', p: 'Point', 
 def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'Point', n: 'Normal', 
 		wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_num_offset: INT=-1,
 		light_offsets: ['LightSampleOffset']=None, bsdf_offsets: ['BSDFSampleOffset']=None, rng=np.random.rand):
-	'''
+	"""
 	uniform_sample_one_light()
 
 	random choose one light to sample
 	and multiply with number of lights
 	to compensate on average
-	'''
+	"""
 	# choose a light
 	# light power based importance sampling
 	# is to implement
@@ -92,7 +92,7 @@ def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'Point', n
 
 	if light_num_offset == -1:
 		# use random
-		light_num = ftoi(rand() * n_lights)
+		light_num = ftoi(rng() * n_lights)
 	else:
 		light_num = ftoi(sample.oneD[light_num_offset][0] * n_lights)
 
@@ -100,15 +100,13 @@ def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'Point', n
 	light = scene.lights[light_num]
 
 	# init
-	if light_sample_offsets is not None and bsdf_sample_offsets is not None:
-		light_smp = LightSample.fromSample(sample, light_sample_offsets[0], 0)
-		bsdf_smp = BSDFSample.fromSample(sample, bsdf_sample_offsets[0], 0)
+	if light_offsets is not None and bsdf_offsets is not None:
+		light_smp = LightSample.fromSample(sample, light_offsets[0], 0)
+		bsdf_smp = BSDFSample.fromSample(sample, bsdf_offsets[0], 0)
 	else:
 		light_smp = LightSample.fromRand(rng)
 		bsdf_smp = BSDFSample.fromRand(rng)	
 
-
-	
 	return n_lights * estimate_direct(scene, renderer, light, p, n, wo, rEps, time, bsdf,
 						light_smp, bsdf_smp, BDFType(BDFType.ALL & ~BDFType.SPECULAR), rng)
 
@@ -197,12 +195,12 @@ def specular_transmit(ray: 'RayDifferential', bsdf: 'BSDF', isect: 'Intersection
 def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'Point', n: 'Normal', 
 			wo: 'Vector', rEps: FLOAT, time: FLOAT, bsdf: 'BSDF', light_smp: 'LightSample', bsdf_smp: 'BSDFSample',
 			flags: 'BDFType', rng=np.random.rand) -> 'Spectrum':
-	'''
+	"""
 	estimate_direct()
 
 	Estimate direct lighting
 	using MC Multiple Importance Sampling.
-	'''
+	"""
 	Ld = Spectrum(0.)
 	# sample light source
 	Li, wi, light_pdf, vis = light.sample_l(p, rEps, light_smp, time)
@@ -251,11 +249,11 @@ def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'Poi
 
 # Integrator Classes
 class Integrator(object, metaclass=ABCMeta):
-	'''
+	"""
 	Integrator Class
 
 	Base Class for Integrators
-	'''
+	"""
 	def __repr__(self):
 		return "{}\n".format(self.__class__)
 
@@ -269,16 +267,16 @@ class Integrator(object, metaclass=ABCMeta):
 
 
 class SurfaceIntegrator(Integrator):
-	'''
+	"""
 	SurfaceIntegrator Class
 
 	Interface for surface integrators
-	'''
+	"""
 
 	@abstractmethod
 	def li(self, scene: 'Scene', renderer: 'Renderer', ray: 'RayDifferential',
 			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
-		'''
+		"""
 		li()
 
 		Returns the outgoing radiance at the intersection
@@ -297,14 +295,14 @@ class SurfaceIntegrator(Integrator):
 			Might be used for MC methods.
 		- rng
 			Random number generator, by default `numpy.random.rand`
-		'''
+		"""
 		raise NotImplementedError('src.core.integrator.{}.li(): abstract method '
 						'called'.format(self.__class__)) 	
 
 class WhittedIntegrator(SurfaceIntegrator):
-	'''
+	"""
 	WhittedIntegrator Class
-	'''
+	"""
 	def __init__(self, max_depth:INT=5):
 		self.max_depth = max_depth
 
@@ -324,11 +322,11 @@ class WhittedIntegrator(SurfaceIntegrator):
 		wo = -ray.d
 
 		# compute emitted light if ray hit light src
-		L += isec.le(wo)
+		L += isect.le(wo)
 
 		# iterate through all lights
 		for lgt in scene.lights:
-			Li, wi, pdf, vis = lgt.sample_l(p, isec.rEps, LightSample.fromRand(rng), ray.time)
+			Li, wi, pdf, vis = lgt.sample_l(p, isect.rEps, LightSample.fromRand(rng), ray.time)
 			if Li.is_black() or pdf == 0.:
 				continue
 
@@ -347,21 +345,21 @@ class WhittedIntegrator(SurfaceIntegrator):
 
 
 class LightStrategy(Enum):
-	'''
+	"""
 	LightStrategy Class
 
 	Enum for light strategy
 	for direct lighting
-	'''
+	"""
 	SAMPLE_ALL_UNIFORM = 1
 	SAMPLE_ONE_UNIFORM = 2
 
 class DirectLightingIntegrator(SurfaceIntegrator):
-	'''
+	"""
 	DirectLightingIntegrator
 
 	`SurfaceIntegrator` using direct lighting
-	'''
+	"""
 	def __init__(self, strategy: 'LightStrategy'=LightStrategy.SAMPLE_ALL_UNIFORM, max_depth: INT=5):
 		self.strategy = strategy
 		self.max_depth = max_depth
@@ -387,7 +385,6 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 				self.light_sample_offsets.append(LightSampleOffset(n_smp, sample))
 				self.bsdf_sample_offsets.append(BSDFSampleOffset(n_smp, sample))
 
-
 			self.light_num_offset = -1
 		else:
 			# sampling one light
@@ -396,7 +393,7 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 			self.light_num_offset = sample.add1d(1)
 			self.bsdf_sample_offsets = [BSDFSampleOffset(1, sample)]
 
-	@jit
+
 	def li(self, scene: 'Scene', renderer: 'Renderer', ray: 'RayDifferential',
 			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
 		L = Spectrum(0.)
@@ -409,7 +406,7 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 		wo = -ray.d
 
 		# compute emitted light if ray hit light src
-		L += isec.le(wo)
+		L += isect.le(wo)
 
 		# compute direct lighting
 		if len(scene.lights) > 0:
@@ -434,12 +431,12 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 
 
 class PathIntegrator(SurfaceIntegrator):
-	'''
+	"""
 	PathIntegrator
 
 	Path tracing using Russian roulette.
 	Also support maximum depth.
-	'''
+	"""
 	SAMPLE_DEPTH = 3
 
 	def __init__(self, max_depth: INT=5):
@@ -481,11 +478,12 @@ class PathIntegrator(SurfaceIntegrator):
 
 		## subsequent vertex
 		local_isect = Intersection()
-
+		print('+')
 		bounce_cnt = 0
 		while True:
 			# add possibly emitted light
 			if bounce_cnt == 0 or specular_bounce:
+				print('++')
 				## emitted light is included by
 				## previous tracing via direct lighting
 				## exceptions for the first tracing or sampling a
@@ -499,6 +497,7 @@ class PathIntegrator(SurfaceIntegrator):
 			wo = -ray.d
 
 			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
+				print('bounce_cnt: ', bounce_cnt)
 				# use samples
 				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,
 						isectp.rEps, ray.time, bsdf, sample, self.__light_num_offset[bounce_cnt],
@@ -507,7 +506,7 @@ class PathIntegrator(SurfaceIntegrator):
 				# use uniform random
 				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,
 						isectp.rEps, ray.time, bsdf, sample, rng=rng)
-
+			print('++++')
 			# sample BSDF to get new direction
 			## get BSDFSample for new direction
 			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
@@ -519,11 +518,11 @@ class PathIntegrator(SurfaceIntegrator):
 
 			if f.is_black() or pdf == 0.:
 				break
-
+			print('+++++')
 			specular_bounce = (flags & BDFType.SPECULAR) != 0
 			path_throughput *= f * wi.abs_dot(n) / pdf
 			ray = RayDifferential(p, wi, ray, isectp.rEps)
-
+			print('#')
 			# possibly terminate
 			if bounce_cnt > PathIntegrator.SAMPLE_DEPTH:
 				cont_prob = min(.5, path_throughput.y())	# high prob for terminating for low contribution paths
@@ -535,7 +534,7 @@ class PathIntegrator(SurfaceIntegrator):
 
 			if bounce_cnt == self.max_depth:
 				break
-
+			print('##')
 			# find next vertex
 			hit, local_isect = scene.intersect(ray)
 			if not hit:
@@ -544,7 +543,7 @@ class PathIntegrator(SurfaceIntegrator):
 					for light in scene.lights:
 						L += path_throughput * light.le(ray)
 				break
-
+			print('###')
 			if bounce_cnt > 1:
 				path_throughput *= renderer.transmittance(scene, ray, None, rng)
 

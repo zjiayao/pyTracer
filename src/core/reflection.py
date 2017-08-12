@@ -1,4 +1,4 @@
-'''
+"""
 reflection.py
 
 Model distribution functions.
@@ -10,7 +10,7 @@ Convention:
 	viewing direction.
 
 Created by Jiayao on Aug 2, 2017
-'''
+"""
 from numba import jit
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -37,12 +37,12 @@ def sin_phi(w: 'Vector'): return 0. if max(0., 1. - w.z * w.z) == 0. \
 # utility functions
 @jit
 def fr_diel(cos_i: FLOAT, cos_t: FLOAT, eta_i: 'Spectrum', eta_t: 'Spectrum') -> 'Spectrum':
-	'''
+	"""
 	fr_diel
 
 	Compute reflectance using Fresnel formula for
 	dielectric materials and circularly polarized light
-	'''
+	"""
 	r_para = ((eta_t * cos_i ) - (eta_i * cos_t)) / \
 				((eta_t * cos_i) + (eta_t * cos_t))
 	r_perp = ((eta_i * cos_i) - (eta_t * cos_t)) / \
@@ -51,12 +51,12 @@ def fr_diel(cos_i: FLOAT, cos_t: FLOAT, eta_i: 'Spectrum', eta_t: 'Spectrum') ->
 
 @jit
 def fr_cond(cos_i: FLOAT, eta: 'Spectrum', k: 'Spectrum') -> 'Spectrum':
-	'''
+	"""
 	fr_cond
 
 	Compute approx. reflectance using Fresnel formula for
 	conductor materials and circularly polarized light
-	'''
+	"""
 	tmp = (eta * eta + k * k) * cos_i * cos_i
 	r_para_sq = (tmp - (2. * eta * cos_i) + 1.) / \
 				(tmp + (2. * eta * cos_i) + 1.)
@@ -67,10 +67,10 @@ def fr_cond(cos_i: FLOAT, eta: 'Spectrum', k: 'Spectrum') -> 'Spectrum':
 
 @jit
 def BRDF_remap(wo: 'Vector', wi: 'Vector') -> 'Point':
-	'''
+	"""
 	Mapping regularly sampled BRDF
 	using Marschner, 1998
-	'''
+	"""
 	dphi = spherical_phi(wi) - spherical_phi(wo)
 	if dphi < 0.:
 		dphi += 2. * PI
@@ -85,11 +85,11 @@ def BRDF_remap(wo: 'Vector', wi: 'Vector') -> 'Point':
 
 # interface for Fresnel coefficients
 class Fresnel(object, metaclass=ABCMeta):
-	'''
+	"""
 	Fresnel Class
 
 	Interface for computing Fresnel coefficients
-	'''
+	"""
 
 	@abstractmethod
 	def __call__(self, cosi: FLOAT):
@@ -97,11 +97,11 @@ class Fresnel(object, metaclass=ABCMeta):
 									'called'.format(self.__class__))
 
 class FresnelConductor(Fresnel):
-	'''
+	"""
 	Fresnel Class
 
 	Implement Fresnel interface for conductors
-	'''
+	"""
 	def __init__(self, eta: 'Spectrum', k: 'Spectrum'):
 		self.eta = eta
 		self.k = k
@@ -109,11 +109,11 @@ class FresnelConductor(Fresnel):
 		return fr_cond(np.fabs(cosi), self.eta, self.k)
 
 class FresnelDielectric(Fresnel):
-	'''
+	"""
 	Fresnel Class
 
 	Implement Fresnel interface for conductors
-	'''
+	"""
 	def __init__(self, eta_i: 'Spectrum', eta_t: 'Spectrum'):
 		self.eta_i = eta_i
 		self.eta_t = eta_t
@@ -122,7 +122,7 @@ class FresnelDielectric(Fresnel):
 		ci = np.clip(cosi, -1., 1.)
 		# indices of refraction
 		ei = self.eta_i
-		et = selt.eta_t
+		et = self.eta_t
 		if cosi < 0.:
 			# ray is on the inside
 			ei, et = et, ei
@@ -139,12 +139,12 @@ class FresnelDielectric(Fresnel):
 			return fr_diel(np.fabs(ci), ct, ei, et)
 
 class FresnelFullReflect(Fresnel):
-	'''
+	"""
 	FresnelFullReflect Class
 
 	Return full `Spectrum` for all
 	incoming directions
-	'''
+	"""
 	def __call__(self, cosi: FLOAT):
 		return Spectrum(1.)
 
@@ -153,11 +153,11 @@ class FresnelFullReflect(Fresnel):
 # 	pass
 
 class BDFType():
-	'''
+	"""
 	Wrapper for
 	integer enumeration with
 	bitmask ops
-	'''
+	"""
 	def __init__(self, v):
 		if isinstance(v, BDFType):
 			self.v = v.v
@@ -191,12 +191,12 @@ class BDFType():
 
 
 class BDF(object, metaclass=ABCMeta):
-	'''
+	"""
 	BDF Class
 
 	Models bidirectional distribution function.
 	Base class for `BSDF` and `BRDF`
-	'''
+	"""
 
 	def __init__(self, t: 'BDFType'):
 		self.type = BDFType(t)
@@ -207,20 +207,20 @@ class BDF(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		Returns the BDF for given pair of directions
 		Asssumes light at different wavelengths are
 		decoupled.
-		'''
+		"""
 		raise NotImplementedError('src.core.reflection.{}.f(): abstract method '
 									'called'.format(self.__class__)) 		
 
 	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
-		'''
+		"""
 		pdf()
 
 		Returns pdf of given direction
-		'''
+		"""
 		if wo.z * wi.z > 0.:
 			# same hemisphere
 			return abs_cos_theta(wi) * INV_PI
@@ -229,7 +229,7 @@ class BDF(object, metaclass=ABCMeta):
 
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
 							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
-		'''
+		"""
 		Handles scattering discribed by delta functions
 		or random sample directions.
 		Returns the spectrum, incident vector and pdf used in MC sampling.
@@ -239,9 +239,9 @@ class BDF(object, metaclass=ABCMeta):
 
 		Returns:
 		[pdf, wi, Spectrum]
-		'''
+		"""
 		# cosine sampling
-		wi = cosine_sample_hemishpere(u1, u2)
+		wi = cosine_sample_hemisphere(u1, u2)
 		if wo.z < 0.:
 			wi.z *= -1.
 
@@ -249,30 +249,30 @@ class BDF(object, metaclass=ABCMeta):
 
 	@jit
 	def rho_hd(self, w: 'Vector', samples: [FLOAT]) -> 'Spectrum':
-		'''
-		Computs hemispherical-directional reflectance function.
+		"""
+		Computes hemispherical-directional reflectance function.
 
 		- w
 			Incoming 'Vector'
 		- samples
 			2d np array
-		'''
+		"""
 		r = Spectrum(0.)
 		for smp in samples:
 			wi, pdf, f = self.sample_f(w, smp[0], smp[1])
 			if pdf > 0.:
 				r += f * abs_cos_theta(wi) / pdf
 
-		r /= nSamples
+		r /= len(samples)
 		return r
 
 	def rho_hh(self, nSamples: INT, samples_1: [FLOAT], samples_2: [FLOAT]) -> 'Spectrum':
-		'''
+		"""
 		Computs hemispherical-hemispherical reflectance function.
 
 		- samples_1, samples_2
 			2d np array
-		'''
+		"""
 		r = Spectrum(0.)
 		for i in range(nSamples):
 			wo = uniform_sample_hemisphere(samples_1[i][0], samples_1[i][1])
@@ -283,7 +283,7 @@ class BDF(object, metaclass=ABCMeta):
 			if pdf_i > 0.:
 				r += f * abs_cos_theta(wi) * abs_cos_theta(wo) / (pdf_o * pdf_i)
 
-		r /= nSamples
+		r /= (PI * nSamples)
 		return r
 
 	def match_flag(self, flag: 'BDFType') -> bool:
@@ -294,13 +294,13 @@ class BDF(object, metaclass=ABCMeta):
 
 # adapter from BRDF to BTDF
 class BRDF2BTDF(BDF):
-	'''
+	"""
 	BRDF2BTDF Class
 
 	Adpater class to convert a BRDF to
 	BTDF by flipping incident light direction
 	and forward function calls to BRDF
-	'''
+	"""
 	def __init__(self, b: 'BDF'):
 		super().__init__(b.type ^ (BDFType.REFLECTION | BDFType.TRANSMISSION))
 		self.brdf = b
@@ -310,52 +310,60 @@ class BRDF2BTDF(BDF):
 		return Vector(w.x, w.y, -w.z)
 
 	# forward function calls
-	def f(self, wo: 'Vector', wi: 'Vector'): return self.brdf.f(wo, self.switch(wi))	
-	def sample_f(self, wo: 'Vector', u1: FLOAT, 
-					u2: FLOAT): return self.brdf.sample_f(wo, self.switch(wi),
-															u1, u2, pdf)	
+	def f(self, wo: 'Vector', wi: 'Vector'): return self.brdf.f(wo, self.switch(wi))
+
+	def sample_f(self, wo: 'Vector', u1: FLOAT,  u2: FLOAT):
+		pdf, wi, f = self.brdf.sample_f(wo, u1, u2)
+		return pdf, self.switch(wi), f
+
 	def rho_hd(self, wo: 'Vector', samples: [FLOAT]): return self.brdf.rho_hd(wo, samples)
+
 	def rho_hh(self, nSamples: INT, samples_1: [FLOAT],
 					samples_2: [FLOAT]): return self.brdf.rho_hh(nSamples, samples_1, samples_2)
 
+
 # adapter for scaling BDF
 class ScaledBDF(BDF):
-	'''
+	"""
 	ScaledBDF Class
 
 	Wrapper for scaling BDF based on
 	given `Spectrum`
-	'''
+	"""
 	def __init__(self, b: 'BDF', sc: 'Spectrum'):
 		super().__init__(b.type)
 		self.bdf = b
 		self.s = sc
 
 	# scale by spectrum
-	def f(self, wo: 'Vector', wi: 'Vector'): return self.s * self.brdf.f(wo, wi)	
-	def sample_f(self, wo: 'Vector', u1: FLOAT, 
-					u2: FLOAT): return self.s * self.brdf.sample_f(wo, wi,
-															u1, u2, pdf)	
+	def f(self, wo: 'Vector', wi: 'Vector'): return self.s * self.brdf.f(wo, wi)
+
+	def sample_f(self, wo: 'Vector', u1: FLOAT, u2: FLOAT):
+		pdf, wi, f = self.brdf.sample_f(wo, u1, u2)
+		return pdf, wi, self.s * f
+
 	def rho_hd(self, wo: 'Vector', samples: [FLOAT]): return self.s * self.brdf.rho_hd(wo, samples)
+
 	def rho_hh(self, nSamples: INT, samples_1: [FLOAT],
 					samples_2: [FLOAT]): return self.s * self.brdf.rho_hh(nSamples, samples_1, samples_2)
 
+
 class SpecularReflection(BDF):
-	'''
+	"""
 	SpecularReflection Class
 
 	Models perfect specular reflection.
-	'''
+	"""
 	def __init__(self, sp: 'Spectrum', fr: 'Fresnel'):
 		super().__init__(BDFType.REFLECTION | BDFType.SPECULAR)
 		self.R = sp
 		self.fresnel = fr
 
 	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		Return 0., singularity at perfect reflection
 		will be handled in light transport routines.
-		'''
+		"""
 		return Spectrum(0.)
 
 	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
@@ -364,19 +372,19 @@ class SpecularReflection(BDF):
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
 							u2: FLOAT) -> [FLOAT, 'Vector', 'Spectrum']:
 		# find direction
-		wi = Vector(-wo.x, -wo.y, wz)
+		wi = Vector(-wo.x, -wo.y, wo.z)
 
 		return [1., wi, self.fresnel(cos_theta(wo)) * self.R / abs_cos_theta(wi)] # 1. suggests no MC samples needed
 
 
 
 class SpecularTransmission(BDF):
-	'''
+	"""
 	SpecularTransmission Class
 
 	Models specular transmission
 	using delta functions
-	'''
+	"""
 	def __init__(self, t: 'Spectrum', ei: FLOAT, et: FLOAT):
 		super().__init__(BDFType.TRANSMISSION | BDFType.SPECULAR)
 		self.fresnel = FresnelDielectric(ei, et)	# conductors do not transmit light
@@ -385,10 +393,10 @@ class SpecularTransmission(BDF):
 		self.et = et
 
 	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		Return 0., singularity at perfect reflection
 		will be handled in light transport routines.
-		'''
+		"""
 		return Spectrum(0.)
 
 	def pdf(self, wo: 'Vector', wi: 'Vector') -> FLOAT:
@@ -422,23 +430,23 @@ class SpecularTransmission(BDF):
 					 self.T / abs_cos_theta(wi)] # 1. suggests no MC samples needed
 
 class Lambertian(BDF):
-	'''
+	"""
 	Lambertian Class
 
 	Models lambertian.
-	'''
+	"""
 	def __init__(self, r: 'Spectrum'):
-		'''
+		"""
 		R: Spectrum Reflectance
-		'''
+		"""
 		super().__init__(BDFType.REFLECTION | BDFType.DIFFUSE)
 		self.R = r
 
 	def f(self, wo: 'Vector', wi: 'Vector') -> 'Spectrum':
-		'''
+		"""
 		Return 0., singularity at perfect reflection
 		will be handled in light transport routines.
-		'''
+		"""
 		return INV_PI * self.R
 
 	def rho_hd(self, wo: 'Vector', samples: [FLOAT]) -> 'Spectrum':
@@ -452,7 +460,7 @@ class Lambertian(BDF):
 
 # Oren Nayer Model for Rough Surfaces
 class OrenNayar(BDF):
-	'''
+	"""
 	OrenNayar Class
 
 	Using Oren-Nayer approximation
@@ -466,7 +474,7 @@ class OrenNayar(BDF):
 	\alpha = \max(\theta_i, \theta_o) \\
 	\beta = \min(\theta_i, \theta_o)
 	$$
-	'''
+	"""
 	def __init__(self, r: 'Spectrum', sig: FLOAT):
 		super().__init__(BDFType.REFLECTION | BDFType.DIFFUSE)
 		self.R = r
@@ -501,14 +509,14 @@ class OrenNayar(BDF):
 
 # Torrance–Sparrow Model
 class MicrofacetDistribution(object, metaclass=ABCMeta):
-	'''
+	"""
 	MicrofacetDistribution Class
 
 	Compute microfacet distribution using
 	Torrance–Sparrow model.
 	Microfacet distribution functions must
 	be normalized.
-	'''
+	"""
 
 	def __repr__(self):
 		return "{}\n".format(self.__class__)	
@@ -531,7 +539,7 @@ class MicrofacetDistribution(object, metaclass=ABCMeta):
 
 # Blinn Model
 class Blinn(MicrofacetDistribution):
-	'''
+	"""
 	Blinn Class
 
 	Models Blinn microfacet distribution:
@@ -542,7 +550,7 @@ class Blinn(MicrofacetDistribution):
 	$$
 	D(\omega_h) = \frac{e+2}{2\pi} (\omega_h \cdot \mathbf{n}) ^ {e}
 	$$
-	'''
+	"""
 	def __init__(self, e: FLOAT):
 		self.e = np.clip(e, -np.inf, 10000.)
 
@@ -595,12 +603,12 @@ class Anisotropic(MicrofacetDistribution):
 		return np.sqrt((self.ex + 2.) * (self.ey + 2.)) * INV_2PI * np.power(cth, e)
 
 	def __sample_first_quad(self, u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
-		'''
+		"""
 		__sample_first_quad()
 
 		Samples a direction in the first quadrant of
 		unit hemisphere. Returns [phi, cos(theta)]
-		'''
+		"""
 		if self.ex == self.ey:
 			phi = PI * u1 * .5
 		else:
@@ -630,7 +638,7 @@ class Anisotropic(MicrofacetDistribution):
 			phi = 2. * PI - phi
 
 		st = np.sqrt(max(0., 1. - ct * ct))
-		wh = spherical_direction(st, ctm, phi)
+		wh = spherical_direction(st, ct, phi)
 		if wo.z * wh.z <= 0.:
 			wh *= -1.
 
@@ -658,11 +666,11 @@ class Anisotropic(MicrofacetDistribution):
 		else:
 			return 0.
 class Microfacet(BDF):
-	'''
+	"""
 	Microfacet Class
 
 	Models microfaceted surface
-	'''
+	"""
 	def __init__(self, r: 'Spectrum', f: 'Fresnel', d: 'MicrofacetDistribution'):
 		self.R = r
 		self.fresnel = f
@@ -707,12 +715,12 @@ class Microfacet(BDF):
 # Fresnel Blend Model, Ashikhmin and Shirley
 # Account for, e.g., glossy on diffuse
 class FresnelBlend(BDF):
-	'''
+	"""
 	FresnelBlend Class
 
 	Based on the weighted sum of
 	glossy and diffuse term.
-	'''
+	"""
 	def __init__(self, d: 'Spectrum', s: 'Spectrum', dist : 'MicrofacetDistribution'):
 		super().__init__(BDFType.REFLECTION | BDFType.GLOSSY)
 		self.Rd = d
@@ -721,10 +729,10 @@ class FresnelBlend(BDF):
 
 	@jit
 	def schlick(self, ct: FLOAT) -> 'Spectrum':
-		'''
+		"""
 		Schlick (1992) Approximation
 		of Fresnel reflection
-		'''
+		"""
 		return self.Rs + np.power(1. - ct, 5.) * (Spectrum(1.) - self.Rs)
 
 	def sample_f(self, wo: 'Vector', u1: FLOAT, 
@@ -732,7 +740,7 @@ class FresnelBlend(BDF):
 		if u1 < .5:
 			u1 = 2. * u1
 			# cosine sample the hemisphere
-			wi = cosine_sample_hemishpere(u1, u2)
+			wi = cosine_sample_hemisphere(u1, u2)
 			if wo.z < 0.:
 				wi.z *= -1.
 		else:
@@ -764,11 +772,11 @@ class FresnelBlend(BDF):
 
 # Measured BDF
 class IrIsotropicBRDFSample(object):
-	'''
+	"""
 	IrIsotropicBRDFSample Class
 
 	Store irregular isotropic BRDF sample
-	'''
+	"""
 	def __init__(self, p: 'Point', v: 'Spectrum'):
 		self.p = p.copy()
 		self.v = v.copy()
@@ -779,11 +787,11 @@ class IrIsotropicBRDFSample(object):
 
 
 class IrIsotropicBRDF(BDF):
-	'''
+	"""
 	IrIsotropicBRDF Class
 
 	Used for measured BRDF
-	'''
+	"""
 	def __init__(self, tree: 'KdTree', data: ['IrIsotropicBRDFSample']):
 		super().__init__(BDFType.REFLECTION | BDFType.GLOSSY)
 		self.tree = tree
@@ -795,12 +803,13 @@ class IrIsotropicBRDF(BDF):
 		m = BRDF_remap(wo, wi)
 		max_dist = .01
 		while True:
-			indices = tree.query_ball_point(m, max_dist)
+			indices = self.tree.query_ball_point(m, max_dist)
 			if len(indices) > 2 or max_dist > 1.5:
+				idx = indices[0]
 				sum_wt = 0.
 				v = Spectrum()
 				for sample in self.data[idx]:
-					wt += np.exp((sample.p - m).sq_length() * -100.)
+					wt = np.exp((sample.p - m).sq_length() * -100.)
 					sum_wt += wt
 					v += sample.v * wt
 
@@ -810,13 +819,13 @@ class IrIsotropicBRDF(BDF):
 
 
 class ReHalfangleBRDF(BDF):
-	'''
+	"""
 	ReHalfangleBRDF Class
 
 	Models regularly tabulated BRDF Samples
 	Format inline with Matusik(2003) at
 	http://people.csail.mit.edu/wojciech/BRDFDatabase/
-	'''
+	"""
 	def __init__(self, data: 'np.ndarray', nth: INT, ntd: INT, npd: INT):
 		super().__init__(BDFType.REFLECTION | BDFType.GLOSSY)
 		self.brdf = data
@@ -852,12 +861,12 @@ class ReHalfangleBRDF(BDF):
 
 
 class BSDFSample(object):
-	'''
+	"""
 	BSDFSample Class
 
 	Encapsulate samples used
 	by BSDF.sample_f()
-	'''
+	"""
 	def __init__(self, up0: FLOAT=0., up1: FLOAT=0., u_com: FLOAT=0.):
 		self.u_dir = [up0, up1]
 		self.u_com = u_com
@@ -878,12 +887,12 @@ class BSDFSample(object):
 		return self
 
 class BSDFSampleOffset(object):
-	'''
+	"""
 	BSDFSampleOffset Class
 
 	Encapsulate offsets provided
 	by sampler
-	'''
+	"""
 	def __init__(self, nSamples: INT, sample: 'Sample'):
 		self.nSamples = nSamples
 		self.offset_com = sample.add_1d(nSamples)
@@ -894,7 +903,7 @@ class BSDFSampleOffset(object):
 
 
 class BSDF(object):
-	'''
+	"""
 	BSDF Class
 
 	Models the collection of BRDF and BTDF
@@ -902,13 +911,13 @@ class BSDF(object):
 
 	n_s: shading normal
 	n_g: geometric normal
-	'''
+	"""
 	def __init__(self, dg: 'DifferentialGeometry', ng: 'Normal', e: FLOAT=1.):
-		'''
+		"""
 		dg: DifferentialGeometry
 		ng: Geometric Normal
 		e: index of refraction
-		'''
+		"""
 		self.dgs = dg
 		self.eta = e
 		self.ng = ng
@@ -916,7 +925,7 @@ class BSDF(object):
 		# coord. system
 		self.nn = dg.nn
 		self.sn = normalize(dg.dpdu)
-		self.tn = nn.cross(sn)
+		self.tn = self.nn.cross(self.sn)
 
 		self.bdfs = []
 		self.__nBDF = INT(0)
@@ -927,11 +936,11 @@ class BSDF(object):
 	@jit
 	def sample_f(self, wo_w: 'Vector', bsdf_smp: 'BSDFSample',
 				flags: 'BDFType') -> [FLOAT, 'Vector', 'BDFType' 'Spectrum']:
-		'''
+		"""
 		sample_f()
 
 		returns [pdf, wi_w, sample_type, spectrum]
-		'''
+		"""
 		# choose BDFs
 		smp_type = None
 		n_match = self.n_components(flags)
@@ -980,8 +989,8 @@ class BSDF(object):
 
 	def pdf(self, wo: 'Vector', wi: 'Vector', flags: 'BDFType'=BDFType.ALL) -> FLOAT:
 		if self.n_BDF == 0: return 0.
-		wo = self.w2l(wo_w)
-		wi = self.w2l(wi_w)
+		wo = self.w2l(wo)
+		wi = self.w2l(wi)
 		pdf = 0.
 		n_match = 0
 		for bdf in self.bdfs:
@@ -992,9 +1001,9 @@ class BSDF(object):
 		return pdf / n_match if n_match > 0 else 0.
 
 	def push_back(self, bdf: 'BDF'):
-		'''
+		"""
 		Add more BDF
-		'''
+		"""
 		self.bdfs.append(bdf)
 		self.__nBDF += 1
 
@@ -1010,31 +1019,31 @@ class BSDF(object):
 		return n
 
 	def w2l(self, v: 'Vector') -> 'Vector':
-		'''
+		"""
 		w2l()
 
 		Transform a `Vector` in world in the local
 		surface normal coord. system
-		'''
+		"""
 		return Vector(v.dot(self.sn), v.dot(self.tn), v.dot(self.nn))
 
 	def l2w(self, v: 'Vector') -> 'Vector':
-		'''
+		"""
 		l2w()
 
 		Transform a `Vector` in the local system
 		to the world system
-		'''
+		"""
 		return Vector(  self.sn.x * v.x + self.tn.x * v.x + self.nn.x * v.x,
 						self.sn.y * v.y + self.tn.y * v.y + self.nn.y * v.y,
 						self.sn.z * v.z + self.tn.z * v.z + self.nn.z * v.z )
 
 	@jit
 	def f(self, wo_w: 'Vector', wi_w: 'Vector', flags: 'BDFType') -> 'Spectrum':
-		wi = self.w2l(wi)
-		wo = self.w2l(wo)	
+		wi = self.w2l(wi_w)
+		wo = self.w2l(wo_w)
 
-		if (wi_o.dot(ng)) * (wo_w.dot(ng)) < 0.:
+		if (wi_w.dot(self.ng)) * (wo_w.dot(self.ng)) < 0.:
 			# no transmission
 			flags = BDFType(flags & ~BDFType.TRANSMISSION)
 		else:
@@ -1050,10 +1059,10 @@ class BSDF(object):
 		return f
 
 	def rho_hd(self, wo: 'Vector', flags: 'BDFType'=BDFType.ALL, sqrt_samples: INT=6, rng=np.random.rand) -> 'Spectrum':
-		'''
+		"""
 		Computs hemispherical-directional reflectance function.
 
-		'''
+		"""
 		nSamples = sqrt_samples * sqrt_samples
 		smp = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
 
@@ -1065,10 +1074,10 @@ class BSDF(object):
 		return sp
 
 	def rho_hh(self, flags: 'BDFType'=BDFType.ALL, sqrt_samples: INT=6, rng=np.random.rand) -> 'Spectrum':
-		'''
+		"""
 		Computs hemispherical-hemispherical reflectance function.
 
-		'''
+		"""
 		nSamples = sqrt_samples * sqrt_samples
 		smp_1 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
 		smp_2 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)

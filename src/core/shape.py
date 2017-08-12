@@ -1,4 +1,4 @@
-'''
+"""
 shape.py
 
 The base class of shapes.
@@ -13,13 +13,14 @@ Shapes include:
 	- Disk
 
 Created by Jiayao on July 27, 2017
-'''
-import numpy as np
-from abc import ABCMeta, abstractmethod   
-from src.core.pytracer import *
-from src.core.geometry import *
-from src.core.transform import *
+"""
+# import numpy as np
+# from abc import ABCMeta, abstractmethod
+# from src.core.pytracer import *
+# from src.core.geometry import *
+# from src.core.transform import *
 from src.core.diffgeom import *
+from src.core.montecarlo import *
 
 # aux functions for mesh navigation
 def NEXT(i: INT) -> INT:
@@ -92,7 +93,9 @@ def create_triangle_mesh(o2w: 'Transform', w2o: 'Transform',
 						.format(alphaTexStr))
 
 	elif 'alpha' in params:
-		alphaTex = ConstantTexture(0.)
+		pass
+		# TODO
+		# alphaTex = ConstantTexture(0.)
 
 	return TriangleMesh(o2w, w2o, ro, nvi / 3, npi, vi, P, N, S, uvs, alphaTex)
 
@@ -110,11 +113,11 @@ def create_loop_subdiv(o2w: 'Transform', w2o: 'Transform',
 	
 
 class Shape(object, metaclass=ABCMeta):
-	'''
+	"""
 	Shape Class
 
 	Base class of shapes.
-	'''
+	"""
 
 	next_shapeId = 1
 
@@ -144,10 +147,10 @@ class Shape(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def refine(self) -> ['Shape']:
-		'''
+		"""
 		If `Shape` cannot intersect,
 		return a refined subset
-		'''
+		"""
 		raise NotImplementedError('Intersecable shapes are not refineable')
 
 	@abstractmethod
@@ -168,36 +171,36 @@ class Shape(object, metaclass=ABCMeta):
 		raise NotImplementedError('unimplemented Shape.area() method called') 
 
 	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
-		'''
+		"""
 		sample()
 
 		Returns the position and
 		surface normal randomly chosen
-		'''
+		"""
 		raise NotImplementedError('unimplemented {}.sample() method called'
 			.format(self.__class__)) 
 
 	def sample_p(self, pnt: 'Point', u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
-		'''
+		"""
 		sample_p()
 
 		Returns the position and
 		surface normal randomly chosen
 		s.t. visible to `pnt`
-		'''
+		"""
 		return self.sample(u1, u2)
 
 
 	def pdf(self, pnt: 'Point') -> FLOAT:
-		'''
+		"""
 		pdf()
 
 		Return the sampling pdf
-		'''
+		"""
 		return 1. / self.area()
 
 	def pdf_p(self, pnt: 'Point', wi: 'Vector') -> FLOAT:
-		'''
+		"""
 		pdf_p()
 
 		Return the sampling pdf w.r.t.
@@ -205,7 +208,7 @@ class Shape(object, metaclass=ABCMeta):
 		Transforms the density from one
 		defined over area to one defined
 		over solid angle from `pnt`.
-		'''
+		"""
 		# intersect sample ray with area light
 		ray = Ray(pnt, wi, EPS)
 
@@ -214,23 +217,23 @@ class Shape(object, metaclass=ABCMeta):
 			return 0.
 
 		# convert light sample weight to solid angle measure
-		return (p - ray(thit)).sq_length() / (dg_light.nn.abs_dot(-wi) * self.area())
+		return (pnt - ray(thit)).sq_length() / (dg_light.nn.abs_dot(-wi) * self.area())
 
 
 
 class LoopSubdiv(Shape):
-	'''
+	"""
 	LoopSubdiv Class
 
 	Implement Loop's method for subdivision surfaces.
 	Assumes meshes are manifolds and are consistently ordered.
-	'''
+	"""
 	class SDVertex():
-		'''
+		"""
 		SDVertex Class
 
 		Inner class for `LoopSubdiv`
-		'''
+		"""
 		def __init__(self, pt: Point = Point(0., 0., 0.,)):
 			self.P = pt.copy()
 			self.startFace = None # ref to SDFace
@@ -301,11 +304,11 @@ class LoopSubdiv(Shape):
 
 
 	class SDFace():
-		'''
+		"""
 		SDFace Class
 
 		Inner class for `LoopSubdiv`
-		'''
+		"""
 		def __init__(self):
 			self.v = [None, None, None] # ref to SDVertex (3)
 			self.f = [None, None, None] # ref to SDFace (3)
@@ -316,7 +319,7 @@ class LoopSubdiv(Shape):
 
 		def vnum(self, vert) -> INT:
 			for i in range(3):
-				if v[i] == vert:
+				if self.v[i] == vert:
 					return i
 			raise RuntimeError('Logic error in Shape.LoopSubdiv.SDFace.vnum()')
 
@@ -335,15 +338,15 @@ class LoopSubdiv(Shape):
 		def other_vert(self, v0, v1):
 			for i in range(3):
 				if self.v[i] != v0 and self.v[i] != v1:
-					return v[i]
+					return self.v[i]
 			raise RuntimeError('Logic error in Shape.LoopSubdiv.SDVertex.other_vert()')
 
 	class SDEdge():
-		'''
+		"""
 		SDEdge Class
 
 		Inner class for `LoopSubdiv`
-		'''
+		"""
 		def __init__(self, v0: 'SDVertex' = None, v1: 'SDVertex' = None):
 			self.v = [v0, v1] if id(v0) < id(v1) else [v1, v0]
 			self.f = [None, None]
@@ -389,7 +392,7 @@ class LoopSubdiv(Shape):
 			for edge_num in range(3):
 				v0 = edge_num
 				v1 = NEXT(edge_num)
-				e = SDEdge(f.v[v0], f.v[v1])
+				e = LoopSubdiv.SDEdge(f.v[v0], f.v[v1])
 				if e in edges:
 					e = edges[e]
 					e.f[0].f[e.f0edge_num] = f
@@ -428,7 +431,7 @@ class LoopSubdiv(Shape):
 
 	@staticmethod
 	def gamma(valence: INT) -> FLOAT:
-		return 1. / (valence + 3. / (8. + beta(valence)))
+		return 1. / (valence + 3. / (8. + LoopSubdiv.beta(valence)))
 
 	def weight_one_ring(self, vert: 'SDVertex', beta: 'FLOAT') -> 'Point':
 		valence = vert.valence()
@@ -468,14 +471,14 @@ class LoopSubdiv(Shape):
 			newVertices = []
 			# update next level
 			for vv in v:
-				vv.child = SDVertex()
+				vv.child = LoopSubdiv.SDVertex()
 				vv.child.regular = vv.regular
 				vv.child.boundary = vv.boundary
 				newVertices.append(vv.child)
 
 			for ff in f:
 				for k in range(4):
-					ff.children[k] = SDFace()
+					ff.children[k] = LoopSubdiv.SDFace()
 					newFaces.append(ff.children[k])
 
 			# update vertex positions and create new edge vertices
@@ -487,22 +490,22 @@ class LoopSubdiv(Shape):
 					if vv.regular:
 						vv.child.P = self.weight_one_ring(vv, .0625)
 					else:
-						vv.child.P = weight_one_ring(vv, LoopSubdiv.beta(vv.valence()))
+						vv.child.P = self.weight_one_ring(vv, LoopSubdiv.beta(vv.valence()))
 				else:
 					# boundary rule
 					# $v' = (1 - 2 \beta) v + \beta (v_1 + v_2)
-					vv.child.P = weight_boundary(vv, .125)
+					vv.child.P = self.weight_boundary(vv, .125)
 
 			## update for odd vertices (along the split edges)
 			edgeVerts = {}
 			for ff in f:
 				for k in range(3):
 					# k-th edge
-					edge = SDEdge(ff.v[k], ff.v[NEXT(k)])
+					edge = LoopSubdiv.SDEdge(ff.v[k], ff.v[NEXT(k)])
 
 					if edge not in edgeVerts:
 						# create and init
-						vert = SDVertex()
+						vert = LoopSubdiv.SDVertex()
 						newVertices.append(vert)
 						vert.regular = True
 						vert.boundary = (ff.f[k] is None)
@@ -523,15 +526,15 @@ class LoopSubdiv(Shape):
 			## startFace ref of odd vertices (done)
 			## startFace ref of even vertices
 			for vv in v:
-				v_num = v.startFace.vnum(v)
-				v.child.startFace = v.startFace.child[v_num]
+				v_num = vv.startFace.vnum(v)
+				v.child.startFace = vv.startFace.child[v_num]
 
 			## new faces' neighbor ref
 			for ff in f:
 				for k in range(3):
 					### update for siblings
 					ff.children[3].f[k] = ff.children[NEXT(k)]
-					ff.children[k].f[NEXT(k)] = f.children[3]
+					ff.children[k].f[NEXT(k)] = ff.children[3]
 
 					### update for neighbor children
 					f2 = ff.f[k]
@@ -540,12 +543,12 @@ class LoopSubdiv(Shape):
 					ff.children[k].f[PREV(k)] = None if f2 is None else f2.children[f2.vnum(ff.v[k])]
 
 			## new faces' vertices ref
-			for ff in face:
+			for ff in f:
 				for k in range(3):
 					### update to new even vertex
 					ff.children[k].v[k] = ff.v[k].child
 					### update to new odd vertex
-					vert = edgeVerts[ SDEdge(ff.v[k], ff.v[NEXT(k)]) ]
+					vert = edgeVerts[ LoopSubdiv.SDEdge(ff.v[k], ff.v[NEXT(k)]) ]
 					ff.children[k].v[NEXT(k)] = vert
 					ff.children[NEXT(k)].v[k] = vert
 					ff.children[3].v[k] = vert
@@ -558,9 +561,9 @@ class LoopSubdiv(Shape):
 		Plimit = []# [Point]
 		for vv in v:
 			if vv.boundary:
-				Plimit.append( weight_boundary(vv, .2) )
+				Plimit.append( self.weight_boundary(vv, .2) )
 			else:
-				Plimit.append( weight_one_ring(vv, gamma(vv.valence())) )
+				Plimit.append( self.weight_one_ring(vv, self.gamma(vv.valence())) )
 
 		for i, vv in enumerate(v):
 			vv.p = Plimit[i]
@@ -613,7 +616,7 @@ class LoopSubdiv(Shape):
 		params = {	'indices': verts,
 					'P': Plimit,
 					'N': Ns }
-		return [create_triangle_mesh(o2w, w2o, ro, params)]
+		return [create_triangle_mesh(self.o2w, self.w2o, self.ro, params)]
 
 
 
@@ -622,13 +625,13 @@ class LoopSubdiv(Shape):
 
 
 class Triangle(Shape):
-	'''
+	"""
 	Triangle Class
 
 	Subclasses `Shape` and inner classes
 	`TriangleMesh`. Holds refernces to
 	the data in the outer `TriangleMesh`
-	'''
+	"""
 	def __init__(self, o2w: 'Transform', w2o: 'Transform',
 			ro: bool, m: 'TriangleMesh', n: INT):
 		self.mesh = m
@@ -677,10 +680,10 @@ class Triangle(Shape):
 		return [p, Ns]
 
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
-		'''
+		"""
 		Determine whether intersects
 		using Barycentric coordinates
-		'''
+		"""
 		# compute s1
 		p1 = self.mesh.p[self.v]
 		p2 = self.mesh.p[self.v+1]
@@ -710,7 +713,7 @@ class Triangle(Shape):
 
 		# compute intersection
 		t = e2.dot(s2) * divInv
-		if t < r.mint or d > ray.maxt:
+		if t < r.mint or d > r.maxt:
 			return (False, None, None, None)
 
 		# compute partial derivatives
@@ -750,10 +753,10 @@ class Triangle(Shape):
 		return True, t, 1e-3 * t, dg	
 
 	def intersectP(self, r: 'Ray') -> bool:
-		'''
+		"""
 		Determine whether intersects
 		using Barycentric coordinates
-		'''
+		"""
 		# compute s1
 		p1 = self.mesh.p[self.v]
 		p2 = self.mesh.p[self.v+1]
@@ -783,7 +786,7 @@ class Triangle(Shape):
 
 		# compute intersection
 		t = e2.dot(s2) * divInv
-		if t < r.mint or d > ray.maxt:
+		if t < r.mint or d > r.maxt:
 			return False
 
 		# compute partial derivatives
@@ -834,10 +837,10 @@ class Triangle(Shape):
 			return dg
 		# compute barycentric coord
 		uvs = self.get_uvs()
-		A = np.array([[ uv[1][0] - uv[0][0], uv[2][0] - uv[0][0] ],
-					  [ uv[1][1] - uv[0][1], uv[2][1] - uv[0][1] ]],
+		A = np.array([[ uvs[1][0] - uvs[0][0], uvs[2][0] - uvs[0][0] ],
+					  [ uvs[1][1] - uvs[0][1], uvs[2][1] - uvs[0][1] ]],
 					  dtype=FLOAT)
-		C = np.array([dg.u - uv[0][0], dg.v - uv[0][1]])
+		C = np.array([dg.u - uvs[0][0], dg.v - uvs[0][1]])
 		try:
 			b = np.linalg.solve(A, C)
 		except:
@@ -893,17 +896,17 @@ class Triangle(Shape):
 		return dg
 
 class TriangleMesh(Shape):
-	'''
+	"""
 	TriangleMesh Class
 
 	Subclasses `Shape` and is used
 	to model trianglular meshes.
-	'''	
+	"""	
 	def __init__(self, o2w: 'Transform', w2o :'Transform',
 			ro: bool, nt: INT, nv: INT, vi: [INT],
 			P: [Point], N: [Normal] = None, S: [Vector] = None,
 			uv: np.ndarray = None, atex = None):
-		'''
+		"""
 		o2w, w2o: Transformations
 		ro: reverse_orientation
 		nt: # of triangles
@@ -915,7 +918,7 @@ class TriangleMesh(Shape):
 		S: plain array of `Vector`s
 		uv: plain array of parametric values
 		atex: reference to alpha mask texture
-		'''
+		"""
 		super().__init__(o2w, w2o, ro)
 		self.alphaTexture = atex
 		self.ntris = nt
@@ -950,18 +953,18 @@ class TriangleMesh(Shape):
 	# produce a list of `Shape`s that
 	# can be intersected
 	def refine(self) -> ['Shape']:
-		'''
+		"""
 		returns a list of triangle references
-		'''
+		"""
 		return [Triangle(self.o2w, self.w2o, self.ro, self, i) for i in range(self.ntris)]
 	
 class Sphere(Shape):
-	'''
+	"""
 	Sphere Class
 
 	Subclasses `Shape` and is used
 	to model possibly partial Sphere.
-	'''
+	"""
 	def __init__(self, o2w: 'Transform', w2o :'Transform',
 			ro: bool, rad: FLOAT, z0: FLOAT, z1: FLOAT, pm: FLOAT):
 		super().__init__(o2w, w2o, ro)
@@ -980,24 +983,25 @@ class Sphere(Shape):
 					Point(self.radius, self.radius, self.zmax))
 	@jit
 	def sample(self, u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
-		'''
+		"""
 		account for partial sphere
-		'''
+		"""
 		v = uniform_sample_sphere(u1, u2)	
 		phi = spherical_theta(v) * self.phiMax * INV_2PI	
 		theta = self.thetaMin + spherical_theta(v) * (self.thetaMax - self.thetaMin)
 		
-		v = spherical_direction(np.sin(theta), np.cos(theta), phi) * radius
+		v = spherical_direction(np.sin(theta), np.cos(theta), phi) * self.radius
 		v.z = self.zmin + v.z * (self.zmax - self.zmin)	
 
+		p = Point.fromVector(v)
 		Ns = normalize(self.o2w(Normal(p.x, p.y, p.z)))
 		if self.ro:
 			Ns *= -1.
 		return [self.o2w(p), Ns]			
 
-		# '''
+		# """
 		# Not account for partial sphere
-		# '''
+		# """
 		# p = Point.fromVector(radius * uniform_sample_sphere(u1, u2))
 		# Ns = normalize(self.o2w(Normal(p.x, p.y, p.z)))
 		# if self.ro:
@@ -1005,18 +1009,18 @@ class Sphere(Shape):
 		# return [self.o2w(p), Ns]
 		
 	def refine(self) -> ['Shape']:
-		'''
+		"""
 		If `Shape` cannot intersect,
 		return a refined subset
-		'''
+		"""
 		raise NotImplementedError('Intersecable shapes are not refineable')
 
 	def sample_p(self, pnt: 'Point', u1: FLOAT, u2: FLOAT) -> ['Point', 'Normal']:
-		'''
+		"""
 		uniformly sample the sphere
 		visible (of certain solid angle)
 		to the point
-		'''
+		"""
 		# compute coords for sampling
 		ctr = self.o2w(Point(0., 0., 0.))
 		wc = normalize(ctr - pnt)
@@ -1034,9 +1038,9 @@ class Sphere(Shape):
 		hit, thit, _, _ = self.intersect(r)
 
 		if not hit:
-			thit = (ctr - p).dot(normalize(r.d))
+			thit = (ctr - pnt).dot(normalize(r.d))
 
-		ps = r(hit)
+		ps = r(thit)
 		ns = Normal.fromVector(normalize(ps - ctr))
 		if self.ro:
 			ns *= -1.
@@ -1054,14 +1058,14 @@ class Sphere(Shape):
 		ct_max = np.sqrt(max(0., 1. - st_max_sq))
 		return uniform_cone_pdf(ct_max)
 
-	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
-		'''
+	def intersect(self, r: 'Ray') -> [bool, FLOAT, FLOAT, 'DifferentialGeometry']:
+		"""
 		Returns:
 		 - bool: specify whether intersects
 		 - tHit: hit point param
 		 - rEps: error tolerance
 		 - dg: DifferentialGeometry object
-		'''
+		"""
 		# transform ray to object space
 		ray = self.w2o(r)
 
@@ -1152,8 +1156,8 @@ class Sphere(Shape):
 								 (f * F - g * E) * invEGFF * dpdv)
 
 		o2w = self.o2w
-		dg = DifferentialGeometry(o2w(phit), o2w(dpdu), o2w(dpdv),
-								  o2w(dndu), o2w(dndv), u, v, self)
+		from src.core.diffgeom import DifferentialGeometry
+		dg = DifferentialGeometry(o2w(phit), o2w(dpdu), o2w(dpdv), o2w(dndu), o2w(dndv), u, v, self)
 		return True, thit, EPS * thit, dg
 
 
@@ -1182,6 +1186,13 @@ class Sphere(Shape):
 			if thit > ray.maxt:
 				return False
 
+		phit = ray(thit)
+		if phit.x == 0. and phit.y == 0.:
+			phit.x = EPS * self.radius
+		phi = np.arctan2(phit.y, phit.x)
+		if phi < 0.:
+			phi += 2. * np.pi
+
 		# test intersection against clipping params
 		if (self.zmin > -self.radius and phit.z < self.zmin) or \
 				(self.zmax < self.radius and phit.z > self.zmax) or \
@@ -1208,12 +1219,12 @@ class Sphere(Shape):
 		return self.phiMax * self.radius * (self.zmax - self.zmin)
 
 class Cylinder(Shape):
-	'''
+	"""
 	Cylinder Class
 
 	Subclasses `Shape` and is used
 	to model possibly partial Cylinder.
-	'''	
+	"""	
 	def __init__(self, o2w: 'Transform', w2o :'Transform',
 			ro: bool, rad: FLOAT, z0: FLOAT, z1: FLOAT, pm: FLOAT):
 		super().__init__(o2w, w2o, ro)
@@ -1242,13 +1253,13 @@ class Cylinder(Shape):
 
 
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
-		'''
+		"""
 		Returns:
 		 - bool: specify whether intersects
 		 - tHit: hit point param
 		 - rEps: error tolerance
 		 - dg: DifferentialGeometry object
-		'''
+		"""
 		# transform ray to object space
 		ray = self.w2o(r)
 
@@ -1385,12 +1396,12 @@ class Cylinder(Shape):
 		return self.phiMax * self.radius * (self.zmax - self.zmin)
 
 class Disk(Shape):
-	'''
+	"""
 	Disk Class
 
 	Subclasses `Shape` and is used
 	to model possibly partial Disk.
-	'''	
+	"""	
 	def __init__(self, o2w: 'Transform', w2o :'Transform',
 			ro: bool, ht: FLOAT, r: FLOAT, ri: FLOAT, pm: FLOAT):
 		super().__init__(o2w, w2o, ro)
@@ -1423,13 +1434,13 @@ class Disk(Shape):
 		return [self.o2w(p), Ns]
 
 	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'DifferentialGeometry'):
-		'''
+		"""
 		Returns:
 		 - bool: specify whether intersects
 		 - tHit: hit point param
 		 - rEps: error tolerance
 		 - dg: DifferentialGeometry object
-		'''
+		"""
 		# transform ray to object space
 		ray = self.w2o(r)
 

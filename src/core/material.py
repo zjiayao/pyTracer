@@ -1,10 +1,10 @@
-'''
+"""
 material.py
 
 Model materials
 
 Created by Jiayao on Aug 3, 2017
-'''
+"""
 import sys, os, glob
 from numba import jit
 from abc import ABCMeta, abstractmethod
@@ -14,42 +14,43 @@ from src.core.geometry import *
 from src.core.diffgeom import *
 from src.core.spectrum import *
 from src.core.reflection import *
+from src.core.volume import *
 
 class Material(object, metaclass=ABCMeta):
-	'''
+	"""
 	Material Class
-	'''
+	"""
 	def __repr__(self):
 		return "{}\n".format(self.__class__)
 
 	@abstractmethod	
 	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
-		'''
+		"""
 		dg_g: Geometric DG object
 		dg_s: Shading DG object
-		'''
+		"""
 		raise NotImplementedError('src.core.material.{}.get_BSDF: abstract method '
 									'called'.format(self.__class__)) 	
 
 	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF':
-		'''
+		"""
 		get_BSSRDF()
 
 		For translucent materials. 
 		dg_g: Geometric DG object
 		dg_s: Shading DG object
-		'''
+		"""
 		return None
 	@staticmethod
 	@jit
 	def bump(d: 'Texture', dgg: 'DifferentialGeometry', dgs: 'DifferentialGeometry'):
-		'''
+		"""
 		bump()
 
 		Compute bump mapping from `Texture` d,
 		dgg accounts for geometry and dgs
 		for shading
-		'''
+		"""
 		# offset position, find texture
 		dg = dgs.copy()
 		## shift du in u
@@ -69,7 +70,7 @@ class Material(object, metaclass=ABCMeta):
 		dg.p = dgs.p + dv * dgs.dpdv
 		dg.u = dgs.u
 		dg.v = dgs.v + dv
-		dg.nn = normal(Normal.fromVector(dgs.dpdu.cross(dgs.dpdv) + dv * dgs.dndv))
+		dg.nn = normalize(Normal.fromVector(dgs.dpdu.cross(dgs.dpdv) + dv * dgs.dndv))
 
 		v_disp = d(dg)
 
@@ -86,14 +87,14 @@ class Material(object, metaclass=ABCMeta):
 			dg.nn *= -1.
  
 		# orient shding normal to match goemtric normal
-		dg.nn = faceforward(dg.nn, dgg.nn)
+		dg.nn = face_forward(dg.nn, dgg.nn)
 
 		return dg
 
 
 			
 class MatteMaterial(Material):
-	'''
+	"""
 	MatteMaterial Class
 
 	Models prurely diffuse surfaces.
@@ -102,12 +103,12 @@ class MatteMaterial(Material):
 	sigma: Roughness. Returns Lambertian if
 			0 at some point; OrenNayer otherwise
 
-	'''
-	def __init__(self, Kd: 'Texture', Sig: 'Texture', bump_map: 'Texture'):
-		'''
+	"""
+	def __init__(self, Kd: 'Texture', sigma: 'Texture', bump_map: 'Texture'):
+		"""
 		Kd: `Spectrum` `Texture`
 		sigma, bump_map: `FLOAT` `Texture`
-		'''
+		"""
 		self.Kd = Kd
 		self.sigma = sigma
 		self.bump_map = bump_map
@@ -135,7 +136,7 @@ class MatteMaterial(Material):
 
 
 class PlasticMaterial(Material):
-	'''
+	"""
 	PlasticMaterial Class
 
 	Models plastic as a mixture
@@ -145,12 +146,12 @@ class PlasticMaterial(Material):
 	Ks: Specular Glossy Reflection Value
 	rough: Roughness, determines specular highlight
 
-	'''
+	"""
 	def __init__(self, Kd: 'Texture', Ks: 'Texture', roughness: 'Texture', bump_map: 'Texture'):
-		'''
+		"""
 		Kd: `Spectrum` `Texture`
 		sigma, bump_map: `FLOAT` `Texture`
-		'''
+		"""
 		self.Kd = Kd
 		self.Ks = Ks
 		self.roughness = roughness
@@ -184,26 +185,26 @@ class PlasticMaterial(Material):
 
 
 class MixMaterial(Material):
-	'''
+	"""
 	MixMaterial Class
 
 	Models mixed materials. Use texture
 	spectrum to blend.
-	'''
+	"""
 	def __init__(self, m1: 'Texture', m2: 'Texture', scale: 'Texture'):
-		'''
+		"""
 		m1, m2: `Material` `Spectrum`
 		scale: `Spectrum` `Texture` for blend
-		'''
+		"""
 		self.m1 = m1
 		self.m2 = m2
 		self.scale = scale
 
 
 	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
-		'''
+		"""
 		BSDF in m1 (i.e., `m1.bdfs`) is modified
-		'''
+		"""
 		b1 = self.m1.get_BSDF(dg_g, dg_s)
 		b2 = self.m2.get_BSDF(dg_g, dg_s)
 
@@ -211,22 +212,22 @@ class MixMaterial(Material):
 		s2 = (Spectrum(1.) - s1).clip()
 
 		for i, b in b1.bdfs:
-			b1.bdfs[i] = ScaledBxDF(b, s1)
+			b1.bdfs[i] = ScaledBDF(b, s1)
 		for i, b in b2.bdfs:
-			b1.push_back(ScaledBxDF(b, s2))
+			b1.push_back(ScaledBDF(b, s2))
 
 		return b1
 
 
 class MeasuredMaterial(Material):
-	'''
+	"""
 	MeasuredMaterial Class
 
 	Models materials using measured BSDF,
 	either irregular or regular.
-	'''
+	"""
 	def __init__(self, filename: 'str', bump_map: 'Texture'):
-		'''
+		"""
 		filename: filename of measured material
 		bump_map: `FLOAT` `Texture`
 
@@ -234,7 +235,7 @@ class MeasuredMaterial(Material):
 			*.brdt
 		Regular Halfangle BRDF:
 			*.merl (Binary)
-		'''
+		"""
 		self.bump_map = bump_map
 		self.regular_data = None
 		self.theta_phi_tree = None
@@ -320,15 +321,10 @@ class MeasuredMaterial(Material):
 							file, ext))
 
 
-
-
-
-
-
 	def get_BSDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSDF':
-		'''
+		"""
 		BSDF in m1 (i.e., `m1.bdfs`) is modified
-		'''
+		"""
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
@@ -343,18 +339,18 @@ class MeasuredMaterial(Material):
 
 		elif self.theta_phi_tree is not None:
 			# irregular
-			bsdf.push_back(IrIsotropicBRDF(self.theta_phi_tree, self.theta_phi_sample))
+			bsdf.push_back(IrIsotropicBRDF(self.theta_phi_tree, self.theta_phi_samples))
 
 		return bsdf
 
 
 
 class SubsurfaceMaterial(Material):
-	'''
+	"""
 	SubsurfaceMaterial Class
 
 	Models translucent objects
-	'''
+	"""
 	def __init__(self, scale: FLOAT, kr: 'Texture', sigma_a: 'Texture',
 					sigma_prime_s: 'Texture', eta: 'Texture', bump_map: 'Texture'):
 		self.scale = scale
@@ -370,32 +366,32 @@ class SubsurfaceMaterial(Material):
 		else:
 			dgs = dg_s.copy()
 		R = self.kr(dgs).clip()
-		brdf = BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			brdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
 
 
 	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF':
-		'''
+		"""
 		get_BSSRDF()
 
 		Specified in terms of reciprocal
 		distance ($m^{-1}$).
-		'''
-		return BSSRDF(self.scale * self.sigma_a(dg_s), self.scale * sigma_prime_s(dg_s), self.eta(dg_s))
+		"""
+		return BSSRDF(self.scale * self.sigma_a(dg_s), self.scale * self.sigma_prime_s(dg_s), self.eta(dg_s))
 
 
 
 
 class KdSubsurfaceMaterial(Material):
-	'''
+	"""
 	SubsurfaceMaterial Class
 
 	Models translucent objects
-	'''
+	"""
 	def __init__(self, kd: 'Texture', kr: 'Texture', mfp: 'Texture',
 					eta: 'Texture', bump_map: 'Texture'):
 		self.kd = kd
@@ -411,21 +407,21 @@ class KdSubsurfaceMaterial(Material):
 			dgs = dg_s.copy()
 
 		R = self.kr(dgs).clip()
-		brdf = BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			brdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
 
 
 	def get_BSSRDF(self, dg_g: 'DifferentialGeometry', dg_s: 'DifferentialGeometry') -> 'BSSRDF':
-		'''
+		"""
 		get_BSSRDF()
 
 		Specified in terms of reciprocal
 		distance ($m^{-1}$).
-		'''
+		"""
 		e = self.eta(dg_s)
 		sigma_a, sigma_prime_s = subsurface_from_diffuse(self.kd(dg_s).clip(), self.mfp(dg_s), e)
 

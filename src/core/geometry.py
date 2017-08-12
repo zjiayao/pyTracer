@@ -1,4 +1,4 @@
-'''
+"""
 geometry.py
 
 This module is part of the pyTracer, which
@@ -6,7 +6,7 @@ defines the geometric classes.
 
 v0.0
 Created by Jiayao on July 27, 2017
-'''
+"""
 from numba import jit
 import numpy as np
 from src.core.pytracer import *
@@ -14,7 +14,7 @@ from src.core.pytracer import *
 # Geometry related functions
 @jit
 def coordinate_system(v1: 'Vector') -> ['Vector']:
-	'''
+	"""
 	coordinate_system()
 
 	Construct a left-handed coordinate system
@@ -29,7 +29,7 @@ def coordinate_system(v1: 'Vector') -> ['Vector']:
 		- [`Vector`]
 			a python List encompassing three basis
 			constructed from `v1`
-	'''
+	"""
 	if(np.fabs(v1.x) > np.fabs(v1.y)):
 		invLen = 1. / np.sqrt(v1.x * v1.x + v1.z * v1.z)
 		v2 = Vector(-v1.z * invLen, 0., v1.x * invLen)
@@ -44,7 +44,7 @@ def coordinate_system(v1: 'Vector') -> ['Vector']:
 
 @jit
 def normalize(vec: 'Vector') -> 'Vector':
-	'''
+	"""
 	normalize()
 
 	Normalize a given vector, returns the
@@ -58,7 +58,7 @@ def normalize(vec: 'Vector') -> 'Vector':
 	@return
 		- `Vector`
 			The normalized version of `vec`
-	'''	
+	"""	
 	n = vec.copy()
 	length = vec.length()
 	if not length == 0:
@@ -66,12 +66,12 @@ def normalize(vec: 'Vector') -> 'Vector':
 	return n	
 
 def face_forward(n: 'Normal', v: 'Vector') -> 'Vector':
-	'''
+	"""
 	face_forward
 
 	Flip a `Normal` according to a `Vector` such that
 	they make an angle less than pi
-	'''
+	"""
 	if not isinstance(n, Normal) or not isinstance(v, Vector):
 		raise TypeError('Argument type error')
 
@@ -83,12 +83,12 @@ def face_forward(n: 'Normal', v: 'Vector') -> 'Vector':
 @jit
 def spherical_direction(stheta: FLOAT, ctheta: FLOAT, phi: FLOAT,
 		x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector':
-	'''
+	"""
 	spherical_direction
 
 	Computes spherical direction from sperical coordiante
 	with or without basis.
-	'''
+	"""
 	if x is None or y is None or z is None:
 		return Vector(stheta * np.cos(phi), stheta * np.sin(phi), ctheta)
 	else:
@@ -96,31 +96,31 @@ def spherical_direction(stheta: FLOAT, ctheta: FLOAT, phi: FLOAT,
 
 @jit
 def spherical_theta(v: 'Vector') -> FLOAT:
-	'''
+	"""
 	spherical_theta
 
 	Get theta from direction
-	'''
+	"""
 	return np.arccos(np.clip(v.z, -1., 1.))
 
 @jit
 def spherical_phi(v: 'Vector') -> FLOAT:
-	'''
+	"""
 	spherical_phi
 
 	Get phi from direction
-	'''
+	"""
 	p = np.arctan2(v.y, v.x)
 	return p if p > 0. else p + 2 * np.pi
 
 # Classes
 class Vector(np.ndarray):
-	'''
+	"""
 	Vector Class
 
 	A wrappper subclasses numpy.ndarray which 
 	models a 3D vector.
-	'''
+	"""
 	def __new__(cls, x:FLOAT=0., y:FLOAT=0., z:FLOAT=0., dtype=FLOAT):
 		if np.isnan(x) or np.isnan(y) or np.isnan(z):
 			raise ValueError
@@ -186,7 +186,7 @@ class Vector(np.ndarray):
 
 
 class Point(np.ndarray):
-	'''
+	"""
 	Point class
 
 	A wrappper subclasses numpy.ndarray which 
@@ -198,7 +198,7 @@ class Point(np.ndarray):
 	The returining type is the same as the type
 	of the first operant, thus we may, e.g., offset
 	a point by a vector.
-	'''
+	"""
 	def __new__(cls, x:FLOAT=0., y:FLOAT=0., z:FLOAT=0., dtype=FLOAT):
 		if np.isnan(x) or np.isnan(y) or np.isnan(z):
 			raise ValueError
@@ -267,12 +267,12 @@ class Point(np.ndarray):
 					   (self.z - other.z) * (self.z - other.z))
 
 class Normal(np.ndarray):
-	'''
+	"""
 	Normal vector class
 
 	A wrappper subclasses numpy.ndarray which 
 	models a 3D vector.
-	'''
+	"""
 	def __new__(cls, x:FLOAT=0., y:FLOAT=0., z:FLOAT=0., dtype=FLOAT):
 		if np.isnan(x) or np.isnan(y) or np.isnan(z):
 			raise ValueError
@@ -328,21 +328,21 @@ class Normal(np.ndarray):
 		return np.sqrt(self.sq_length())
 	
 	def normalize(self):
-		'''
+		"""
 		inplace normalization
-		'''
+		"""
 		length = self.length()
 		if not length == 0:
 			self /= length
 
 class Ray(object):
-	'''
+	"""
 	Ray class
 
 	Models a semi-infimite ray as parametric line with
 	starting `Point`, direction `Vector`, visual range from
 	`mint` to `maxt`, the bouncing `depth` and animated `time`.
-	'''
+	"""
 	def __init__(self, o: Point=Point(0,0,0), d: Vector=Vector(0,0,0), 
 			mint: FLOAT=0., maxt: FLOAT=np.inf, 
 			depth: INT=0, time: FLOAT=0.):
@@ -362,35 +362,35 @@ class Ray(object):
 	@classmethod
 	def fromParent(cls, o: 'Point', d: 'Vector', r:'Ray',
 			mint: FLOAT=0., maxt: FLOAT=np.inf):
-		'''
+		"""
 		initialize from a parent ray
-		'''
+		"""
 		return cls(o, d, mint, maxt, r.depth + 1, r.time)
 
 	@classmethod
 	def fromRay(cls, r: 'Ray'):
-		'''
+		"""
 		initialize from a ray, analogous to a copy constructor
-		'''
+		"""
 		return cls(r.o, r.d, r.mint, r.maxt, r.depth, r.time)
 	
 	def __call__(self, t) -> 'Point':
-		'''
+		"""
 		point at parameter t
-		'''
+		"""
 		return self.o + self.d * t
 
 class RayDifferential(Ray):
-	'''
+	"""
 	RayDifferential Class
 
 	Subclasses `Ray` for texture mapping
-	'''
+	"""
 	def __init__(self, o: Point=Point(0,0,0), d: Vector=Vector(0,0,0), 
 			mint: FLOAT=0., maxt: FLOAT=np.inf, 
 			depth: INT=0, time: FLOAT=0.):
 		super().__init__(o, d, mint, maxt, depth, time)
-		self.hasDifferentials = False
+		self.has_differentials = False
 		self.rxOrigin = Point()
 		self.ryOrigin = Point()
 		self.rxDirection = Vector()
@@ -399,25 +399,25 @@ class RayDifferential(Ray):
 	@classmethod
 	def fromParent(cls, o: Point, d: Vector, r:Ray,
 			mint: FLOAT, maxt: FLOAT=np.inf):
-		'''
+		"""
 		initialize from a parent ray
-		'''
+		"""
 		return cls(o, d, mint, maxt, r.depth + 1, r.time)
 	
 	@classmethod
 	def fromRay(cls, r: Ray):
-		'''
+		"""
 		initialize from a ray, analogous to a copy constructor
-		'''
+		"""
 		return cls(r.o, r.d, r.mint, r.maxt, r.depth, r.time)
 
 	@classmethod
 	def fromRD(cls, r: 'RayDifferential'):
-		'''
+		"""
 		initialize from a `RayDifferential`, analogous to a copy constructor
-		'''
+		"""
 		self = cls(r.o, r.d, r.mint, r.maxt, r.depth, r.time)		
-		self.hasDifferentials = r.hasDifferentials
+		self.has_differentials = r.has_differentials
 		self.rxOrigin    = r.rxOrigin.copy()
 		self.ryOrigin    = r.ryOrigin.copy()
 		self.rxDirection = r.rxDirection.copy()
@@ -426,18 +426,18 @@ class RayDifferential(Ray):
 		return self
 
 	def scale_differential(self, s:FLOAT):
-		self.rxOrigin = o + (rxOrigin - o) * s
-		self.ryOrigin = o + (ryOrigin - o) * s
-		self.rxDirection = d + (rxDirection - d) * s
-		self.ryDirection = d + (ryDirection - d) * s
+		self.rxOrigin = self.o + (self.rxOrigin - self.o) * s
+		self.ryOrigin = self.o + (self.ryOrigin - self.o) * s
+		self.rxDirection = self.d + (self.rxDirection - self.d) * s
+		self.ryDirection = self.d + (self.ryDirection - self.d) * s
 
 class BBox:
-	'''
+	"""
 	BBox Class
 
 	Models 3D axis-aligned bounding boxes
 	represented by a pair of opposite vertices.
-	'''
+	"""
 	def __init__(self, p1=None, p2=None):
 		if p1 is not None and p2 is not None:
 			self.pMin = Point(min(p1.x, p2.x),
@@ -486,11 +486,11 @@ class BBox:
 
 	@staticmethod
 	def Union(b1, b2) -> 'BBox':
-		'''
+		"""
 		Return the union of a `BBox`
 		and a `Point` or a union
 		of two `Box`es.
-		'''	
+		"""	
 		ret = BBox()
 
 		if isinstance(b2, Point):
@@ -511,15 +511,15 @@ class BBox:
 		
 		else:
 			raise TypeError('unsupported union operation between\
-							{} and {}'.format(self.__class__, type(other)))			
+							{} and {}'.format(type(b1), type(b2)))
 		return ret		
 	
 	def union(self, other) -> 'BBox':
-		'''
+		"""
 		Return self as the union of a `BBox`
 		and a `Point` or a union
 		of two `Box`es.
-		'''
+		"""
 		
 		if isinstance(other, Point):
 			self.pMin.x = min(self.pMin.x, other.x)
@@ -543,26 +543,26 @@ class BBox:
 		return self
 	
 	def overlaps(self, other: 'BBox') -> bool:
-		'''
+		"""
 		Determines whether two `BBox`es overlaps
-		'''
+		"""
 		return (self.pMax.x >= other.pMin.x) and (self.pMin.x <= other.pMax.x) and \
 			   (self.pMax.y >= other.pMin.y) and (self.pMin.y <= other.pMax.y) and \
 			   (self.pMax.z >= other.pMin.z) and (self.pMin.z <= other.pMax.z)
 	
 	def inside(self, pnt: 'Point') -> bool:
-		'''
+		"""
 		Determines whether a given `Point`
 		is inside the box
-		'''
+		"""
 		return (self.pMax.x >= pnt.x) and (self.pMin.x <= pnt.x) and \
 			   (self.pMax.y >= pnt.y) and (self.pMin.y <= pnt.y) and \
 			   (self.pMax.z >= pnt.z) and (self.pMin.z <= pnt.z)
 	
 	def expand(self, delta: FLOAT) -> None:
-		'''
+		"""
 		Expands box by a constant factor
-		'''
+		"""
 		self.pMin.x -= delta
 		self.pMin.y -= delta
 		self.pMin.z -= delta
@@ -571,23 +571,23 @@ class BBox:
 		self.pMax.z += delta
 	
 	def surface_area(self) -> FLOAT:
-		'''
+		"""
 		Computes the surface area
-		'''
+		"""
 		d = self.pMax - self.pMin
 		return 2. * (d.x * d.y + d.x * d.z + d.y * d.z)
 	
 	def volume(self) -> FLOAT:
-		'''
+		"""
 		Computes the volume
-		'''
+		"""
 		d = self.pMax - self.pMin
 		return d.x * d.y * d.z
 	
 	def maximum_extent(self):
-		'''
+		"""
 		Find the maximum axis
-		'''
+		"""
 		delta = self.pMax - self.pMin
 		if delta.x > delta.y and delta.x > delta.z:
 			return 0
@@ -597,28 +597,28 @@ class BBox:
 			return 2
 	
 	def lerp(self, tx: FLOAT, ty: FLOAT, tz: FLOAT) -> 'Point':
-		'''
+		"""
 		Lerp
 		3D Linear interpolation between two opposite vertices
-		'''
+		"""
 		return Point(Lerp(tx, self.pMin.x, self.pMax.x),
 					 Lerp(ty, self.pMin.y, self.pMax.y),
 					 Lerp(tz, self.pMin.z, self.pMax.z))
 	
 	def offset(self, pnt: 'Point') -> 'Vector':
-		'''
+		"""
 		offset
 		Get point relative to the corners
-		'''
+		"""
 		return Vector((pnt.x - self.pMin.x) / (self.pMax.x - self.pMin.x),
 					  (pnt.y - self.pMin.y) / (self.pMax.y - self.pMin.y),
 					  (pnt.z - self.pMin.z) / (self.pMax.z - self.pMin.z))
 	
 	def bounding_sphere(self) -> ('Point', FLOAT):
-		'''
+		"""
 		bounding_sphere
 		Get the center and radius of the bounding sphere
-		'''
+		"""
 		ctr = .5 * (self.pMin + self.pMax)
 		rad = 0.
 		if self.inside(ctr):
@@ -626,14 +626,14 @@ class BBox:
 		return ctr, rad
 
 	def intersectP(self, r: 'Ray') -> [bool, FLOAT, FLOAT]:
-		'''
+		"""
 		intersectP()
 
 		Check whether a ray intersects the BBox
 		Compare intervals along each dimension
 		returns the shortest/largest parametric values
 		if intersects.
-		'''
+		"""
 		t0, t1 = r.mint, r.maxt
 		# automatically convert /0. to np.inf
 		tNear = np.true_divide((self.pMin - r.o), r.d)
