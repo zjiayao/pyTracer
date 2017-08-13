@@ -3,8 +3,5 @@ __pycache__/
 *.png
 *.swp
 /tmp
-/src/shapes
-/src/spectral
-/testcase
 rt.py
 /.idea

@@ -5,12 +5,7 @@ Entrance point for PyTracer
 
 Created by Jiayao on Aug 5, 2017
 '''
-from numba import jit
-import numpy as np
-from scipy import spatial
-import PIL
 
-import src.core.pytracer
 import src.core.backend as pytracer
 
 def main():
