@@ -6,12 +6,14 @@ The base class to model film.
 Created by Jiayao on Aug 1, 2017
 """
 
+
+from __future__ import absolute_import
 import threading
+from abc import (ABCMeta, abstractmethod)
+from pytracer import *
+import pytracer.sampler as spler
 
-import src.pytracer as pt
-from src.filter.filter import *
-from src.sampler.sampler import *
-
+__all__ = ['Film', 'ImageFilm']
 
 class Film(object, metaclass=ABCMeta):
 	"""
@@ -23,22 +25,22 @@ class Film(object, metaclass=ABCMeta):
 		self.yResolution = yr
 
 	def __repr__(self):
-		return "{}\nResolution: {} * {}".format(self.__class__, 
+		return "{}\nResolution: {} * {}".format(self.__class__,
 						self.xResolution, self.yResolution)
 
 	@abstractmethod
-	def add_sample(self, sample: 'CameraSample', spectrum: 'Spectrum'):
+	def add_sample(self, sample: 'spler.CameraSample', spectrum: 'Spectrum'):
 		raise NotImplementedError('src.core.film {}.add_sample(): abstract method '
-									'called'.format(self.__class__)) 		
+									'called'.format(self.__class__))
 
 	@abstractmethod
-	def splat(self, sample: 'CameraSample', spectrum: 'Spectrum'):
+	def splat(self, sample: 'spler.CameraSample', spectrum: 'Spectrum'):
 		"""
 		Used to sum the contribution
 		around a pixel sample
 		"""
 		raise NotImplementedError('src.core.film {}.add_sample(): abstract method '
-									'called'.format(self.__class__)) 		
+									'called'.format(self.__class__))
 
 	@abstractmethod
 	def get_sample_extent(self) -> [INT]:
@@ -47,7 +49,7 @@ class Film(object, metaclass=ABCMeta):
 		samples, returns [xStart, xEnd, yStart, yEnd]
 		"""
 		raise NotImplementedError('src.core.film {}.get_sample_extent(): abstract method '
-									'called'.format(self.__class__)) 	
+									'called'.format(self.__class__))
 
 	@abstractmethod
 	def get_pixel_extent(self) -> [INT]:
@@ -56,7 +58,7 @@ class Film(object, metaclass=ABCMeta):
 		the actual image, returns [xStart, xEnd, yStart, yEnd]
 		"""
 		raise NotImplementedError('src.core.film {}.get_pixel_extent(): abstract method '
-									'called'.format(self.__class__)) 	
+									'called'.format(self.__class__))
 
 	def update_display(self, x0: INT, y0: INT, x1: INT, y1: INT, splat_scale: FLOAT) -> [INT]:
 		"""
@@ -99,7 +101,6 @@ class ImageFilm(Film):
 			return "{}\nLocked: {}".format(self.__class__, self.lock.locked())
 
 
-	#@jit
 	def __init__(self, xr: INT, yr: INT, filt: 'Filter', crop: [FLOAT], fn: str):
 		super().__init__(xr, yr)
 		self.crop = crop.copy()	# the extent of pixels to actually process
@@ -127,8 +128,7 @@ class ImageFilm(Film):
 		for y in range(FILTER_TABLE_SIZE):
 			self.filter_table[y] = self.filter((np.arange(FILTER_TABLE_SIZE) + .5) * dx, (y + .5) * dy)
 
-	@jit
-	def add_sample(self, sample: 'CameraSample', L: 'Spectrum'):
+	def add_sample(self, sample: 'spler.CameraSample', L: 'Spectrum'):
 		"""
 		Assume different threads, if any,
 		cannot mutate the same pixel at the same time
@@ -190,8 +190,7 @@ class ImageFilm(Film):
 					pxl.weight_sum += wt					
 					pxl.lock.release()
 
-	@jit
-	def splat(self, sample: 'CameraSample', L: 'Spectrum'):
+	def splat(self, sample: 'spler.CameraSample', L: 'Spectrum'):
 		"""
 		Used to sum the contribution
 		around a pixel sample
@@ -239,14 +238,14 @@ class ImageFilm(Film):
 		for y in range(self.yPixel_cnt):
 			for x in range(self.xPixel_cnt):
 				
-				rgb[y, x] = xyz2rgb(self.pixels[x][y].Lxyz)
+				rgb[y, x] = Spectrum.xyz2rgb(self.pixels[x][y].Lxyz)
 				ws = self.pixels[x][y].weight_sum
 
 				if not ws == 0.:
 					rgb[y, x] = np.maximum(0., rgb[y, x] / ws)
 
 				# add splat values
-				rgb[y, x] += splat_scale * xyz2rgb(self.pixels[x][y].splatXYZ)
+				rgb[y, x] += splat_scale * Spectrum.xyz2rgb(self.pixels[x][y].splatXYZ)
 
 		# write image
 		pt.write_image(self.filename, rgb, None,

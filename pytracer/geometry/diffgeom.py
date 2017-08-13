@@ -9,9 +9,9 @@ Created by Jiayao on July 28, 2017
 Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
-from .. import *
-from .. import geometry as geo
-from .. import shape as sh
+from pytracer import *
+import pytracer.geometry as geo
+import pytracer.shape as sh
 
 
 class DifferentialGeometry(object):

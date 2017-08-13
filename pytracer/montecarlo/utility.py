@@ -1,19 +1,26 @@
 """
-montecarlo.py
+utility.py
+
+pytracer.montecarlo package
 
 Monte Carlo utilities.
 
 Created by Jiayao on Aug 8, 2017
+Modified on Aug 13, 2017
 """
+from __future__ import absolute_import
+from pytracer import *
+import pytracer.geometry as geo
+import pytracer.volume as vol
 
-from src.geometry.diffgeom import *
-from src.texture.texture import *
-
+__all__ = ['balance_heuristic', 'power_heuristic', 'rejection_sample_disk',
+           'uniform_sample_hemisphere', 'uniform_hemisphere_pdf', 'uniform_sample_sphere',
+           'uniform_sphere_pdf', 'uniform_sample_disk', 'concentric_sample_disk',
+           'cosine_sample_hemisphere', 'cosine_hemisphere_pdf', 'uniform_sample_cone',
+           'uniform_cone_pdf', 'sample_hg', 'hg_pdf']
 
 
 # Utility Functions
-
-@jit
 def balance_heuristic(nf: INT, fpdf: FLOAT, ng: int, gpdf: FLOAT) -> FLOAT:
 	"""
 	balance_heuristic()
@@ -23,7 +30,7 @@ def balance_heuristic(nf: INT, fpdf: FLOAT, ng: int, gpdf: FLOAT) -> FLOAT:
 	"""
 	return (nf * fpdf) / (nf * fpdf + ng * gpdf)
 
-@jit
+
 def power_heuristic(nf: INT, fpdf: FLOAT, ng: INT, gpdf: FLOAT) -> FLOAT:
 	"""
 	power_heuristic()
@@ -36,7 +43,6 @@ def power_heuristic(nf: INT, fpdf: FLOAT, ng: INT, gpdf: FLOAT) -> FLOAT:
 	return f * f / ( f * f + g * g )
 
 
-@jit
 def rejection_sample_disk(rng=np.random.rand) -> [FLOAT, FLOAT]:
 	"""
 	rejection_sample_disk()
@@ -50,8 +56,8 @@ def rejection_sample_disk(rng=np.random.rand) -> [FLOAT, FLOAT]:
 		y = 1. - 2. * rng()
 	return [x, y]
 
-@jit
-def uniform_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
+
+def uniform_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'geo.Vector':
 	"""
 	uniform_sample_hemisphere()
 
@@ -62,9 +68,10 @@ def uniform_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	"""
 	r = np.sqrt(max(0., 1. - u1 * u1))
 	phi = 2. * PI * u2
-	return Vector(r * np.cos(phi), r * np.sin(phi), u1)
+	return geo.Vector(r * np.cos(phi), r * np.sin(phi), u1)
 
-def uniform_hermisphere_pdf() -> FLOAT:
+
+def uniform_hemisphere_pdf() -> FLOAT:
 	"""
 	uniform_hermisphere_pdf()
 
@@ -73,8 +80,8 @@ def uniform_hermisphere_pdf() -> FLOAT:
 	"""
 	return INV_2PI
 
-@jit
-def uniform_sample_sphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
+
+def uniform_sample_sphere(u1: FLOAT, u2: FLOAT) -> 'geo.Vector':
 	"""
 	uniform_sample_sphere()
 
@@ -86,7 +93,8 @@ def uniform_sample_sphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	z = 1. - 2. * u1
 	r = np.sqrt(max(0., 1. - z * z))
 	phi = 2. * PI * u2
-	return Vector(r * np.cos(phi), r * np.sin(phi), z)
+	return geo.Vector(r * np.cos(phi), r * np.sin(phi), z)
+
 
 def uniform_sphere_pdf() -> FLOAT:
 	"""
@@ -98,8 +106,6 @@ def uniform_sphere_pdf() -> FLOAT:
 	return 1. / (4. * PI)
 
 
-
-@jit
 def uniform_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	"""
 	uniform_sample_disk()
@@ -114,7 +120,6 @@ def uniform_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	return [np.sqrt(u1) * np.cos(2. * PI * u2), np.sqrt(u1) * np.sin(2. * PI * u2)]
 
 
-@jit
 def concentric_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	"""
 	concentric_sample_disk()
@@ -135,7 +140,7 @@ def concentric_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 		return [0., 0.]
 
 	# map square to (r, \theta)
-	#   \2/ 
+	#   \2/
 	#  3 * 1
 	#   /4\
 	if sx > -sy:
@@ -152,7 +157,7 @@ def concentric_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 			theta = 2. - sx / sy
 	else:
 		if sx > sy:
-			# 4 
+			# 4
 			r = -sy
 			theta = 6. + sx / sy
 		else:
@@ -163,8 +168,8 @@ def concentric_sample_disk(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 
 	return [r * np.cos(theta), r * np.sin(theta)]
 
-@jit
-def cosine_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
+
+def cosine_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'geo.Vector':
 	"""
 	cosine_sample_hemisphere()
 
@@ -179,6 +184,7 @@ def cosine_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'Vector':
 	vec.z = np.sqrt(max(0., 1. - vec.x * vec.x - vec.y * vec.y))
 	return vec
 
+
 def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT) -> FLOAT:
 	"""
 	cosine_hemisphere_pdf()
@@ -189,7 +195,6 @@ def cosine_hemisphere_pdf(costheta: FLOAT, phi: FLOAT) -> FLOAT:
 	return costheta * INV_PI
 
 
-@jit
 def uniform_sample_triangle(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	"""
 	uniform_sample_triangle()
@@ -201,9 +206,9 @@ def uniform_sample_triangle(u1: FLOAT, u2: FLOAT) -> [FLOAT, FLOAT]:
 	"""
 	return [1. - np.sqrt(u1), u2 * np.sqrt(u1)]
 
-@jit
+
 def uniform_sample_cone(u1: FLOAT, u2: FLOAT, ct_max: FLOAT,
-			x: 'Vector'=None, y: 'Vector'=None, z: 'Vector'=None) -> 'Vector':
+			x: 'geo.Vector'=None, y: 'geo.Vector'=None, z: 'geo.Vector'=None) -> 'geo.Vector':
 	"""
 	uniform_sample_cone()
 
@@ -214,9 +219,9 @@ def uniform_sample_cone(u1: FLOAT, u2: FLOAT, ct_max: FLOAT,
 		ct = (1. - u1) + u1 * ct_max
 		st = np.sqrt(1. - ct * ct)
 		phi = u2 * 2. * PI
-		return Vector(np.scos(phi) * st, np.sin(phi) * st, ct)
+		return geo.Vector(np.scos(phi) * st, np.sin(phi) * st, ct)
 	else:
-		ct = Lerp(u1, ct_max, 1.)
+		ct = util.lerp(u1, ct_max, 1.)
 		st = np.sqrt(1. - ct * ct)
 		phi = u2 * 2. * PI
 		return np.cos(phi) * st * x + np.sin(phi) * st * y + ct * z
@@ -228,8 +233,8 @@ def uniform_cone_pdf(ct_max: FLOAT) -> FLOAT:
 	"""
 	return 1. / (2. * PI * (1. - ct_max))
 
-@jit
-def sample_hg(w: 'Vector', g: FLOAT, u1: FLOAT, u2: FLOAT) -> 'Vector':
+
+def sample_hg(w: 'geo.Vector', g: FLOAT, u1: FLOAT, u2: FLOAT) -> 'geo.Vector':
 	"""
 	sample_hg()
 
@@ -247,155 +252,13 @@ def sample_hg(w: 'Vector', g: FLOAT, u1: FLOAT, u2: FLOAT) -> 'Vector':
 
 	st = np.sqrt(max(0., 1 - ct * ct))
 	phi = 2. * PI * u2
-	_, v1, v2 = coordinate_system(w)
-	return spherical_direction(st, ct, phi, v1, v2, w)
+	_, v1, v2 = geo.coordinate_system(w)
+	return geo.spherical_direction(st, ct, phi, v1, v2, w)
 
-def hg_pdf(w: 'Vector', wp: 'Vector', g: FLOAT) -> FLOAT:
+
+def hg_pdf(w: 'geo.Vector', wp: 'geo.Vector', g: FLOAT) -> FLOAT:
 	"""
 	hg_pdf()
 	"""
-	return phase_hg(w, wp, g)
-
-
-
-# Utility Classes
-class Distribution1D(object):
-	"""
-	Distribution1D Class
-
-	Piecewise-constant 1D function's
-	PDF and CDF and performs sampling.
-	"""
-	def __init__(self, arr: [FLOAT]):
-		"""
-		Noted len(arr) + 1 is needed
-		for CDF.
-		"""
-		self.cnt = len(arr)
-		self.func = arr.copy()
-		self.cdf = np.empty(self.cnt+1, dtype=FLOAT)
-
-		# compute integral of step function at $x_i$
-		self.cdf[0] = 0.
-		for i in range(1, self.cnt + 1):
-			self.cdf[i] = self.cdf[i-1] + arr[i-1] / self.cnt
-
-		# transform step function into CDF
-		self.cdf_raw = self.cdf[-1]
-		self.cdf /= self.cdf_raw
-
-	def __repr__(self):
-		return "{}\nSteps: {}\n".format(self.__class__, self.cnt)
-
-	@jit
-	def sample_cont(self, u: FLOAT) -> [FLOAT, FLOAT]:
-		"""
-		sample_cont()
-
-		Use given random sample `u` to
-		sample from its distribution.
-		Returns the r.v. value and sampled
-		pdf: [rv, pdf].
-		"""
-		# surrounding CDF segment
-		idx = np.searchsorted(self.cdf, u) - 1
-		off = max(0, idx)
-
-		# compute offset
-		du = (u - self.cdf[off]) / (self.cdf[off+1] - self.cdf[off])
-
-		# compute pdf for sampled offset
-		# and r.v. value
-		return [(du + off) / self.cnt, self.func[off] / self.cdf_raw]
-
-	@jit
-	def sample_dis(self, u: FLOAT) -> [FLOAT, FLOAT]:
-		"""
-		sample_dis()
-
-		Use given random sample `u` to
-		sample from its distribution.
-		Returns the r.v. value and sampled
-		pdf: [rv, pdf].
-		"""
-		# surrounding CDF segment
-		idx = np.searchsorted(self.cdf, u) - 1
-		off = max(0, idx)
-
-		return [off, self.func[off] / (self.cdf_raw * self.cnt)]
-
-class Distribution2D(object):
-	"""
-	Distribution2D Class
-
-	Piecewise-constant 2D function's
-	PDF and CDF and performs sampling.
-	"""
-	def __init__(self, arr: 'np.ndarray'):
-		"""
-		arr is the sample values, with shape being
-		n_v * n_u
-		"""
-		nv, nu = np.shape(arr)
-		self.p_cond_v = []
-
-		# conditional distribution p(u|v)
-		for i in range(nv):
-			self.p_cond_v.append(Distribution1D(arr[i, :]))
-		
-		# marginal distribution p(v)
-		marginal_v = []
-		for i in range(nv):
-			marginal_v.append(self.p_cond_v[i].cdf_raw)
-		self.p_marg_v = Distribution1D(marginal_v)
-
-
-	def __repr__(self):
-		return "{}\nSteps: {}\n".format(self.__class__, self.cnt)
-
-	@jit
-	def sample_cont(self, u0: FLOAT, u1: FLOAT) -> [list, FLOAT]:
-		"""
-		sample_cont()
-
-		Use given random samples `u0`
-		and `u1` to sample from distribution.
-
-		First sampling from p(v) then from p(u|v).
-		Returns [[u, v], pdf]
-		"""
-		v, pdf1 = self.p_marg_v.sample_cont(u1)
-		v = np.clip(ftoi(v * self.p_marg_v.cnt), 0, self.p_marg_v.cnt - 1).astype(INT)
-
-		u, pdf0 = self.p_cond_v[v].sample_cont(u0)
-
-		return [[u, v], pdf0 * pdf1]
-
-	@jit
-	def pdf(self, u: FLOAT, v: FLOAT) -> FLOAT:
-		"""
-		pdf()
-
-		Value of the pdf given a sample value
-		"""
-		ui = np.clip(ftoi(u * self.p_cond_v[0].cnt), 0, self.p_cond_v[0].cnt - 1).astype(INT)
-		vi = np.clip(ftoi(v * self.p_marg_v.cnt), 0, self.p_marg_v.cnt - 1).astype(INT)
-
-		if self.p_cond_v[vi].cdf_raw * self.p_marg_v.cdf_raw == 0.:
-			return 0.
-
-		return (self.p_cond_v[vi].func[ui] * self.p_marg_v.func[vi]) / \
-					(self.p_cond_v[vi].cdf_raw * self.p_marg_v.cdf_raw)
-
-
-
-
-
-
-
-
-
-
-
-
+	return vol.phase_hg(w, wp, g)
 

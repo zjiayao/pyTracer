@@ -1,209 +1,21 @@
 """
-primitive.py
+aggregate.py
 
-This module is part of the pyTracer, which
-defines `Primitive` classes.
+Implementation of aggregates.
 
 v0.0
 Created by Jiayao on July 30, 2017
+Modified on Aug 13, 2017
 """
-
+from __future__ import absolute_import
 import threading
+from pytracer import *
+import pytracer.geometry as geo
+import pytracer.transform as trans
+from pytracer.aggregate.intersection import Intersection
+from pytracer.aggregate.primitive import Primitive
 
-from src.geometry.diffgeom import *
-from src.shape.shape import *
-from src.transform.transform import *
-
-
-class Intersection(object):
-	def __init__(self, dg: 'DifferentialGeometry'=None, pr: 'Primitive'=None,
-			w2o: 'Transform'=None, o2w: 'Transform'=None, sh_id: INT=0, pr_id: INT=0, rEps: FLOAT=0.):
-		self.dg = dg
-		self.primitive = pr
-		self.w2o = w2o
-		self.o2w = o2w
-		self.shapeId = sh_id
-		self.primitiveId = pr_id
-		self.rEps = rEps
-
-	def __repr__(self):
-		"""
-		__repr__
-		"""
-		return "{}\nPrimitive ID: {}\nShape ID: {}\n".format(self.__class__, self.primitiveId, self.shapeId)
-
-	def get_BSDF(self, ray: 'RayDifferential') -> 'BSDF':
-		self.dg.compute_differential(ray)
-		return self.primitive.get_BSDF(self.dg, self.o2w)
-
-	def get_BSSRDF(self, ray: 'RayDifferential') -> 'BSSRDF':
-		self.dg.compute_differential(ray)
-		return self.primitive.get_BSSRDF(self.dg, self.o2w)
-
-	def le(self, w: 'Vector') -> 'Spectrum':
-		"""
-		le()
-
-		Compute the emitted radiance
-		at a surface point intersected by
-		a ray.
-		"""
-		area = self.primitive.get_area_light()
-		if area is None:
-			return Spectrum(0.)
-		return area.l(self.dg.p, self.dg.nn, w)
-
-
-class Primitive(object, metaclass=ABCMeta):
-
-	#__primitiveId = 0
-	next_primitiveId = 1
-
-	def __init__(self):
-		self.primitiveId = Primitive.next_primitiveId
-		Primitive.next_primitiveId += 1
-
-	def __repr__(self):
-		return "{}\nPrimitive ID: {}\nNext Primitive ID: {}" \
-			.format(self.__class__, self.primitiveId, Primitive.next_primitiveId)
-
-	@abstractmethod
-	def world_bound(self) -> BBox:
-		raise NotImplementedError('{}.world_bound(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def can_intersect(self) -> bool:
-		raise NotImplementedError('{}.can_intersect(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def intersect(self, r: 'Ray') -> [bool, 'Intersection']:
-		raise NotImplementedError('{}.intersect(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def intersectP(self, r : 'Ray') -> bool:
-		raise NotImplementedError('{}.intersect_p(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def refine(self, refined: ['Primitive']):
-		raise NotImplementedError('{}.refine(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def get_area_light(self):
-		raise NotImplementedError('{}.get_area_light(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'Transform') -> 'BSDF':
-		raise NotImplementedError('{}.get_BSDF(): Not implemented'.format(self.__class__))
-
-	@abstractmethod
-	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'Transform') -> 'BSSRDF':
-		raise NotImplementedError('{}.get_BSSRDF(): Not implemented'.format(self.__class__))
-
-	def full_refine(self, refined: ['Primitive']):
-		todo = [self]
-		while len(todo) > 0:
-			prim = todo[-1]
-			del todo[-1]
-			if prim.can_intersect():
-				refined.append(prim)
-			else:
-				prim.refine(todo)
-	
-	
-# Shapes to be rendered directly
-class GeometricPrimitive(Primitive):
-	def __init__(self, s: 'Shape', m: 'Material', a: 'AreaLight' = None):
-		super().__init__()
-		self.shape = s
-		self.material = m
-		self.areaLight = a
-
-	def __repr__(self):
-		return super().__repr__() + '\n{}'.format(self.shape)
-
-	def intersect(self, r: 'Ray') -> [bool, 'Intersection']:
-		is_intersect, thit, rEps, dg = self.shape.intersect(r)
-		if not is_intersect:
-			return [False, None]
-
-		isect = Intersection(dg, self, self.shape.w2o, self.shape.o2w,
-			self.shape.shapeId, self.primitiveId, rEps)
-		r.maxt = thit
-		return [True, isect]
-
-	def intersectP(self, r: 'Ray') -> bool:
-		return self.shape.intersect_p(r)
-
-	def world_bound(self) -> 'BBox':
-		return self.shape.world_bound()
-
-	def can_intersect(self) -> bool:
-		return self.shape.can_intersect()
-
-	def refine(self, refined: ['Primitive']):
-		r = self.shape.refine()
-		for sh in r:
-			refined.append(GeometricPrimitive(sh, self.material, self.areaLight))
-
-	def get_area_light(self):
-		return self.areaLight
-
-	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
-		dgs = self.shape.get_shading_geometry(o2w, dg)
-		return self.material.get_BSDF(dg, dgs)
-
-	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
-		dgs = self.shape.get_shading_geometry(o2w, dg)
-		return self.material.get_BSSRDF(dg, dgs)
-
-
-# Shapes with animated transfomration and object instancing
-class TransformedPrimitive(Primitive):
-	def __init__(self, prim: 'Primitive', w2p: 'AnimatedTransform'):
-		super().__init__()
-		self.primitive = prim
-		self.w2p = w2p
-
-	def __repr__(self):
-		return super().__repr__(self) + '\n{}'.format(self.prim)
-
-	def intersect(self, r: 'Ray') -> [bool, 'Intersection']:
-		w2p = self.w2p.interpolate(r.time)
-		ray = w2p(r)
-		is_intersect, isect = self.primitive.intersect(ray)
-		if not is_intersect:
-			return [False, None]
-		r.maxt = ray.maxt
-		isect.primitiveId = self.primitiveId
-
-		if not w2p.is_identity():
-			isect.w2o = isect.w2o * w2p
-			isect.o2w = isect.w2o.inverse()
-
-			p2w = w2p.inverse()
-			dg = isect.dg
-			dg.p = p2w(dg.p)
-			dg.nn = normalize(p2w(dg.nn))
-			dg.dpdu = p2w(dg.dpdu)
-			dg.dpdv = p2w(dg.dpdv)
-			dg.dndu = p2w(dg.dndu)
-			dg.dndv = p2w(dg.dndv)
-
-		return True, isect
-
-	def intersectP(self, r: 'Ray') -> bool:
-		return self.primitive.intersectP(self.w2p(r))		
-
-	def world_bound(self) -> 'BBox':
-		return self.w2p.motion_bounds(self.primitive.world_bound(), True)
-
-	def can_intersect(self) -> bool:
-		return self.shape.can_intersect()
-
-	def refine(self, refined: ['Primitive']):
-		r = self.shape.refine()
-		for sh in r:
-			refined.append(GeometricPrimitive(sh, self.material, self.areaLight))
+__all__ = ['Aggregate', 'Voxel', 'GridAccel']
 
 
 # Aggregates
@@ -214,13 +26,15 @@ class Aggregate(Primitive):
 	def get_area_light(self):
 		raise RuntimeError('{}.get_area_light(): Should not be called'.format(self.__class__))
 
-	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
+	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'trans.Transform'):
 		raise RuntimeError('{}.get_BSDF(): Should not be called'.format(self.__class__))
 
-	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'Transform'):
+	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'trans.Transform'):
 		raise RuntimeError('{}.get_BSSRDF(): Should not be called'.format(self.__class__))
 
+
 class Voxel():
+	primitive = []
 	def __init__(self, op: ['Primitive']):
 		self.all_can_intersect = False
 		self.primitives.extend(op)
@@ -231,7 +45,7 @@ class Voxel():
 	def add_primitive(self, prim: 'Primitive'):
 		self.primitives.append(prim)
 
-	def intersect(self, ray: 'Ray', lock) -> [bool, 'Intersection']:
+	def intersect(self, ray: 'geo.Ray', lock) -> [bool, 'Intersection']:
 		# refine primitives if needed
 		if not self.all_can_intersect:
 			lock.acquire()
@@ -255,9 +69,9 @@ class Voxel():
 			hit, isect = prim.intersect(ray)
 			if hit:
 				anyHit = True
-		return [anyHit, isect] # weird of returning isect
+		return [anyHit, isect]  # weird of returning isect
 
-	def intersectP(self, ray: 'Ray', lock) -> bool:
+	def intersect_p(self, ray: 'geo.Ray', lock) -> bool:
 		# refine primitives if needed
 		if not self.all_can_intersect:
 			lock.acquire()
@@ -294,19 +108,19 @@ class GridAccel(Aggregate):
 			self.primitives = p
 
 		# compute bounds and choose grid resolution
-		self.bounds = BBox()
+		self.bounds = geo.BBox()
 		self.nVoxels = [0, 0, 0]
 		for prim in self.primitives:
 			self.bounds.union(prim.world_bound())
-		
+
 		delta = self.bounds.pMax - self.bounds.pMin
 		maxAxis = self.bounds.maximum_extent()
 		invMaxWidth = 1. / delta[maxAxis]
-		cubeRoot = 3. * np.pow(len(self.primitive), 1./3.)
+		cubeRoot = 3. * np.pow(len(self.primitive), 1. / 3.)
 		voxels_per_unit_dist = cubeRoot * invMaxWidth
-		
-		self.width = Vector()
-		self.invWidth = Vector()
+
+		self.width = geo.Vector()
+		self.invWidth = geo.Vector()
 
 		nVoxels = [0., 0., 0.]
 
@@ -342,7 +156,7 @@ class GridAccel(Aggregate):
 		# create mutex for grid
 		self.lock = threading.Lock()
 
-		def pos2voxel(self, P: 'Point', axis: INT) -> INT:
+		def pos2voxel(self, P: 'geo.Point', axis: INT) -> INT:
 			v = np.int((P[axis] - self.bounds.pMin[axis]) * self.invWidth[axis])
 			return np.clip(v, 0, self.nVoxels[axis] - 1)
 
@@ -358,7 +172,7 @@ class GridAccel(Aggregate):
 		def can_intersect(self) -> bool:
 			return True
 
-		def intersect(self, ray: 'Ray') -> [bool, 'Intersection']:
+		def intersect(self, ray: 'geo.Ray') -> [bool, 'Intersection']:
 			# Check ray aginst overall bounds
 			if self.bounds.inside(ray(ray.mint)):
 				rayT = ray.mint
@@ -369,13 +183,13 @@ class GridAccel(Aggregate):
 			# Difference between Bresenham's Line Drawing:
 			# find all voxels that ray passes through
 			# digital differential analyzer
-			# Set up 3D DDA for Ray
+			# Set up 3D DDA for geo.Ray
 
 			pos = [pos2voxel(axis) for axis in range(3)]
-			next_crossing = [rayT + voxel2pos(pos[axis]+1, axis) - grid_intersect[axis] / ray.d[axis]\
-									for axis in range(3)]
+			next_crossing = [rayT + voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
+			                 for axis in range(3)]
 			delta_t = self.width / ray.d
-			step = [1,1,1]
+			step = [1, 1, 1]
 			out = self.nVoxels.copy()
 			for axis in range(3):
 				# compute current voxel
@@ -403,7 +217,7 @@ class GridAccel(Aggregate):
 
 			return [hit, isect]
 
-		def intersectP(self, ray: 'Ray') -> bool:
+		def intersect_p(self, ray: 'geo.Ray') -> bool:
 			# Check ray aginst overall bounds
 			if self.bounds.inside(ray(ray.mint)):
 				rayT = ray.mint
@@ -414,13 +228,13 @@ class GridAccel(Aggregate):
 			# Difference between Bresenham's Line Drawing:
 			# find all voxels that ray passes through
 			# digital differential analyzer
-			# Set up 3D DDA for Ray
+			# Set up 3D DDA for geo.Ray
 
 			pos = [pos2voxel(axis) for axis in range(3)]
-			next_crossing = [rayT + voxel2pos(pos[axis]+1, axis) - grid_intersect[axis] / ray.d[axis]\
-									for axis in range(3)]
+			next_crossing = [rayT + voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
+			                 for axis in range(3)]
 			delta_t = self.width / ray.d
-			step = [1,1,1]
+			step = [1, 1, 1]
 			out = self.nVoxels.copy()
 			for axis in range(3):
 				# compute current voxel
@@ -447,6 +261,7 @@ class GridAccel(Aggregate):
 				next_crossing[step_axis] += delta_t[step_axis]
 
 			return anyHit
+
 
 # TODO
 """
@@ -490,7 +305,6 @@ class BVHAccel(Aggregate):
 
 		## representation for DFS
 """
-
 
 
 

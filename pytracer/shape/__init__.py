@@ -3,13 +3,23 @@ __init__.py
 
 pytracer.shape package
 
-Created by Jiayao on Aug 13, 2017
+Contains the base interface for shapes.
+
+Implementation includes:
+	- LoopSubdiv
+	- TriangleMesh
+	- Sphere
+	- Cylinder
+	- Disk
+
+Created by Jiayao on July 27, 2017
+Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
 from abc import (ABCMeta, abstractmethod)
-from .. import *
-from .. import geometry as geo
-from .. import transform as trans
+from pytracer import *
+import pytracer.geometry as gep
+import pytracer.transform as trans
 
 
 # aux functions for mesh navigation
@@ -128,3 +138,13 @@ class Shape(object, metaclass=ABCMeta):
 
 		# convert light sample weight to solid angle measure
 		return (pnt - ray(thit)).sq_length() / (dg_light.nn.abs_dot(-wi) * self.area())
+
+from .loopsubdiv import *
+from .triangle import *
+from .sphere import *
+from .cylinder import *
+from .disk import *
+
+__all__ = ['Shape', 'create_loop_subdiv','LoopSubdiv',
+           'create_triangle_mesh', 'TriangleMesh', 'Triangle',
+           'Sphere', 'Cylinder', 'Disk']

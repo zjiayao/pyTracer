@@ -6,169 +6,31 @@ Model physically plausible lights.
 Created by Jiayao on Aug 8, 2017
 """
 
-from src.geometry.diffgeom import *
-from src.montecarlo.montecarlo import *
-from src.transform.transform import *
+from __future__ import absolute_import
+from abc import (ABCMeta, abstractmethod)
+from pytracer import *
+import pytracer.geometry as geo
+import pytracer.transform as trans
+import pytracer.scene as scn
+import pytracer.montecarlo as mc
+import pytracer.core.imageio as iio
+import pytracer.texture as txt
 
+from pytracer.light.utility import *
 
-# Utility Classes
-
-class VisibilityTester(object):
-	"""
-	VisibilityTester Class
-	"""
-	def __init__(self, ray: 'Ray'=None):
-		self.ray = None
-
-	def __repr__(self):
-		return "{}\nRay: {}\n".format(self.__class__, self.ray)
-
-	def set_segment(self, p1: 'Point', eps1: FLOAT, p2: 'Point', eps2: FLOAT, time: FLOAT):
-		"""
-		set_segment()
-
-		The test is to be done within the
-		given segment.
-		"""
-		dist = (p1 - p2).length()
-		self.ray = Ray(p1, (p2 - p1) / dist, eps1, dist * (1. - eps2), time)
-
-	def set_ray(self, p: 'Point', eps: FLOAT, w: 'Vector', time: FLOAT):
-		"""
-		set_ray()
-
-		The test is to indicate whether there
-		is any object along a given direction.
-		"""
-		self.ray = Ray(p, w, eps, np.inf, time)
-
-	def unoccluded(self, scene: 'Scene') -> bool:
-		"""
-		unoccluded()
-
-		Traces a shadow ray
-		"""
-		return not scene.intersect_p(self.ray)
-
-	def transmittance(self, scene: 'Scene', renderer: 'Renderer', sample: 'Sample',
-						rng=np.random.rand):
-		"""
-		transmittance()
-
-		Determines the fraction of illumincation from
-		the light to the point that is not extinguished
-		by participating media.
-		"""
-		return renderer.transmittance(scene, RayDifferential.fromRay(self.ray), sample. rng)
-
-
-def ShapeSet(object):
-	"""
-	ShapeSet Class
-
-	Wrapper for a set of `Shape`s.
-	"""
-	def __init__(self, shape: 'Shape'):
-		self.shapes = []
-		tmp = [shape]
-		while len(tmp) > 0:
-			sh = tmp.pop()
-			if sh.can_intersect():
-				self.shapes.append(sh)
-			else:
-				tmp.extend(sh.refine())
-
-		if len(self.shapes) > 64:
-			print("Warning: src.core.light.{}.__init__(): "
-					"Area light turned into {} shapes, might be inefficient".format(self.__class__,
-							len(self.shapes)))
-		self.areas = []
-		self.sum_area = 0.
-		for sh in self.shapes:
-			area = sh.area()
-			self.areas.push_back(area)
-			self.sum_area += area
-
-		self.area_dist = Distribution1D(self.areas)
-
-	def __repr__(self):
-		return "{}\nNumber of Shapes: {}\n".format(self.__class__, len(self.shapes))
-
-	def sample(self, p: 'Point', ls: 'LightSample') -> ['Point', 'Normal']:
-		sn, _ = self.area_dist.sample_dis(ls.u_com)
-		pt, ns = self.shapes[sn].sample_p(p, ls.u_pos[0], ls.u_pos[1])
-
-		# find cloest intersection
-		r = Ray(p, pt - p, EPS, np.inf)
-		any_hit = False
-
-		# inefficient
-		for sh in self.shapes:
-			hit, thit, _, dg = sh.intersect(r)
-			any_hit |= hit
-		if any_hit:
-			ns = dg.nn
-
-		return [r(thit), ns]
-
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT:
-		pdf = 0.
-		for i, sh in enumerate(self.shapes):
-			pdf += self.areas[i] * sh.pdf_p(p, wi)
-		return pdf / self.sum_area
-
-class LightSampleOffset(object):
-	"""
-	LightSampleOffset Class
-
-	Encapsulate offsets provided
-	by sampler
-	"""
-	def __init__(self, nSamples: INT, sample: 'Sample'):
-		self.nSamples = nSamples
-		self.offset_com = sample.add_1d(nSamples)
-		self.offset_pos = sample.add_2d(nSamples)
-
-	def __repr__(self):
-		return "{}\nSamples: {}\n".format(self.__class__, self.nSamples)
-
-
-class LightSample(object):
-	"""
-	LightSample Class
-
-	Encapsulate Light samples,
-	i.e., three dimensional random samples.
-	"""
-	def __init__(self, p0: FLOAT=0., p1: FLOAT=0., u_com: FLOAT=0.):
-		self.u_pos = [p0, p1]
-		self.u_com = u_com
-
-	def __repr__(self):
-		return "{}\nDirection: ({},{})\nComponent: {}\n".format(self.__class__, self.u_pos[0], self.u_pos[1], self.u_com)
-
-	@classmethod
-	def fromRand(cls, rng=np.random.rand):
-		self = cls(rng(), rng(), rng())
-		return self
-
-	@classmethod
-	def fromSample(cls, sample: 'Sample', offset: 'LightSampleOffset', n: UINT):
-		self = cls(sample.twoD[offset.offset_pos][n][0],
-				   sample.twoD[offset.offset_pos][n][1],
-				   sample.oneD[offset.offset_com][n])
-		return self
+__all__ = ['Light', 'PointLight', 'SpotLight', 'ProjectionLight',
+           'GonioPhotometricLight', 'DistantLight', 'AreaLight',
+           'DiffuseAreaLight', 'InfiniteAreaLight']
 
 
 # Light Classes
-
 class Light(object, metaclass=ABCMeta):
 	"""
 	Light Class
 	"""
-	def __init__(self, l2w: 'Transform', ns: INT = 1):
+	def __init__(self, l2w: 'trans.Transform', ns: INT = 1):
 		"""
-		l2w: Light-to-World `Transform`
+		l2w: Light-to-World `trans.Transform`
 		ns:  number of samples for soft shadowing of
 		 	 area light
 		"""
@@ -178,14 +40,14 @@ class Light(object, metaclass=ABCMeta):
 
 		if l2w.has_scale():
 			print('Warning: src.core.light.{}.__init__() light '
-					'transforms should not contain scale'.format(self.__class__))
+					'trans.Transforms should not contain scale'.format(self.__class__))
 
 	def __repr__(self):
-		return '{}\nNumber of Samples: {}\nLight-to-World Transformation: {}\n'.format(self.__class__, self.ns, self.l2w)
+		return '{}\nNumber of Samples: {}\nLight-to-World trans.Transformation: {}\n'.format(self.__class__, self.ns, self.l2w)
 
 	@abstractmethod
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
 		"""
 		sample_l()
 
@@ -198,20 +60,20 @@ class Light(object, metaclass=ABCMeta):
 									'called'.format(self.__class__)) 		
 
 	@abstractmethod
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:	
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:	
 		"""
 		sample_r()
 
 		Samples a ray *leaving* the light source.
 
-		Returns [Ray, Normal, pdf, spectrum]
+		Returns [geo.Ray, geo.Normal, pdf, spectrum]
 		"""
 		raise NotImplementedError('src.core.light.{}.sample_r(): abstract method '
 									'called'.format(self.__class__)) 
 
 	@abstractmethod
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT:
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT:
 		"""
 		pdf()
 		"""
@@ -220,7 +82,7 @@ class Light(object, metaclass=ABCMeta):
 
 	@property
 	@abstractmethod
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		"""
 		power()
 
@@ -242,7 +104,7 @@ class Light(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.light.{}.is_delta_light(): abstract method '
 									'called'.format(self.__class__)) 	
 
-	def le(self, rd: 'RayDifferential') -> 'Spectrum':
+	def le(self, rd: 'geo.RayDifferential') -> 'Spectrum':
 		"""
 		le()
 
@@ -258,38 +120,37 @@ class PointLight(Light):
 	
 	By defauly positioned at the origin.
 	"""
-	def __init__(self, l2w: 'Transform', intensity: 'Spectrum'):
+	def __init__(self, l2w: 'trans.Transform', intensity: 'Spectrum'):
 		super().__init__(l2w)
-		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
+		self.pos = l2w(geo.Point(0., 0., 0.)) # where the light is positioned in the world
 		self.intensity = intensity
 
 
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
-		wi = normalize(self.pos - p)
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
+		wi = geo.normalize(self.pos - p)
 		pdf = 1.
 		vis = VisibilityTester()
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / (self.pos - p).sq_length(), wi, pdf, vis]
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
-		ray = Ray(self.pos, uniform_sample_sphere(ls.u_pos[0], ls.u_pos[1]),
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
+		ray = geo.Ray(self.pos, mc.uniform_sample_sphere(ls.u_pos[0], ls.u_pos[1]),
 						0., np.inf, time)
-		Ns = Normal.fromVector(ray.d)
-		pdf = uniform_sphere_pdf()
+		Ns = geo.Normal.fromVector(ray.d)
+		pdf = mc.uniform_sphere_pdf()
 		return [ray, Ns, pdf, self.intensity]
 
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT: return 0.
 
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		return 4. * PI * self.intensity
 
 	def is_delta_light(self) -> bool:
 		return True
-
 
 
 class SpotLight(Light):
@@ -299,26 +160,25 @@ class SpotLight(Light):
 	By defauly positioned at the origin
 	and light a cone towards +z.
 	"""
-	def __init__(self, l2w: 'Transform', intensity: 'Spectrum', width: FLOAT, falloff: FLOAT):
+	def __init__(self, l2w: 'trans.Transform', intensity: 'Spectrum', width: FLOAT, falloff: FLOAT):
 		"""
 		width: Overall angular width of the cone
 		fall: angle at which falloff starts
 		"""
 		super().__init__(l2w)
-		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
+		self.pos = l2w(geo.Point(0., 0., 0.)) # where the light is positioned in the world
 		self.intensity = intensity
 		self.cos_width = np.cos(np.deg2rad(width))
 		self.cos_falloff = np.cos(np.deg2rad(falloff))
 
-	@jit
-	def __falloff(self, w: 'Vector') -> FLOAT:
+	def __falloff(self, w: 'geo.Vector') -> FLOAT:
 		"""
 		__falloff()
 
 		Determines the falloff
 		given a vector in the world.
 		"""
-		wl = normalize(self.w2l(w))
+		wl = geo.normalize(self.w2l(w))
 		ct = wl.z
 		if ct < self.cos_width:
 			return 0.
@@ -328,29 +188,28 @@ class SpotLight(Light):
 		d = (ct - self.cos_width) / (self.cos_falloff - self.cos_width)
 		return d * d * d * d
 
-
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
-		wi = normalize(self.pos - p)
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
+		wi = geo.normalize(self.pos - p)
 		pdf = 1.
 		vis = VisibilityTester()
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / self.__falloff(-wi), wi, pdf, vis]
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
 		
-		v = uniform_sample_cone(ls.u_pos[0], ls.u_pos[1], self.cos_width)
+		v = mc.uniform_sample_cone(ls.u_pos[0], ls.u_pos[1], self.cos_width)
 
-		ray = Ray(self.pos, self.l2w(v), 0., np.inf, time)
-		Ns = Normal.fromVector(ray.d)
-		pdf = uniform_cone_pdf(self.cos_width)
+		ray = geo.Ray(self.pos, self.l2w(v), 0., np.inf, time)
+		Ns = geo.Normal.fromVector(ray.d)
+		pdf = mc.uniform_cone_pdf(self.cos_width)
 		return [ray, Ns, pdf, self.intensity * self.__falloff(ray.d)]
 
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT: return 0.
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		"""
 		power()
 
@@ -364,29 +223,28 @@ class SpotLight(Light):
 		return True
 
 
-
 class ProjectionLight(Light):
 	"""
 	ProjectionLight Class
 	
 	Projecting light using texture.
 	"""
-	def __init__(self, l2w: 'Transform', intensity: 'Spectrum', texname: str, fov: FLOAT):
+	def __init__(self, l2w: 'trans.Transform', intensity: 'Spectrum', texname: str, fov: FLOAT):
 		super().__init__(l2w)
-		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
+		self.pos = l2w(geo.Point(0., 0., 0.)) # where the light is positioned in the world
 		self.intensity = intensity
 
-		# create a MIPMap
+		# create a txt.MIPMap
 		try:
-			texels = read_image(texname)
+			texels = iio.read_image(texname)
 			width, height = np.shape(texels)
 		except:
 			print('src.core.texture.{}.get_texture(): cannot process file {}, '
-					'use default one-valued MIPMap'.format(self.__class__, texname))
+					'use default one-valued txt.MIPMap'.format(self.__class__, texname))
 			texels = None		
 		
 		if texels is not None:
-			self.projMap = MIPMap(RGBSpectrum, texels)
+			self.projMap = txt.MIPMap(RGBSpectrum, texels)
 		else:
 			self.projMap = None
 
@@ -405,13 +263,13 @@ class ProjectionLight(Light):
 
 		self.hither = EPS
 		self.yon = 1e30
-		self.projTrans = Transform.perspective(fov, self.hither, self.yon)
+		self.projTrans = trans.Transform.perspective(fov, self.hither, self.yon)
 
 		# compute cosine of cone
 		self.cos_width = np.cos(np.arctan(np.tan(np.deg2rad(fov) / 2.) * np.sqrt(1. + 1. / (aspect * aspect))))
 
 
-	def __projection(self, w: 'Vector') -> 'Spectrum':
+	def __projection(self, w: 'geo.Vector') -> 'Spectrum':
 		"""
 		__projection()
 
@@ -425,7 +283,7 @@ class ProjectionLight(Light):
 			return Spectrum(0.)
 
 		# project point onto plane
-		pl = self.projTrans(Point(wl.x, wl.y, wl.z))
+		pl = self.projTrans(geo.Point(wl.x, wl.y, wl.z))
 		if pl.x < self.scr_x0 or pl.x > self.scr_x1 or \
 				pl.y < self.scr_y0 or pl.y > self.scr_y1:
 			return Spectrum(0.)
@@ -436,29 +294,28 @@ class ProjectionLight(Light):
 		t = (pl.y - self.scr_y0) / (self.scr_y1 - self.scr_y0)
 		return Spectrum(self.projMap.look_up([s, t]), SpectrumType.ILLUMINANT) 
 
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
-		wi = normalize(self.pos - p)
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
+		wi = geo.normalize(self.pos - p)
 		pdf = 1.
 		vis = VisibilityTester()
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / self.__projection(-wi), wi, pdf, vis]
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
 		
-		v = uniform_sample_cone(ls.u_pos[0], ls.u_pos[1], self.cos_width)
+		v = mc.uniform_sample_cone(ls.u_pos[0], ls.u_pos[1], self.cos_width)
 
-		ray = Ray(self.pos, self.l2w(v), 0., np.inf, time)
-		Ns = Normal.fromVector(ray.d)
-		pdf = uniform_cone_pdf(self.cos_width)
+		ray = geo.Ray(self.pos, self.l2w(v), 0., np.inf, time)
+		Ns = geo.Normal.fromVector(ray.d)
+		pdf = mc.uniform_cone_pdf(self.cos_width)
 		return [ray, Ns, pdf, self.intensity * self.__projection(ray.d)]
 
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
-
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT: return 0.
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		"""
 		power()
 
@@ -473,34 +330,33 @@ class ProjectionLight(Light):
 		return True
 
 
-
 class GonioPhotometricLight(Light):
 	"""
 	GonioPhotometricLight Class
 	
 	Projecting light using texture.
 	"""
-	def __init__(self, l2w: 'Transform', intensity: 'Spectrum', texname: str):
+	def __init__(self, l2w: 'trans.Transform', intensity: 'Spectrum', texname: str):
 		super().__init__(l2w)
-		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
+		self.pos = l2w(geo.Point(0., 0., 0.)) # where the light is positioned in the world
 		self.intensity = intensity
 
-		# create a MIPMap
+		# create a txt.MIPMap
 		try:
-			texels = read_image(texname)
+			texels = iio.read_image(texname)
 			width, height = np.shape(texels)
 		except:
 			print('src.core.texture.{}.get_texture(): cannot process file {}, '
-					'use default one-valued MIPMap'.format(self.__class__, texname))
+					'use default one-valued txt.MIPMap'.format(self.__class__, texname))
 			texels = None		
 		
 		if texels is not None:
-			self.mipmap = MIPMap(RGBSpectrum, texels)
+			self.txt.MIPMap = txt.MIPMap(RGBSpectrum, texels)
 		else:
-			self.mipmap = None
+			self.txt.MIPMap = None
 
 
-	def __scale(self, w: 'Vector') -> 'Spectrum':
+	def __scale(self, w: 'geo.Vector') -> 'Spectrum':
 		"""
 		__scale()
 
@@ -510,40 +366,40 @@ class GonioPhotometricLight(Light):
 		the scale texture is encoded
 		using spherical coordinates.
 		"""
-		if self.mipmap is None:
+		if self.txt.MIPMap is None:
 			return Spectrum(1.)
 
-		wp = normalize(self.w2l(w))
+		wp = geo.normalize(self.w2l(w))
 		wp.z, wp.y = wp.y, wp.z
-		theta = spherical_theta(wp)
-		phi = spherical_phi(wp)
+		theta = geo.spherical_theta(wp)
+		phi = geo.spherical_phi(wp)
 		s = phi * INV_2PI
 		t = theta * INV_PI
 
 		return Spectrum(self.projMap.look_up([s, t]), SpectrumType.ILLUMINANT)
 
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
-		wi = normalize(self.pos - p)
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
+		wi = geo.normalize(self.pos - p)
 		pdf = 1.
 		vis = VisibilityTester()
 		vis.set_segment(p, pEps, self.pos, 0., time)
 		return [self.intensity / self.__scale(-wi), wi, pdf, vis]
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
-		ray = Ray(self.pos, uniform_sample_sphere(ls.u_pos[0], ls.u_pos[1]),
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
+		ray = geo.Ray(self.pos, mc.uniform_sample_sphere(ls.u_pos[0], ls.u_pos[1]),
 						0., np.inf, time)
-		Ns = Normal.fromVector(ray.d)
-		pdf = uniform_sphere_pdf()
+		Ns = geo.Normal.fromVector(ray.d)
+		pdf = mc.uniform_sphere_pdf()
 		return [ray, Ns, pdf, self.intensity * self.__scale(ray.d)]
 
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT: return 0.
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		return 4. * PI * self.intensity * \
-					Spectrum(self.mipmap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)					
+					Spectrum(self.txt.MIPMap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)					
 	def is_delta_light(self) -> bool:
 		return True
 
@@ -556,21 +412,21 @@ class DistantLight(Light):
 	light, i.e., point light
 	at infinity.
 	"""
-	def __init__(self, l2w: 'Transform', radiance: 'Spectrum', di: 'Vector'):
+	def __init__(self, l2w: 'trans.Transform', radiance: 'Spectrum', di: 'geo.Vector'):
 		super().__init__(l2w)
-		self.di = normalize(l2w(di))
+		self.di = geo.normalize(l2w(di))
 		self.l = radiance
 
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
 		wi = self.di.copy()
 		pdf = 1.
 		vis = VisibilityTester()
 		vis.set_ray(p, pEps, self.pos, wi, time)
 		return [self.l.copy(), wi, pdf, vis]
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
 		"""
 		Create a bounding disk
 		and uniformly sample
@@ -578,20 +434,20 @@ class DistantLight(Light):
 		"""
 		# choose point on disk oriented towards light
 		ctr, rad = scene.world_bound().bounding_sphere()
-		_, v1, v2 = coordinate_system(self.di)
-		d1, d2 = concentric_sample_disk(ls.u_pos[0], ls.u_pos[1])
+		_, v1, v2 = geo.coordinate_system(self.di)
+		d1, d2 = mc.concentric_sample_disk(ls.u_pos[0], ls.u_pos[1])
 		pnt = ctr + rad * (d1 * v1 + d2 * v2)
 
 		# set ray
-		ray = Ray(pnt + rad * self.di, -self.di, 0., np.inf, time)
-		Ns = Normal.fromVector(ray.d)
+		ray = geo.Ray(pnt + rad * self.di, -self.di, 0., np.inf, time)
+		Ns = geo.Normal.fromVector(ray.d)
 		pdf = 1. / (PI * rad * rad)
 		return [ray, Ns, pdf, self.l]
 
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return 0.
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT: return 0.
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		"""
 		power()
 
@@ -611,14 +467,12 @@ class AreaLight(Light):
 	"""
 	AreaLight Class
 	"""
-	def __init__(self, l2w: 'Transform', ns: INT):
+	def __init__(self, l2w: 'trans.Transform', ns: INT):
 		super().__init__(l2w, ns)
 	@abstractmethod
-	def l(self, p: 'Point', n: 'Normal', w: 'Vector') -> 'Spectrum':
+	def l(self, p: 'geo.Point', n: 'geo.Normal', w: 'geo.Vector') -> 'Spectrum':
 		raise NotImplementedError('src.core.volume.{}.l(): abstract method '
 									'called'.format(self.__class__)) 		
-
-
 
 
 class DiffuseAreaLight(Light):
@@ -629,7 +483,7 @@ class DiffuseAreaLight(Light):
 	uniform spatial and directional
 	radiance distribution.
 	"""
-	def __init__(self, l2w: 'Transform', le: 'Spectrum', ns: INT, shape: 'Shape'):
+	def __init__(self, l2w: 'trans.Transform', le: 'Spectrum', ns: INT, shape: 'Shape'):
 		"""
 		shape parameter will be a `ShapeSet`
 		instance which subclasses `Shape`
@@ -640,48 +494,47 @@ class DiffuseAreaLight(Light):
 		self.shape_set = ShapeSet(shape)
 		self.area = self.shape_set.area()
 
-	def l(self, p: 'Point', n: 'Normal', w: 'Vector') -> 'Spectrum':
+	def l(self, p: 'geo.Point', n: 'geo.Normal', w: 'geo.Vector') -> 'Spectrum':
 		return self.le if n.dot(w) > 0. else Spectrum(0.)
 
 	# TODO use MCMC
-	# def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-	# 		time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+	# def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+	# 		time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
 
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
 		ps, ns = self.shape_set.sample(p, ls)
-		wi = normalize(ps - p)
+		wi = geo.normalize(ps - p)
 		pdf = self.shape_set.pdf(p, wi)
 		vis = VisibilityTester()
 		vis.set_segment(p, pEps, ps, EPS, time)
 		return [self.l(ps, ns, -wi), wi, pdf, vis]
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
 		"""
 		Create a bounding disk
 		and uniformly sample
 		on it.
 		"""
 		org, Ns = self.shape_set.sample(ls)
-		di = uniform_sample_sphere(u1, u2)
+		di = mc.uniform_sample_sphere(u1, u2)
 		if di.dot(Ns) < 0.:
 			di *= -1.
-		ray = Ray(org, di, EPS, np.inf, time)
+		ray = geo.Ray(org, di, EPS, np.inf, time)
 		pdf = self.shape_set.pdf(org) * INV_2PI
 		return [ray, Ns, pdf, self.l(org, Ns, di)]
 
-	def pdf(self, p: 'Point', wi: 'Vector') -> FLOAT: return self.shape_set.pdf(p, wi)
+	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT: return self.shape_set.pdf(p, wi)
 
 
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		return self.le * self.area * PI
 
 	def is_delta_light(self) -> bool:
 		return False
-
 
 
 class InfiniteAreaLight(Light):
@@ -690,24 +543,24 @@ class InfiniteAreaLight(Light):
 	
 	Models environment lighting
 	"""
-	def __init__(self, l2w: 'Transform', l: 'Spectrum', ns: INT, texmap: str):
+	def __init__(self, l2w: 'trans.Transform', l: 'Spectrum', ns: INT, texmap: str):
 		"""
 		width: Overall angular width of the cone
 		fall: angle at which falloff starts
 		"""
 		super().__init__(l2w, ns)
-		self.pos = l2w(Point(0., 0., 0.)) # where the light is positioned in the world
+		self.pos = l2w(geo.Point(0., 0., 0.)) # where the light is positioned in the world
 		
 		try:
-			texels = read_image(texmap)
+			texels = iio.read_image(texmap)
 			width, height = np.shape(texels)
 		except:
 			print('src.core.texture.{}.get_texture(): cannot process file {}, '
-					'use default one-valued MIPMap'.format(self.__class__, texmap))
+					'use default one-valued txt.MIPMap'.format(self.__class__, texmap))
 			texels = None		
 		
 		if texels is not None:
-			self.radMap = MIPMap(RGBSpectrum, texels)
+			self.radMap = txt.MIPMap(RGBSpectrum, texels)
 		else:
 			self.radMap = None
 
@@ -724,20 +577,20 @@ class InfiniteAreaLight(Light):
 				img[v][u] = self.radMap.look_up([up, vp, filt]).y()
 
 		## compute sampling distribution
-		self.dit = Distribution2D(img)
+		self.dit = mc.Distribution2D(img)
 
 
 
 
-	def le(self, rd: 'RayDifferential') -> 'Spectrum':
-		wh = normalize(self.w2l(rd.d))
-		s = spherical_phi(wh) * INV_2PI
-		t = spherical_theta(wh) * INV_PI
+	def le(self, rd: 'geo.RayDifferential') -> 'Spectrum':
+		wh = geo.normalize(self.w2l(rd.d))
+		s = geo.spherical_phi(wh) * INV_2PI
+		t = geo.spherical_theta(wh) * INV_PI
 		return Spectrum(self.radMap.look_up(s, t), SpectrumType.ILLUMINANT)		
 
-	@jit
-	def sample_l(self, p: 'Point', pEps: FLOAT, ls: 'LightSample',
-			time: FLOAT,) -> ['Spectrum', 'Vector', FLOAT, 'VisibilityTester']:	
+	
+	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
+			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
 		# find (u, v) sample coords in inf. light texture
 		uv, pdf = self.dist.sample_cont(ls.u_pos[0], ls.u_pos[1])
 
@@ -749,7 +602,7 @@ class InfiniteAreaLight(Light):
 		sp = np.sin(phi)
 		cp = np.cos(phi)
 
-		wi = self.l2w(Vector(st * cp, st * sp, ct))
+		wi = self.l2w(geo.Vector(st * cp, st * sp, ct))
 
 		# compute pdf for sampled inf light direction
 		pdf = pdf / (2. * PI * PI *st)
@@ -763,19 +616,19 @@ class InfiniteAreaLight(Light):
 		return [Spectrum(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT),
 					wi, pdf, vis]
 
-	@jit
-	def pdf(self, p: 'Point', w: 'Vector') -> FLOAT:
+	
+	def pdf(self, p: 'geo.Point', w: 'geo.Vector') -> FLOAT:
 		wi = self.w2l(w)
-		theta = spherical_theta(wi)
-		phi = spherical_phi(wi)
+		theta = geo.spherical_theta(wi)
+		phi = geo.spherical_phi(wi)
 		st = np.sin(theta)
 		if st == 0.:
 			return 0.
 		return self.dist.pdf(phi * INV_2PI, theta * INV_PI / 
 				(2. * PI * PI * st))
 
-	def sample_r(self, scene: 'Scene', ls: 'LightSample', u1: FLOAT, 
-					u2: FLOAT, time: FLOAT) -> ['Ray', 'Normal', FLOAT, 'Spectrum']:
+	def sample_r(self, scene: 'scn.Scene', ls: 'LightSample', u1: FLOAT, 
+					u2: FLOAT, time: FLOAT) -> ['geo.Ray', 'geo.Normal', FLOAT, 'Spectrum']:
 		"""
 		Create a bounding disk
 		and uniformly sample
@@ -792,17 +645,17 @@ class InfiniteAreaLight(Light):
 		st = np.sin(theta)
 		sp = np.sin(phi)
 		cp = np.cos(phi)
-		d = -self.l2w(Vector(st * cp, st * sp, ct))
-		Ns = Normal.fromVector(d)
+		d = -self.l2w(geo.Vector(st * cp, st * sp, ct))
+		Ns = geo.Normal.fromVector(d)
 
 		# choose point on disk oriented towards light
 		ctr, rad = scene.world_bound().bounding_sphere()
-		_, v1, v2 = coordinate_system(self.di)
-		d1, d2 = concentric_sample_disk(ls.u_pos[0], ls.u_pos[1])
+		_, v1, v2 = geo.coordinate_system(self.di)
+		d1, d2 = mc.concentric_sample_disk(ls.u_pos[0], ls.u_pos[1])
 		pnt = ctr + rad * (d1 * v1 + d2 * v2)
 
 		# set ray
-		ray = Ray(pnt + rad * (-d), d, 0., np.inf, time)
+		ray = geo.Ray(pnt + rad * (-d), d, 0., np.inf, time)
 
 		# compute pdf
 		dir_pdf = pdf / (2. * PI * PI * st)
@@ -814,7 +667,7 @@ class InfiniteAreaLight(Light):
 		return [ray, Ns, pdf, Spectrum(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT)]
 
 	@property
-	def power(self, scene: 'Scene') -> 'Spectrum':
+	def power(self, scene: 'scn.Scene') -> 'Spectrum':
 		_, rad = scene.world_bound().bounding_sphere()
 		return PI * rad * rad * Spectrum(self.radMap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)
 
