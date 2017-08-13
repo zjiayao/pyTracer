@@ -8,6 +8,7 @@ Created by Jiayao on Aug 13, 2017
 from __future__ import absolute_import
 from .. import *
 
+
 # Geometry Utility Functions
 
 
@@ -666,6 +667,5 @@ class BBox:
 		return [True, t0, t1]
 
 
-
-
+from .diffgeom import DifferentialGeometry
 
