@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import pytracer.geometry as geo
 
-N_TEST_CASE = 100
+N_TEST_CASE = 5
 np.random.seed(1)
 rng = np.random.rand
 

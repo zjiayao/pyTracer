@@ -6,4 +6,4 @@ install:
   - pip install -r requirements.txt
 
 # command to run tests
-script: PYTHONPATH=$PWD:$PYTHONPATH py.test tests/
+script: PYTHONPATH=$PWD:$PYTHONPATH py.test
