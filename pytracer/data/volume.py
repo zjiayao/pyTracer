@@ -1,4 +1,4 @@
-'''
+"""
 volume.py
 
 Stores volume scattering data
@@ -6,7 +6,7 @@ Stores volume scattering data
 Data obtained from pbrt implementation.
 
 Created by Jiayao on Aug 7, 2017
-'''
+"""
 
 MEASURED_SUF_SC = {
  "Apple" : [[ 2.29, 2.39, 1.97 ], [ 0.0030, 0.0034, 0.046 ] ],

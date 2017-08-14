@@ -11,12 +11,6 @@ from __future__ import absolute_import
 from enum import Enum
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.aggregate as agg
-import pytracer.sampler as spler
-import pytracer.scene as scn
-import pytracer.renderer as ren
-import pytracer.reflection as refl
-import pytracer.light as lgt
 from pytracer.integrator.surface import SurfaceIntegrator
 
 __all__ = ['LightStrategy', 'DirectLightingIntegrator']
@@ -49,7 +43,9 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 	def __repr__(self):
 		return "{}\nStrategy: {}\n".format(self.__class__, self.strategy)
 
-	def request_samples(self, sampler: 'spler.Sample', sample: 'spler.Sample', scene: 'scn.Scene'):
+	def request_samples(self, sampler: 'Sample', sample: 'Sample', scene: 'Scene'):
+		from pytracer.light import LightSampleOffset
+		from pytracer.reflection import BSDFSampleOffset
 		if self.strategy == LightStrategy.SAMPLE_ALL_UNIFORM:
 			# sampling all lights
 			n_lights = len(scene.lights)
@@ -60,22 +56,22 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 				if sampler is not None:
 					n_smp = sampler.round_size(n_smp)
 
-				self.light_sample_offsets.append(lgt.LightSampleOffset(n_smp, sample))
-				self.bsdf_sample_offsets.append(refl.BSDFSampleOffset(n_smp, sample))
+				self.light_sample_offsets.append(LightSampleOffset(n_smp, sample))
+				self.bsdf_sample_offsets.append(BSDFSampleOffset(n_smp, sample))
 
 			self.light_num_offset = -1
 		else:
 			# sampling one light
 			n_lights = len(scene.lights)
-			self.light_sample_offsets = [lgt.LightSampleOffset(1, sample)]
+			self.light_sample_offsets = [LightSampleOffset(1, sample)]
 			self.light_num_offset = sample.add1d(1)
-			self.bsdf_sample_offsets = [refl.BSDFSampleOffset(1, sample)]
+			self.bsdf_sample_offsets = [BSDFSampleOffset(1, sample)]
 
 
-	def li(self, scene: 'scn.Scene', renderer: 'ren.Renderer', ray: 'geo.RayDifferential',
-			isect: 'agg.Intersection', sample: 'spler.Sample', rng=np.random.rand) -> 'Spectrum':
+	def li(self, scene: 'Scene', renderer: 'Renderer', ray: 'geo.RayDifferential',
+			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
 		L = Spectrum(0.)
-		# Evaluate refl.BSDF at hit point
+		# Evaluate BSDF at hit point
 		bsdf = isect.get_BSDF(ray)
 
 		# Init

@@ -37,6 +37,8 @@ def coordinate_system(v1: 'Vector') -> ['Vector']:
 			a python List encompassing three basis
 			constructed from `v1`
 	"""
+	if v1.length() == 0.:
+		return [Vector(1., 0., 0.), Vector(0., 1., 0.), Vector(0., 0., 1.)]
 	if np.fabs(v1.x) > np.fabs(v1.y):
 		inv_len = 1. / np.sqrt(v1.x * v1.x + v1.z * v1.z)
 		v2 = Vector(-v1.z * inv_len, 0., v1.x * inv_len)
@@ -66,7 +68,7 @@ def normalize(vec: 'Vector') -> 'Vector':
 	"""
 	n = vec.copy()
 	length = vec.length()
-	if not length == 0:
+	if not length == 0.:
 		n /= length
 	return n
 
@@ -98,7 +100,7 @@ def spherical_direction(stheta: FLOAT, ctheta: FLOAT, phi: FLOAT,
 	if x is None or y is None or z is None:
 		return Vector(stheta * np.cos(phi), stheta * np.sin(phi), ctheta)
 	else:
-		return (x * stheta * np.cos(phi) + y * stheta * np.sin(phi) + z * ctheta).view(Vector)
+		return x * stheta * np.cos(phi) + y * stheta * np.sin(phi) + z * ctheta
 
 
 def spherical_theta(v: 'Vector') -> FLOAT:

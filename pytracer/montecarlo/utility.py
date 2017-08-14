@@ -11,7 +11,6 @@ Modified on Aug 13, 2017
 from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.volume as vol
 
 __all__ = ['balance_heuristic', 'power_heuristic', 'rejection_sample_disk',
            'uniform_sample_hemisphere', 'uniform_hemisphere_pdf', 'uniform_sample_sphere',
@@ -260,5 +259,6 @@ def hg_pdf(w: 'geo.Vector', wp: 'geo.Vector', g: FLOAT) -> FLOAT:
 	"""
 	hg_pdf()
 	"""
-	return vol.phase_hg(w, wp, g)
+	from pytracer.volume import phase_hg
+	return phase_hg(w, wp, g)
 

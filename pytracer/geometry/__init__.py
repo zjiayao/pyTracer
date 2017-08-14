@@ -32,7 +32,7 @@ class Vector(np.ndarray):
 
 	@classmethod
 	def from_arr(cls, n: 'np.ndarray'):  # Forward type hint (PEP-484)
-		assert np.shape(n) == 3
+		assert np.shape(n)[0] == 3
 		return cls(n[0], n[1], n[2])
 
 	@property
@@ -107,7 +107,7 @@ class Point(np.ndarray):
 
 	@classmethod
 	def from_arr(cls, n: 'np.ndarray'):  # Forward type hint (PEP-484)
-		assert np.shape(n) == 3
+		assert np.shape(n)[0] == 3
 		return cls(n[0], n[1], n[2])
 
 	@property
@@ -192,7 +192,7 @@ class Normal(np.ndarray):
 
 	@classmethod
 	def from_arr(cls, n: 'np.ndarray'):  # Forward type hint (PEP-484)
-		assert np.shape(n) == 3
+		assert np.shape(n)[0] == 3
 		return cls(n[0], n[1], n[2])
 
 	@property

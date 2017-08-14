@@ -5,9 +5,12 @@ Renderer Class
 
 Created by Jiayao on Aug 5, 2017
 """
+from __future__ import absolute_import
+from abc import (ABCMeta, abstractmethod)
+from pytracer import *
+import pytracer.geometry as geo
 
-from src.sampler.sampler import *
-from src.scene.scene import *
+__all__ = ['Renderer', 'SamplerRenderer', 'SamplerRendererTask']
 
 
 class Renderer(object, metaclass=ABCMeta):
@@ -21,13 +24,13 @@ class Renderer(object, metaclass=ABCMeta):
 							'called'.format(self.__class__)) 
 
 	@abstractmethod
-	def li(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
+	def li(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
 			rng='np.random.rand') -> ['Spectrum', 'Intersection']:
 		raise NotImplementedError('src.core.renderer.{}.li(): abstract method '
 							'called'.format(self.__class__)) 
 
 	@abstractmethod
-	def transmittance(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
+	def transmittance(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
 									rng='np.random.rand') -> 'Spectrum':
 		raise NotImplementedError('src.core.renderer.{}.transmittance(): abstract method '
 							'called'.format(self.__class__)) 
@@ -39,13 +42,13 @@ class SamplerRenderer(Renderer):
 
 	Sample-driven renderer
 	"""
-	def __init__(self, s: 'Sampler', c: 'Camera', si: 'SurfaceIntegrator', vi: 'VolumeIntegrator'):
+	def __init__(self, s: 'Sampler', c: 'cam.Camera', si: 'SurfaceIntegrator', vi: 'VolumeIntegrator'):
 		self.sampler = s
 		self.camera = c
 		self.surf_integrator = si
 		self.vol_integrator = vi
 
-	def li(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
+	def li(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
 			rng=np.random.rand) -> ['Spectrum', 'Intersection']:
 		# local variables
 
@@ -64,11 +67,12 @@ class SamplerRenderer(Renderer):
 		else:
 			return [li, Spectrum(0.), isect]
 
-	def transmittance(self, scene: 'Scene', ray: 'RayDifferential', sample: 'Sample',
+	def transmittance(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
 									rng='np.random.rand') -> 'Spectrum':
 		return self.vol_integrator.transmittance(scene, self, ray, sample, rng)
 
 	def render(self, scene: 'Scene'):
+		from pytracer.sampler import Sample
 		# integrator proprocessing
 		if self.surf_integrator is not None:
 			self.surf_integrator.preprocess(scene, self.camera, self)
@@ -100,12 +104,11 @@ class SamplerRenderer(Renderer):
 		self.camera.film.write_image()
 
 
-
 class SamplerRendererTask():
 	"""
 	SamplerRendererTask Class
 	"""
-	def __init__(self, sc: 'Scene', ren: 'Renderer', c: 'Camera',
+	def __init__(self, sc: 'Scene', ren: 'Renderer', c: 'cam.Camera',
 					ms: 'Sampler', smp: 'Sample', tn: INT, tc: INT):
 		self.scene = sc
 		self.renderer = ren

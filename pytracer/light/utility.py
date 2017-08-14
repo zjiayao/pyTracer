@@ -17,7 +17,7 @@ import pytracer.renderer as ren
 import pytracer.montecarlo as mc
 
 __all__ = ['VisibilityTester', 'ShapeSet',
-           'LightSampleOffset', 'FLOAT']
+           'LightSampleOffset', 'FLOAT', 'LightSample']
 
 
 # Utility Classes

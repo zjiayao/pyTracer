@@ -1,15 +1,14 @@
-'''
+"""
 src.data.noise
 
 Perlin's Noise
 
 Created by Jiayao on Aug 6, 2017
-'''
+"""
 import numpy as np
+from pytracer import INT
 
-from src.pytracer import INT
-
-NOISE_PERM_SIZE = 256
+NOISE_PERM_SIZE = INT(256)
 
 NOISE_PERM = np.array([
 	151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96,

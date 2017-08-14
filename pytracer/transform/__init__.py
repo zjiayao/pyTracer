@@ -6,8 +6,8 @@ pytracer.transform package
 Created by Jiayao on Aug 13, 2017
 """
 from __future__ import absolute_import
-from .. import *
-from .. import geometry as geo
+from pytracer import *
+import pytracer.geometry as geo
 
 
 class Transform(object):
@@ -334,7 +334,7 @@ class AnimatedTransform(object):
 		m = T R S
 		Assume m is an affine transformation
 		"""
-		from .quat import from_arr
+		from pytracer.transform.quat import from_arr
 		T = geo.Vector(m[0, 3], m[1, 3], m[2, 3])
 		M = m.copy()
 		M[0:3, 3] = M[3, 0:3] = 0
@@ -366,7 +366,7 @@ class AnimatedTransform(object):
 		if time >= self.endTime:
 			return self.endTransform
 
-		from .quat import (slerp, to_transform)
+		from pytracer.transform.quat import (slerp, to_transform)
 
 		dt = (time - self.startTime) / (self.endTime - self.startTime)
 

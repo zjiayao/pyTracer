@@ -12,7 +12,6 @@ import threading
 from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
-from pytracer.aggregate.intersection import Intersection
 from pytracer.aggregate.primitive import Primitive
 
 __all__ = ['Aggregate', 'Voxel', 'GridAccel']
@@ -26,18 +25,18 @@ class Aggregate(Primitive):
 	def get_area_light(self):
 		raise RuntimeError('{}.get_area_light(): Should not be called'.format(self.__class__))
 
-	def get_BSDF(self, dg: 'DifferentialGeometry', o2w: 'trans.Transform'):
-		raise RuntimeError('{}.get_BSDF(): Should not be called'.format(self.__class__))
+	def get_bsdf(self, dg: 'geo.DifferentialGeometry', o2w: 'trans.Transform'):
+		raise RuntimeError('{}.get_bsdf(): Should not be called'.format(self.__class__))
 
-	def get_BSSRDF(self, dg: 'DifferentialGeometry', o2w: 'trans.Transform'):
-		raise RuntimeError('{}.get_BSSRDF(): Should not be called'.format(self.__class__))
+	def get_bssrdf(self, dg: 'geo.DifferentialGeometry', o2w: 'trans.Transform'):
+		raise RuntimeError('{}.get_bssrdf(): Should not be called'.format(self.__class__))
 
 
-class Voxel():
-	primitive = []
+class Voxel(object):
+	"""Voxel Class"""
 	def __init__(self, op: ['Primitive']):
 		self.all_can_intersect = False
-		self.primitives.extend(op)
+		self.primitives = op.copy()
 
 	def __repr__(self):
 		return "{}\nPrimitives: {}".format(self.__class__, len(self.primitives))
@@ -64,12 +63,13 @@ class Voxel():
 
 		# loop over
 		# no data corrpution?
-		anyHit = False
+		any_hit = False
+		isect = None
 		for prim in self.primitives:
 			hit, isect = prim.intersect(ray)
 			if hit:
-				anyHit = True
-		return [anyHit, isect]  # weird of returning isect
+				any_hit = True
+		return [any_hit, isect]  # weird of returning isect
 
 	def intersect_p(self, ray: 'geo.Ray', lock) -> bool:
 		# refine primitives if needed
@@ -98,9 +98,9 @@ class Voxel():
 
 # Grid Accelerator
 class GridAccel(Aggregate):
-	def __init__(self, p: 'np.ndarray', refineImm: bool):
-
-		if refineImm:
+	def __init__(self, p: 'np.ndarray', refine_imm: bool):
+		super().init()
+		if refine_imm:
 			self.primitives = []
 			for prim in p:
 				prim.full_refine(self.primitives)
@@ -108,16 +108,17 @@ class GridAccel(Aggregate):
 			self.primitives = p
 
 		# compute bounds and choose grid resolution
-		self.bounds = geo.BBox()
-		self.nVoxels = [0, 0, 0]
+		self.bounds = geo.geo.BBox()
+		self.n_voxels = [0, 0, 0]
+
 		for prim in self.primitives:
 			self.bounds.union(prim.world_bound())
 
 		delta = self.bounds.pMax - self.bounds.pMin
-		maxAxis = self.bounds.maximum_extent()
-		invMaxWidth = 1. / delta[maxAxis]
-		cubeRoot = 3. * np.pow(len(self.primitive), 1. / 3.)
-		voxels_per_unit_dist = cubeRoot * invMaxWidth
+		max_axis = self.bounds.maximum_extent()
+		inv_max_width = 1. / delta[max_axis]
+		cube_root = 3. * np.pow(len(self.primitive), 1. / 3.)
+		voxels_per_unit_dist = cube_root * inv_max_width
 
 		self.width = geo.Vector()
 		self.invWidth = geo.Vector()
@@ -156,111 +157,113 @@ class GridAccel(Aggregate):
 		# create mutex for grid
 		self.lock = threading.Lock()
 
-		def pos2voxel(self, P: 'geo.Point', axis: INT) -> INT:
-			v = np.int((P[axis] - self.bounds.pMin[axis]) * self.invWidth[axis])
-			return np.clip(v, 0, self.nVoxels[axis] - 1)
+	def pos2voxel(self, p: 'geo.Point', axis: INT) -> INT:
+		v = np.int((p[axis] - self.bounds.pMin[axis]) * self.invWidth[axis])
+		return np.clip(v, 0, self.n_voxels[axis] - 1)
 
-		def voxel2pos(self, p: INT, axis: INT) -> FLOAT:
-			return self.bounds.pMin[axis] + p * self.width[axis]
+	def voxel2pos(self, p: INT, axis: INT) -> FLOAT:
+		return self.bounds.pMin[axis] + p * self.width[axis]
 
-		def offset(self, x: INT, y: INT, z: INT) -> INT:
-			return z * self.nVoxels[0] * self.nVoxels[1] + y * self.nVoxels[0] + x
+	def offset(self, x: INT, y: INT, z: INT) -> INT:
+		return z * self.n_voxels[0] * self.n_voxels[1] + y * self.n_voxels[0] + x
 
-		def world_bound(self) -> 'BBox':
-			return self.bounds
+	def world_bound(self) -> 'geo.BBox':
+		return self.bounds
 
-		def can_intersect(self) -> bool:
-			return True
+	def can_intersect(self) -> bool:
+		return True
 
-		def intersect(self, ray: 'geo.Ray') -> [bool, 'Intersection']:
-			# Check ray aginst overall bounds
-			if self.bounds.inside(ray(ray.mint)):
-				rayT = ray.mint
-			elif not self.bounds.intersect_p(ray):
-				return [False, None]
-			grid_intersect = ray(rayT)
+	def intersect(self, ray: 'geo.Ray') -> [bool, 'Intersection']:
+		# Check ray aginst overall bounds
+		if self.bounds.inside(ray(ray.mint)):
+			rayT = ray.mint
+		elif not self.bounds.intersect_p(ray):
+			return [False, None]
+		grid_intersect = ray(rayT)
 
-			# Difference between Bresenham's Line Drawing:
-			# find all voxels that ray passes through
-			# digital differential analyzer
-			# Set up 3D DDA for geo.Ray
+		# Difference between Bresenham's Line Drawing:
+		# find all voxels that ray passes through
+		# digital differential analyzer
+		# Set up 3D DDA for geo.Ray
 
-			pos = [pos2voxel(axis) for axis in range(3)]
-			next_crossing = [rayT + voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
-			                 for axis in range(3)]
-			delta_t = self.width / ray.d
-			step = [1, 1, 1]
-			out = self.nVoxels.copy()
-			for axis in range(3):
-				# compute current voxel
-				if ray.d[axis] < 0:
-					# ray with neg. direction for stepping
-					delta_t[axis] = -delta_t[axis]
-					step[axis] = out[axis] = -1
+		pos = [self.pos2voxel(axis) for axis in range(3)]
+		next_crossing = [rayT + self.voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
+		                 for axis in range(3)]
+		delta_t = self.width / ray.d
+		step = [1, 1, 1]
+		out = self.n_voxels.copy()
+		for axis in range(3):
+			# compute current voxel
+			if ray.d[axis] < 0:
+				# ray with neg. direction for stepping
+				delta_t[axis] = -delta_t[axis]
+				step[axis] = out[axis] = -1
 
-			# walk through grid
-			anyHit = False
-			while True:
-				voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
-				if voxel is not None:
-					hit, isect = voxel.intersect(ray, self.lock)
-					anyHit |= hit
-				# next voxel
-				step_axis = np.argmin(next_crossing)
+		# walk through grid
+		anyHit = False
+		isect = None
+		while True:
+			voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
+			if voxel is not None:
+				hit, isect = voxel.intersect(ray, self.lock)
+				anyHit |= hit
+			# next voxel
+			step_axis = np.argmin(next_crossing)
 
-				if ray.maxt < next_crossing[step_axis]:
-					break
-				pos[step_axis] += step[step_axis]
-				if pos[step_axis] == out[step_axis]:
-					break
-				next_crossing[step_axis] += delta_t[step_axis]
+			if ray.maxt < next_crossing[step_axis]:
+				break
+			pos[step_axis] += step[step_axis]
+			if pos[step_axis] == out[step_axis]:
+				break
+			next_crossing[step_axis] += delta_t[step_axis]
 
-			return [hit, isect]
+		return [hit, isect]
 
-		def intersect_p(self, ray: 'geo.Ray') -> bool:
-			# Check ray aginst overall bounds
-			if self.bounds.inside(ray(ray.mint)):
-				rayT = ray.mint
-			elif not self.bounds.intersect_p(ray):
-				return False
-			grid_intersect = ray(rayT)
+	def intersect_p(self, ray: 'geo.Ray') -> bool:
+		# Check ray aginst overall bounds
+		if self.bounds.inside(ray(ray.mint)):
+			rayT = ray.mint
+		elif not self.bounds.intersect_p(ray):
+			return False
 
-			# Difference between Bresenham's Line Drawing:
-			# find all voxels that ray passes through
-			# digital differential analyzer
-			# Set up 3D DDA for geo.Ray
+		grid_intersect = ray(rayT)
 
-			pos = [pos2voxel(axis) for axis in range(3)]
-			next_crossing = [rayT + voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
-			                 for axis in range(3)]
-			delta_t = self.width / ray.d
-			step = [1, 1, 1]
-			out = self.nVoxels.copy()
-			for axis in range(3):
-				# compute current voxel
-				if ray.d[axis] < 0:
-					# ray with neg. direction for stepping
-					delta_t[axis] = -delta_t[axis]
-					step[axis] = out[axis] = -1
+		# Difference between Bresenham's Line Drawing:
+		# find all voxels that ray passes through
+		# digital differential analyzer
+		# Set up 3D DDA for geo.Ray
 
-			# walk through grid
-			anyHit = False
-			while True:
-				voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
-				if voxel is not None:
-					hit, isect = voxel.intersect_p(ray, self.lock)
-					anyHit |= hit
-				# next voxel
-				step_axis = np.argmin(next_crossing)
+		pos = [self.pos2voxel(axis) for axis in range(3)]
+		next_crossing = [rayT + self.voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
+		                 for axis in range(3)]
+		delta_t = self.width / ray.d
+		step = [1, 1, 1]
+		out = self.n_voxels.copy()
+		for axis in range(3):
+			# compute current voxel
+			if ray.d[axis] < 0:
+				# ray with neg. direction for stepping
+				delta_t[axis] = -delta_t[axis]
+				step[axis] = out[axis] = -1
 
-				if ray.maxt < next_crossing[step_axis]:
-					break
-				pos[step_axis] += step[step_axis]
-				if pos[step_axis] == out[step_axis]:
-					break
-				next_crossing[step_axis] += delta_t[step_axis]
+		# walk through grid
+		any_hit = False
+		while True:
+			voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
+			if voxel is not None:
+				hit, isect = voxel.intersect_p(ray, self.lock)
+				any_hit |= hit
+			# next voxel
+			step_axis = np.argmin(next_crossing)
 
-			return anyHit
+			if ray.maxt < next_crossing[step_axis]:
+				break
+			pos[step_axis] += step[step_axis]
+			if pos[step_axis] == out[step_axis]:
+				break
+			next_crossing[step_axis] += delta_t[step_axis]
+
+		return any_hit
 
 
 # TODO
@@ -268,7 +271,7 @@ class GridAccel(Aggregate):
 # BVH Accelerator
 class BVHAccel(Aggregate):
 	class BVHPrimInfo():
-		def __init__(self, pn: INT, b: BBox):
+		def __init__(self, pn: INT, b: geo.BBox):
 			self.primitiveId = pn
 			self.bunds = b
 			self.centroid = .5 * b.pMin + .5 * b.pMax

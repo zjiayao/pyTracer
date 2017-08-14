@@ -11,8 +11,6 @@ from abc import (ABCMeta, abstractmethod)
 from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
-import pytracer.sampler as spler
-import pytracer.film as flm
 
 __all__ = ['Camera']
 
@@ -22,7 +20,7 @@ class Camera(object, metaclass=ABCMeta):
 	Camera Class
 	"""
 	def __init__(self, c2w: 'trans.Animatedtrans.Transform', s_open: FLOAT,
-				 s_close: FLOAT, film: 'flm.Film'):
+				 s_close: FLOAT, film: 'Film'):
 		self.c2w = c2w
 		self.s_open = s_open
 		self.s_close = s_close
@@ -32,13 +30,13 @@ class Camera(object, metaclass=ABCMeta):
 		return "{}\nShutter: {} - {}".format(self.__class__, self.s_open, self.s_close)
 
 	@abstractmethod
-	def generate_ray(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.Ray']:
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'geo.Ray']:
 		"""
 		Generate ray based on image sample.
 		Returned ray direction is normalized
 
 		@param
-			- sample: instance of `spler.CameraSample` class
+			- sample: instance of `CameraSample` class
 		@return
 			- FLOAT: light weight
 			- geo.Ray: generated `geo.Ray` object
@@ -46,22 +44,24 @@ class Camera(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.camera.{}.generate_ray: abstract method called' \
 								  .format(self.__class__))
 
-	def generate_ray_differential(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.RayDifferential']:
+	def generate_ray_differential(self, sample: 'CameraSample') -> [FLOAT, 'geo.RayDifferential']:
 		"""
 		Generate ray differential.
 		"""
 		wt, rd = self.generate_ray(sample)
-		rd = geo.RayDifferential.fromgeo.Ray(rd)
+		rd = geo.RayDifferential.from_ray(rd)
 
 		# find ray shift along x
-		xshift = spler.CameraSample.from_sample(sample)
+		from pytracer.sampler import CameraSample
+		
+		xshift = CameraSample.from_sample(sample)
 		xshift.imageX += 1
 		wtx, rx = self.generate_ray(xshift)
 		rd.rxOrigin = rx.o
 		rd.rxDirection = rx.d
 
 		# find ray shift along y
-		yshift = spler.CameraSample.from_sample(sample)
+		yshift = CameraSample.from_sample(sample)
 		yshift.imageY += 1
 		wty, ry = self.generate_ray(yshift)
 		rd.ryOrigin = ry.o

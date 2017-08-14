@@ -11,8 +11,6 @@ from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
-import pytracer.reflection as refl
-import pytracer.volume as vol
 from pytracer.aggregate.primitive import Primitive
 
 __all__ = ['Intersection']
@@ -32,13 +30,13 @@ class Intersection(object):
 	def __repr__(self):
 		return "{}\nPrimitive ID: {}\nShape ID: {}\n".format(self.__class__, self.primitiveId, self.shapeId)
 
-	def get_bsdf(self, ray: 'geo.RayDifferential') -> 'refl.BSDF':
+	def get_bsdf(self, ray: 'geo.RayDifferential') -> 'BSDF':
 		self.dg.compute_differential(ray)
-		return self.primitive.get_BSDF(self.dg, self.o2w)
+		return self.primitive.get_bsdf(self.dg, self.o2w)
 
-	def get_bssrdf(self, ray: 'geo.RayDifferential') -> 'vol.BSSRDF':
+	def get_bssrdf(self, ray: 'geo.RayDifferential') -> 'BSSRDF':
 		self.dg.compute_differential(ray)
-		return self.primitive.get_BSSRDF(self.dg, self.o2w)
+		return self.primitive.get_bssrdf(self.dg, self.o2w)
 
 	def le(self, w: 'geo.Vector') -> 'Spectrum':
 		"""

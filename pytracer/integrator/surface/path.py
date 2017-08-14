@@ -10,12 +10,6 @@ Created by Jiayao on Aug 9, 2017
 from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.aggregate as agg
-import pytracer.sampler as spler
-import pytracer.scene as scn
-import pytracer.renderer as ren
-import pytracer.reflection as refl
-import pytracer.light as lgt
 from pytracer.integrator.surface import SurfaceIntegrator
 
 __all__ = ['PathIntegrator']
@@ -37,18 +31,22 @@ class PathIntegrator(SurfaceIntegrator):
 		self.__bsdf_sample_offsets = [None for _ in range(PathIntegrator.SAMPLE_DEPTH)]
 		self.__path_sample_offsets = [None for _ in range(PathIntegrator.SAMPLE_DEPTH)]
 
-	def request_samples(self, sampler: 'spler.Sample', sample: 'spler.Sample', scene: 'scn.Scene'):
+	def request_samples(self, sampler: 'Sample', sample: 'Sample', scene: 'Scene'):
 		# after first few bounces switches to uniform random
+		from pytracer.light import LightSampleOffset
+		from pytracer.reflection import BSDFSampleOffset
 		for i in range(self.SAMPLE_DEPTH):
-			self.__light_sample_offsets[i] = lgt.LightSampleOffset(1, sample)
+			self.__light_sample_offsets[i] = LightSampleOffset(1, sample)
 			self.__light_num_offset[i] = sample.add_1d(1)
-			self.__bsdf_sample_offsets[i] = refl.BSDFSampleOffset(1, sample)
-			self.__path_sample_offsets[i] = refl.BSDFSampleOffset(1, sample)
+			self.__bsdf_sample_offsets[i] = BSDFSampleOffset(1, sample)
+			self.__path_sample_offsets[i] = BSDFSampleOffset(1, sample)
 
-	def li(self, scene: 'scn.Scene', renderer: 'ren.Renderer', r: 'geo.RayDifferential',
-			isect: 'agg.Intersection', sample: 'spler.Sample', rng=np.random.rand) -> 'Spectrum':
+	def li(self, scene: 'Scene', renderer: 'Renderer', r: 'geo.RayDifferential',
+			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
+		from pytracer.aggregate import Intersection
+		from pytracer.reflection import (BDFType, BSDFSample)
 		# common variables
-		# product of refl.BSDF and cosines for vertices
+		# product of BSDF and cosines for vertices
 		# generated so far, divided by pdf's
 		path_throughput = Spectrum(1.)
 
@@ -67,7 +65,7 @@ class PathIntegrator(SurfaceIntegrator):
 		isectp = isect
 
 		# subsequent vertex
-		local_isect = agg.Intersection()
+		local_isect = Intersection()
 		print('+')
 		bounce_cnt = 0
 		while True:
@@ -99,21 +97,21 @@ class PathIntegrator(SurfaceIntegrator):
 				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,
 						isectp.rEps, ray.time, bsdf, sample, rng=rng)
 			print('++++')
-			# sample refl.BSDF to get new direction
-			# get refl.BSDFSample for new direction
+			# sample BSDF to get new direction
+			# get BSDFSample for new direction
 			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
-				out_bsdf_smp = refl.BSDFSample.from_sample(sample, self.__path_sample_offsets[bounce_cnt], 0)
+				out_bsdf_smp = BSDFSample.from_sample(sample, self.__path_sample_offsets[bounce_cnt], 0)
 			else:
-				out_bsdf_smp = refl.BSDFSample.from_rand(rng)
+				out_bsdf_smp = BSDFSample.from_rand(rng)
 
-			pdf, wi, flags, f = bsdf.sample_f(wo, out_bsdf_smp, refl.BDFType.ALL)
+			pdf, wi, flags, f = bsdf.sample_f(wo, out_bsdf_smp, BDFType.ALL)
 
 			if f.is_black() or pdf == 0.:
 				break
 			print('+++++')
-			specular_bounce = (flags & refl.BDFType.SPECULAR) != 0
+			specular_bounce = (flags & BDFType.SPECULAR) != 0
 			path_throughput *= f * wi.abs_dot(n) / pdf
-			ray = geo.RayDifferential(p, wi, ray, isectp.rEps)
+			ray = geo.RayDifferential.from_parent(p, wi, ray, isectp.rEps)
 			print('#')
 			# possibly terminate
 			if bounce_cnt > PathIntegrator.SAMPLE_DEPTH:

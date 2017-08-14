@@ -7,13 +7,16 @@ Created by Jiayao on July 27, 2017
 Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
-from .. import *
-from . import Shape, NEXT, PREV
-from .. import geometry as geo
+from pytracer import *
+import pytracer.geometry as geo
+import pytracer.transform as trans
+from pytracer.shape import Shape, NEXT, PREV
+
 
 __all__ = ['create_loop_subdiv', 'LoopSubdiv']
 
-def create_loop_subdiv(o2w: 'Transform', w2o: 'Transform',
+
+def create_loop_subdiv(o2w: 'trans.Transform', w2o: 'trans.Transform',
                        ro: bool, params: {str: object}):
 	nlevels = 3 if 'nlevels' not in params else params['nlevels']
 	vi = None if 'indices' not in params else params['indices']
@@ -172,7 +175,7 @@ class LoopSubdiv(Shape):
 		def __hash__(self):
 			return int(str(id(self.v[0]) + id(self.v[1])))
 
-	def __init__(self, o2w: 'Transform', w2o: 'Transform',
+	def __init__(self, o2w: 'trans.Transform', w2o: 'trans.Transform',
 	             ro: bool, nf: INT, nv: INT, vi: [INT],
 	             P: ['geo.Point'], nl: INT):
 		super().__init__(o2w, w2o, ro)

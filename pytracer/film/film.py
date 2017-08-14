@@ -11,9 +11,9 @@ from __future__ import absolute_import
 import threading
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
-import pytracer.sampler as spler
 
 __all__ = ['Film', 'ImageFilm']
+
 
 class Film(object, metaclass=ABCMeta):
 	"""
@@ -29,12 +29,12 @@ class Film(object, metaclass=ABCMeta):
 						self.xResolution, self.yResolution)
 
 	@abstractmethod
-	def add_sample(self, sample: 'spler.CameraSample', spectrum: 'Spectrum'):
+	def add_sample(self, sample: 'CameraSample', spectrum: 'Spectrum'):
 		raise NotImplementedError('src.core.film {}.add_sample(): abstract method '
 									'called'.format(self.__class__))
 
 	@abstractmethod
-	def splat(self, sample: 'spler.CameraSample', spectrum: 'Spectrum'):
+	def splat(self, sample: 'CameraSample', spectrum: 'Spectrum'):
 		"""
 		Used to sum the contribution
 		around a pixel sample
@@ -128,7 +128,7 @@ class ImageFilm(Film):
 		for y in range(FILTER_TABLE_SIZE):
 			self.filter_table[y] = self.filter((np.arange(FILTER_TABLE_SIZE) + .5) * dx, (y + .5) * dy)
 
-	def add_sample(self, sample: 'spler.CameraSample', L: 'Spectrum'):
+	def add_sample(self, sample: 'CameraSample', L: 'Spectrum'):
 		"""
 		Assume different threads, if any,
 		cannot mutate the same pixel at the same time
@@ -190,7 +190,7 @@ class ImageFilm(Film):
 					pxl.weight_sum += wt					
 					pxl.lock.release()
 
-	def splat(self, sample: 'spler.CameraSample', L: 'Spectrum'):
+	def splat(self, sample: 'CameraSample', L: 'Spectrum'):
 		"""
 		Used to sum the contribution
 		around a pixel sample

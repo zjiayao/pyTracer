@@ -10,8 +10,7 @@ import os
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.volume as vol
-import pytracer.texture as txt
+
 
 __all__ = ['Material', 'MatteMaterial', 'PlasticMaterial',
            'MixMaterial', 'MeasuredMaterial', 'SubsurfaceMaterial',
@@ -26,7 +25,7 @@ class Material(object, metaclass=ABCMeta):
 		return "{}\n".format(self.__class__)
 
 	@abstractmethod
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		"""
 		dg_g: Geometric DG object
 		dg_s: Shading DG object
@@ -34,7 +33,7 @@ class Material(object, metaclass=ABCMeta):
 		raise NotImplementedError('src.core.material.{}.get_bsdf: abstract method '
 									'called'.format(self.__class__))
 
-	def get_bssrdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'vol.BSSRDF':
+	def get_bssrdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSSRDF':
 		"""
 		get_bssrdf()
 
@@ -45,11 +44,11 @@ class Material(object, metaclass=ABCMeta):
 		return None
 
 	@staticmethod
-	def bump(d: 'txt.Texture', dgg: 'geo.DifferentialGeometry', dgs: 'geo.DifferentialGeometry'):
+	def bump(d: 'Texture', dgg: 'geo.DifferentialGeometry', dgs: 'geo.DifferentialGeometry'):
 		"""
 		bump()
 
-		Compute bump mapping from `txt.Texture` d,
+		Compute bump mapping from `Texture` d,
 		dgg accounts for geometry and dgs
 		for shading
 		"""
@@ -101,38 +100,39 @@ class MatteMaterial(Material):
 	Models prurely diffuse surfaces.
 
 	Kd: Specular Diffuse Reflection Value
-	sigma: Roughness. Returns refl.Lambertian if
+	sigma: Roughness. Returns Lambertian if
 			0 at some point; OrenNayer otherwise
 
 	"""
-	def __init__(self, Kd: 'txt.Texture', sigma: 'txt.Texture', bump_map: 'txt.Texture'):
+	def __init__(self, Kd: 'Texture', sigma: 'Texture', bump_map: 'Texture'):
 		"""
-		Kd: `Spectrum` `txt.Texture`
-		sigma, bump_map: `FLOAT` `txt.Texture`
+		Kd: `Spectrum` `Texture`
+		sigma, bump_map: `FLOAT` `Texture`
 		"""
 		self.Kd = Kd
 		self.sigma = sigma
 		self.bump_map = bump_map
 
 
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, Lambertian, OrenNayar)
 		# possibly bump mapping
 		if self.bump_map is not None:
 			dgs = self.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 
-		bsdf = refl.BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		# evaluate textures
 		r = self.Kd(dgs).clip()
 		sigma = np.clip(self.sigma(dgs), 0., 90.)
 		if sigma == 0.:
-			# use refl.Lambertian
-			bsdf.push_back(refl.Lambertian(r))
+			# use Lambertian
+			bsdf.push_back(Lambertian(r))
 		else:
 			# use Oren-Nayer
-			bsdf.push_back(relf.OrenNayar(r, sigma))
+			bsdf.push_back(OrenNayar(r, sigma))
 		return bsdf
 
 
@@ -148,10 +148,10 @@ class PlasticMaterial(Material):
 	rough: Roughness, determines specular highlight
 
 	"""
-	def __init__(self, Kd: 'txt.Texture', Ks: 'txt.Texture', roughness: 'txt.Texture', bump_map: 'txt.Texture'):
+	def __init__(self, Kd: 'Texture', Ks: 'Texture', roughness: 'Texture', bump_map: 'Texture'):
 		"""
-		Kd: `Spectrum` `txt.Texture`
-		sigma, bump_map: `FLOAT` `txt.Texture`
+		Kd: `Spectrum` `Texture`
+		sigma, bump_map: `FLOAT` `Texture`
 		"""
 		self.Kd = Kd
 		self.Ks = Ks
@@ -159,24 +159,25 @@ class PlasticMaterial(Material):
 		self.bump_map = bump_map
 
 
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, Lambertian, FresnelDielectric, Microfacet, Blinn)
 		# possibly bump mapping
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 
-		bsdf = refl.BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		# diffuse
 		kd = self.Kd(dgs).clip()
-		diff = refl.Lambertian(kd)
-		fresnel = relf.FresnelDielectric(1.5, 1.)
+		diff = Lambertian(kd)
+		fresnel = FresnelDielectric(1.5, 1.)
 
 		# glossy specular
 		ks = self.Ks(dgs).clip()
 		rough = self.roughness(dgs)
-		spec = relf.Microfacet(ks, fresnel, relf.Blinn(1. / rough))
+		spec = Microfacet(ks, fresnel, Blinn(1. / rough))
 
 		bsdf.push_back(diff)
 		bsdf.push_back(spec)
@@ -191,20 +192,22 @@ class MixMaterial(Material):
 	Models mixed materials. Use texture
 	spectrum to blend.
 	"""
-	def __init__(self, m1: 'txt.Texture', m2: 'txt.Texture', scale: 'txt.Texture'):
+	def __init__(self, m1: 'Texture', m2: 'Texture', scale: 'Texture'):
 		"""
 		m1, m2: `Material` `Spectrum`
-		scale: `Spectrum` `txt.Texture` for blend
+		scale: `Spectrum` `Texture` for blend
 		"""
 		self.m1 = m1
 		self.m2 = m2
 		self.scale = scale
 
 
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		"""
-		refl.BSDF in m1 (i.e., `m1.bdfs`) is modified
+		BSDF in m1 (i.e., `m1.bdfs`) is modified
 		"""
+		from pytracer.reflection import ScaledBDF
+
 		b1 = self.m1.get_bsdf(dg_g, dg_s)
 		b2 = self.m2.get_bsdf(dg_g, dg_s)
 
@@ -212,9 +215,9 @@ class MixMaterial(Material):
 		s2 = (Spectrum(1.) - s1).clip()
 
 		for i, b in b1.bdfs:
-			b1.bdfs[i] = relf.ScaledBDF(b, s1)
+			b1.bdfs[i] = ScaledBDF(b, s1)
 		for i, b in b2.bdfs:
-			b1.push_back(relf.ScaledBDF(b, s2))
+			b1.push_back(ScaledBDF(b, s2))
 
 		return b1
 
@@ -223,19 +226,21 @@ class MeasuredMaterial(Material):
 	"""
 	MeasuredMaterial Class
 
-	Models materials using measured refl.BSDF,
+	Models materials using measured BSDF,
 	either irregular or regular.
 	"""
-	def __init__(self, filename: 'str', bump_map: 'txt.Texture'):
+	def __init__(self, filename: 'str', bump_map: 'Texture'):
 		"""
 		filename: filename of measured material
-		bump_map: `FLOAT` `txt.Texture`
+		bump_map: `FLOAT` `Texture`
 
 		Irregular Sampled Isotropic BRDF:
 			*.brdt
 		Regular Halfangle BRDF:
 			*.merl (Binary)
 		"""
+		from pytracer.reflection import (brdf_remap, IrIsotropicBRDFSample)
+
 		self.bump_map = bump_map
 		self.regular_data = None
 		self.theta_phi_tree = None
@@ -289,8 +294,8 @@ class MeasuredMaterial(Material):
 				wo = geo.spherical_direction(np.sin(tho), np.cos(tho), pho)
 				wi = geo.spherical_direction(np.sin(thi), np.cos(thi), phi)
 				s = Spectrum.fromSampled(wls, val[pos:pos+num_wls], num_wls)
-				p = refl.BRDF_remap(wo, wi)
-				samples.append(refl.IrIsotropicBRDFSample(p, s))
+				p = brdf_remap(wo, wi)
+				samples.append(IrIsotropicBRDFSample(p, s))
 				pos += num_wls
 
 			val = [] # release memory
@@ -320,25 +325,26 @@ class MeasuredMaterial(Material):
 					': Cannot load {}, unknown type {}'.format(self.__class__,
 							file, ext))
 
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		"""
-		refl.BSDF in m1 (i.e., `m1.bdfs`) is modified
+		BSDF in m1 (i.e., `m1.bdfs`) is modified
 		"""
+		from pytracer.reflection import (BSDF, ReHalfangleBRDF, IrIsotropicBRDF)
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 
-		bsdf = refl.BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		if self.regular_data is not None:
 			# regular tabulate
-			bsdf.push_back(refl.ReHalfangleBRDF(self.regular_data), self.n_theta_h, self.n_theta_d,
+			bsdf.push_back(ReHalfangleBRDF(self.regular_data), self.n_theta_h, self.n_theta_d,
 						self.n_phi_d)
 
 		elif self.theta_phi_tree is not None:
 			# irregular
-			bsdf.push_back(refl.IrIsotropicBRDF(self.theta_phi_tree, self.theta_phi_samples))
+			bsdf.push_back(IrIsotropicBRDF(self.theta_phi_tree, self.theta_phi_samples))
 
 		return bsdf
 
@@ -349,8 +355,8 @@ class SubsurfaceMaterial(Material):
 
 	Models translucent objects
 	"""
-	def __init__(self, scale: FLOAT, kr: 'txt.Texture', sigma_a: 'txt.Texture',
-					sigma_prime_s: 'txt.Texture', eta: 'txt.Texture', bump_map: 'txt.Texture'):
+	def __init__(self, scale: FLOAT, kr: 'Texture', sigma_a: 'Texture',
+					sigma_prime_s: 'Texture', eta: 'Texture', bump_map: 'Texture'):
 		self.scale = scale
 		self.kr = kr
 		self.sigma_a = sigma_a
@@ -358,28 +364,30 @@ class SubsurfaceMaterial(Material):
 		self.eta = eta
 		self.bump_map = bump_map
 
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, SpecularReflection, FresnelDielectric)
+
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 		R = self.kr(dgs).clip()
-		bsdf = refl.BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			bsdf.push_back(refl.SpecularReflection(R, relf.FresnelDielectric(1., self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
 
-
-	def get_bssrdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'vol.BSSRDF':
+	def get_bssrdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSSRDF':
 		"""
 		get_bssrdf()
 
 		Specified in terms of reciprocal
 		distance ($m^{-1}$).
 		"""
-		return vol.BSSRDF(self.scale * self.sigma_a(dg_s), self.scale * self.sigma_prime_s(dg_s), self.eta(dg_s))
+		from pytracer.volume import BSSRDF
+		return BSSRDF(self.scale * self.sigma_a(dg_s), self.scale * self.sigma_prime_s(dg_s), self.eta(dg_s))
 
 
 class KdSubsurfaceMaterial(Material):
@@ -388,38 +396,40 @@ class KdSubsurfaceMaterial(Material):
 
 	Models translucent objects
 	"""
-	def __init__(self, kd: 'txt.Texture', kr: 'txt.Texture', mfp: 'txt.Texture',
-					eta: 'txt.Texture', bump_map: 'txt.Texture'):
+	def __init__(self, kd: 'Texture', kr: 'Texture', mfp: 'Texture',
+					eta: 'Texture', bump_map: 'Texture'):
 		self.kd = kd
 		self.kr = kr
 		self.mfp = mfp # mean free path
 		self.eta = eta
 		self.bump_map = bump_map
 
-	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'refl.BSDF':
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, SpecularReflection, FresnelDielectric)
+
 		if self.bump_map is not None:
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
 
 		R = self.kr(dgs).clip()
-		bsdf = refl.BSDF(dgs, dg_g.nn)
+		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			bsdf.push_back(refl.SpecularReflection(R, relf.FresnelDielectric(1., self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
 
-
-	def get_bssrdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'vol.BSSRDF':
+	def get_bssrdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSSRDF':
 		"""
 		get_bssrdf()
 
 		Specified in terms of reciprocal
 		distance ($m^{-1}$).
 		"""
+		from pytracer.volume import (BSSRDF, subsurface_from_diffuse)
 		e = self.eta(dg_s)
 		sigma_a, sigma_prime_s = subsurface_from_diffuse(self.kd(dg_s).clip(), self.mfp(dg_s), e)
 
-		return vol.BSSRDF(sigma_a, sigma_prime_s, e)
+		return BSSRDF(sigma_a, sigma_prime_s, e)
 

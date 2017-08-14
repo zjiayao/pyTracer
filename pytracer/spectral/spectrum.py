@@ -1,31 +1,37 @@
-'''
+"""
 spectrum.py
 
 The base class of the spectrum.
 
 Created by Jiayao on July 30, 2017
-'''
-from src.pytracer import *
-# Utility Declarations
+"""
+from __future__ import absolute_import
+from typing import Union, Iterable, overload
+from abc import (ABCMeta, abstractmethod)
+from enum import Enum
+from pytracer import *
+from pytracer.data.spectral import *
 
+__all__ = ['xyz2rgb', 'rgb2xyz', 'Spectrum', 'SpectrumType', 'RGBSpectrum']
+
+
+# Utility Declarations
 SAMPLED_LAMBDA_START = 400
 SAMPLED_LAMBDA_END = 700
 N_SPECTRAL_SAMPLES = 30
 
-@jit
+
 def xyz2rgb(xyz: [FLOAT]) -> [FLOAT]:
 	return np.array([ 3.240479 * xyz[0] - 1.537150 * xyz[1] - 0.498535 * xyz[2],
 					-0.969256 * xyz[0] + 1.875991 * xyz[1] + 0.041556 * xyz[2],
 					 0.055648 * xyz[0] - 0.204043 * xyz[1] + 1.057311 * xyz[2]])
 
-@jit
+
 def rgb2xyz(rgb: [FLOAT]) -> [FLOAT]:
 	return np.array([0.412453 * rgb[0] + 0.357580 * rgb[1] + 0.180423 * rgb[2],
 					0.212671 * rgb[0] + 0.715160 * rgb[1] + 0.072169 * rgb[2],
 					0.019334 * rgb[0] + 0.119193 * rgb[1] + 0.950227 * rgb[2]])
 
-# Spectral Data
-from src.data.spectral import *
 
 # Spectrum Definitions
 class SpectrumType(Enum):
@@ -34,23 +40,23 @@ class SpectrumType(Enum):
 
 
 class CoefficientSpectrum(object, metaclass=ABCMeta):
-	'''
+	"""
 	CoefficientSpectrum Class
 
 	Used to model the sample spectrum distribution
 	and is to be subclassed by `RGBSpectrum` and
 	`SampledSpectrum`
-	'''
+	"""
 
-	def __init__(self, nSamples, v: FLOAT = 0.):
-		self.nSamples = nSamples
-		self.c = np.full(nSamples, v)
+	def __init__(self, n_samples, v: FLOAT = 0.):
+		self.n_samples = n_samples
+		self.c = np.full(n_samples, v)
 
 	def __repr__(self):
-		return "{}\nNumber of Samples: {}\nSamples: {}\n".format(self.__class__, self.nSamples, self.c)
+		return "{}\nNumber of Samples: {}\nSamples: {}\n".format(self.__class__, self.n_samples, self.c)
 
 	def copy(self):
-		copied = self.__class__(self.nSamples)
+		copied = self.__class__(self.n_samples)
 		copied.c = self.c.copy()
 		return copied
 
@@ -66,7 +72,7 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 	def fromSpectrum(cls, spec: 'CoefficientSpectrum'):
 		if spec is None:
 			raise ValueError('Cannot initialized {} from None'.format(cls))
-		self = cls(spec.nSamples)
+		self = cls(spec.n_samples)
 		self.c = spec.c.copy()
 		return self
 
@@ -143,7 +149,7 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 
 
 	def __neg__(self):
-		ret = self.__class__(self.nSamples)
+		ret = self.__class__(self.n_samples)
 		ret.c = -self.c
 		return ret
 
@@ -154,49 +160,49 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 		return not np.array_equal(self.c, other.c)
 
 	def is_black(self) -> bool:
-		'''
+		"""
 		Test whether the spectrum has
 		zeros of SPD everywhere
-		'''
+		"""
 		return (self.c == 0.).all()
 
 	def sqrt(self) -> 'CoefficientSpectrum':
-		'''
+		"""
 		Returns the square root
 		of the current Spectrum
-		'''
-		ret = self.__class__(self.nSamples)
+		"""
+		ret = self.__class__(self.n_samples)
 		ret.c = np.sqrt(self.c)
 		return ret
 
 	def exp(self) -> 'CoefficientSpectrum':
-		'''
+		"""
 		Returns the exponential
 		of the current Spectrum
-		'''
-		ret = self.__class__(self.nSamples)
+		"""
+		ret = self.__class__(self.n_samples)
 		ret.c = np.exp(self.c)
 		return ret
 
 	def pow(self, n) -> 'CoefficientSpectrum':
-		'''
+		"""
 		Returns the power
 		of the current Spectrum
-		'''
-		ret = self.__class__(self.nSamples)
+		"""
+		ret = self.__class__(self.n_samples)
 		ret.c = np.power(ret.c, n)
 		return ret
 
 	def lerp(self, t, other) -> 'CoefficientSpectrum':
-		'''
+		"""
 		Returns the linear intropolation
-		'''
-		ret = self.__class__(self.nSamples)
-		ret.c = ufunc_lerp(t, self.c, other.c)
+		"""
+		ret = self.__class__(self.n_samples)
+		ret.c = util.ufunc_lerp(t, self.c, other.c)
 		return ret
 
 	def clip(self, low: FLOAT = 0., high: FLOAT = np.inf):
-		ret = self.__class__(self.nSamples)
+		ret = self.__class__(self.n_samples)
 		ret.c = np.clip(self.c, low, high)
 		return ret
 
@@ -240,14 +246,16 @@ class CoefficientSpectrum(object, metaclass=ABCMeta):
 	def toRGBSpectrum(self) -> 'RGBSpectrum':
 		raise NotImplementedError('src.core.spectrum.{}.toRGBSepctrum(): abstract method '
 									'called'.format(self.__class__))
+
+
 class SampledSpectrum(CoefficientSpectrum):
-	'''
+	"""
 	SampledSpectrum Class
 
 	Subclasses `CoefficientSpectrum`, used to
 	model uniformly spaced samples taken from
 	the spectrum.
-	'''
+	"""
 
 	# XYZ SampledSpectrum
 	X = None
@@ -268,18 +276,17 @@ class SampledSpectrum(CoefficientSpectrum):
 	rgbIllum2SpectGreen  = None
 	rgbIllum2SpectBlue  = None
 
-	def __init__(self, v: FLOAT = 0.):
+	def __init__(self, v = None):
 		if hasattr(v, '__iter__'):
 			self.nSamples = len(v)
 			self.c = v.copy()
 		elif isinstance(v, CoefficientSpectrum):
-			self.nSamples = v.nSamples
+			self.nSamples = v.n_samples
 			self.c = v.c.copy()
 		else:
-			super().__init__(N_SPECTRAL_SAMPLES, v)		
+			super().__init__(N_SPECTRAL_SAMPLES, 0.)
 
 	@classmethod
-	@jit
 	def fromSampled(cls, lam: [FLOAT], v: [FLOAT], n: INT):
 		# sort the spectrum if necessary
 
@@ -289,16 +296,15 @@ class SampledSpectrum(CoefficientSpectrum):
 		# compute average SPD values 
 		self = cls()
 		for i in range(N_SPECTRAL_SAMPLES):
-			l0 = Lerp(i / N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
-			l1 = Lerp(i+1 / N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
+			l0 = util.lerp(i / N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
+			l1 = util.lerp(i+1 / N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
 			self.c[i] = cls.average_spectrum_samples(lam, v, n, l0, l1)
 
 		return self
 
 	@staticmethod
-	@jit
 	def average_spectrum_samples(lam: [FLOAT], v: [FLOAT], n: INT, ls: FLOAT, le: FLOAT) -> FLOAT:
-		'''
+		"""
 		Piece-wise Linear Interpolation of
 		SPD. 
 		lam: Wavelength List
@@ -309,7 +315,7 @@ class SampledSpectrum(CoefficientSpectrum):
 
 		NB: boundary values are used to extropolate
 		out-of-bound values
-		'''
+		"""
 		# out-of-bound or single sample
 		if le <= lam[0]:
 			return v[0]
@@ -335,7 +341,7 @@ class SampledSpectrum(CoefficientSpectrum):
 		if idx_lo >= 0:
 			bk_lam_lo = lam[idx_lo]
 			bk_v_lo = v[idx_lo]
-			v[idx_lo] = Lerp( (ls - bk_lam_lo) / (lam[idx_lo+1] - bk_lam_lo), v[idx_lo], v[idx_lo+1])
+			v[idx_lo] = util.lerp( (ls - bk_lam_lo) / (lam[idx_lo+1] - bk_lam_lo), v[idx_lo], v[idx_lo+1])
 			lam[idx_lo] = ls			
 		else:
 			idx_lo = 0
@@ -345,7 +351,7 @@ class SampledSpectrum(CoefficientSpectrum):
 		if idx_hi < len(lam) and lam[idx_hi] != le:
 			bk_lam_hi = lam[idx_hi]
 			bk_v_hi = v[idx_hi]
-			v[idx_hi] = Lerp( (bk_lam_hi - le) / (lam[idx_hi] - lam[idx_hi-1]), v[idx_hi], v[idx_hi-1])
+			v[idx_hi] = util.lerp((bk_lam_hi - le) / (lam[idx_hi] - lam[idx_hi-1]), v[idx_hi], v[idx_hi-1])
 			lam[idx_hi] = le
 			idx_hi += 1
 		else:
@@ -372,7 +378,6 @@ class SampledSpectrum(CoefficientSpectrum):
 		return sum / (le - ls)
 
 	@classmethod
-	@jit
 	def fromRGB(cls, rgb: [FLOAT], tp: 'SpectrumType'):
 		self = cls()
 		hi, me, lo = np.argsort(np.array(rgb))
@@ -403,22 +408,20 @@ class SampledSpectrum(CoefficientSpectrum):
 		return self.clip()
 
 	@classmethod
-	@jit
 	def fromXYZ(cls, xyz: [FLOAT], tp: 'SpectrumType' = SpectrumType.REFLECTANCE):
 		rgb = xyz2rgb(xyz)
 		return cls.fromRGB(rgb)
 
 	@classmethod
-	@jit
 	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
 		rgb = r.toRGB()
 		return cls.fromRGB(rgb, t)
 
 	@staticmethod
 	def init():
-		'''
+		"""
 		To be called at startup when pyTracer initialize
-		'''
+		"""
 		SampledSpectrum.X = SampledSpectrum()
 		SampledSpectrum.Y = SampledSpectrum()
 		SampledSpectrum.Z = SampledSpectrum()
@@ -437,8 +440,8 @@ class SampledSpectrum(CoefficientSpectrum):
 		SampledSpectrum.rgbIllum2SpectGreen = SampledSpectrum()
 		SampledSpectrum.rgbIllum2SpectBlue = SampledSpectrum()		
 
-		wl0 = ufunc_lerp(np.arange(0, N_SPECTRAL_SAMPLES)/N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
-		wl1 = ufunc_lerp(np.arange(1, N_SPECTRAL_SAMPLES+1)/N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
+		wl0 = util.ufunc_lerp(np.arange(0, N_SPECTRAL_SAMPLES)/N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
+		wl1 = util.ufunc_lerp(np.arange(1, N_SPECTRAL_SAMPLES+1)/N_SPECTRAL_SAMPLES, SAMPLED_LAMBDA_START, SAMPLED_LAMBDA_END)
 		
 		for i in range(N_SPECTRAL_SAMPLES):
 			SampledSpectrum.X.c[i] = SampledSpectrum.average_spectrum_samples(CIE_LAMBDA, CIE_X, N_CIE_SAMPLES, wl0[i], wl1[i])
@@ -459,7 +462,6 @@ class SampledSpectrum(CoefficientSpectrum):
 			SampledSpectrum.rgbIllum2SpectGreen.c[i] = SampledSpectrum.average_spectrum_samples(RGB2SpectLambda, RGBIllum2SpectGreen, N_RGB_SAMPLES, wl0[i], wl1[i])
 			SampledSpectrum.rgbIllum2SpectBlue.c[i] = SampledSpectrum.average_spectrum_samples(RGB2SpectLambda, RGBIllum2SpectBlue, N_RGB_SAMPLES, wl0[i], wl1[i])
 
-
 	def toXYZ(self):
 		return np.array([
 				np.sum(self.X.c * self.c),
@@ -477,25 +479,25 @@ class SampledSpectrum(CoefficientSpectrum):
 	def toRGBSpectrum(self) -> 'RGBSpectrum':
 		return RGBSpectrum.fromXYZ(self.c)
 
+
 class RGBSpectrum(CoefficientSpectrum):
-	'''
+	"""
 	RGBSpectrum Class
 
 	Subclasses `CoefficientSpectrum`, used to
 	model RGB spectrum.
-	'''
-	def __init__(self, v: FLOAT = 0.):
+	"""
+	def __init__(self, v= 0.):
 		if hasattr(v, '__iter__'):
 			self.nSamples = len(v)
 			self.c = v.copy()
 		elif isinstance(v, CoefficientSpectrum):
-			self.nSamples = v.nSamples
+			self.nSamples = v.n_samples
 			self.c = v.c.copy()
 		else:
-			super().__init__(3, v)
+			super().__init__(3, 0.)
 
 	@classmethod
-	@jit
 	def fromSampled(cls, lam: [FLOAT], v: [FLOAT], n: INT):
 		ss = SampledSpectrum.fromSampled(lam, v, n)
 		return cls.fromXYZ(ss.c)	
@@ -508,7 +510,6 @@ class RGBSpectrum(CoefficientSpectrum):
 		self.c = s.c.copy()
 
 	@staticmethod
-	@jit
 	def fromRGB(rgb: [FLOAT], tp: 'SpectrumType' = SpectrumType.REFLECTANCE):
 		s = RGBSpectrum()
 		s.c = np.array(rgb)
@@ -519,7 +520,6 @@ class RGBSpectrum(CoefficientSpectrum):
 		return cls.fromRGB(rgb, t)
 
 	@classmethod
-	@jit
 	def fromXYZ(cls, xyz: [FLOAT], tp: 'SpectrumType' = SpectrumType.REFLECTANCE):
 		return cls.fromRGB(xyz2rgb(xyz), tp)
 

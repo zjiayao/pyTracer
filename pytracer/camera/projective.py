@@ -13,8 +13,6 @@ from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
-import pytracer.film as flm
-import pytracer.sampler as spler
 from pytracer.camera.camera import Camera
 
 __all__ = ['ProjectiveCamera', 'OrthoCamera', 'PerspectiveCamera']
@@ -26,7 +24,7 @@ class ProjectiveCamera(Camera):
 	"""
 
 	def __init__(self, c2w: 'trans.AnimatedTransform', proj: 'trans.Transform', scr_win: [FLOAT],
-				 s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, f: 'flm.Film'):
+				 s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, f: 'Film'):
 		super().__init__(c2w, s_open, s_close, f)
 
 		# set dof prarms
@@ -44,7 +42,7 @@ class ProjectiveCamera(Camera):
 		r2s = s2r.inverse()
 		self.r2c = self.c2s.inverse() * r2s
 
-	def generate_ray(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.Ray']:
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'geo.Ray']:
 		pass
 
 
@@ -56,14 +54,14 @@ class OrthoCamera(ProjectiveCamera):
 	"""
 
 	def __init__(self, c2w: 'trans.AnimatedTransform', scr_win: [FLOAT],
-				 s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, f: 'flm.Film'):
+				 s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, f: 'Film'):
 		super().__init__(c2w, trans.Transform.orthographic(0., 1.), scr_win, s_open,
 						 s_close, lensr, focald, f)
 		# compute differential changes in origin
 		self.dxCam = self.r2c(geo.Vector(1., 0., 0.))
 		self.dyCam = self.r2c(geo.Vector(0., 1., 0.))
 
-	def generate_ray(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.Ray']:
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'geo.Ray']:
 		"""
 		Generate ray based on image sample.
 		Returned ray direction is normalized
@@ -96,7 +94,7 @@ class OrthoCamera(ProjectiveCamera):
 		ray = self.c2w(ray)
 		return [1., ray]
 
-	def generate_ray_differential(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.RayDifferential']:
+	def generate_ray_differential(self, sample: 'CameraSample') -> [FLOAT, 'geo.RayDifferential']:
 		"""
 		Generate ray differential.
 		"""
@@ -121,14 +119,14 @@ class PerspectiveCamera(ProjectiveCamera):
 	"""
 
 	def __init__(self, c2w: 'trans.AnimatedTransform', scr_win: [FLOAT],
-				 s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, fov: FLOAT, f: 'flm.Film'):
+				 s_open: FLOAT, s_close: FLOAT, lensr: FLOAT, focald: FLOAT, fov: FLOAT, f: 'Film'):
 		super().__init__(c2w, trans.Transform.perspective(fov, .001, 1000.),  # non-raster based, set arbitrarily
 						 scr_win, s_open, s_close, lensr, focald, f)
 		# compute differential changes in origin
 		self.dxCam = self.r2c(geo.Point(1., 0., 0.)) - self.r2c(geo.Point(0., 0., 0.))
 		self.dyCam = self.r2c(geo.Point(0., 1., 0.)) - self.r2c(geo.Point(0., 0., 0.))
 
-	def generate_ray(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.Ray']:
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'geo.Ray']:
 		"""
 		Generate ray based on image sample.
 		Returned ray direction is normalized
@@ -161,7 +159,7 @@ class PerspectiveCamera(ProjectiveCamera):
 		ray = self.c2w(ray)
 		return [1., ray]
 
-	def generate_ray_differential(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.RayDifferential']:
+	def generate_ray_differential(self, sample: 'CameraSample') -> [FLOAT, 'geo.RayDifferential']:
 		"""
 		Generate ray differential.
 		"""

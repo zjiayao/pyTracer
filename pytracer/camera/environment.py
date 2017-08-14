@@ -11,8 +11,6 @@ from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
-import pytracer.film as flm
-import pytracer.sampler as spler
 from pytracer.camera.camera import Camera
 
 __all__ = ['EnvironmentCamera']
@@ -25,10 +23,10 @@ class EnvironmentCamera(Camera):
 	Models equirectangular projection of the scene
 	"""
 
-	def __init__(self, c2w: 'trans.AnimatedTransform', s_open: FLOAT, s_close: FLOAT, f: 'flm.Film'):
+	def __init__(self, c2w: 'trans.AnimatedTransform', s_open: FLOAT, s_close: FLOAT, f: 'Film'):
 		super().__init__(c2w, s_open, s_close, f)
 
-	def generate_ray(self, sample: 'spler.CameraSample') -> [FLOAT, 'geo.Ray']:
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'geo.Ray']:
 		"""
 		Generate ray based on image sample.
 		Returned ray direction is normalized

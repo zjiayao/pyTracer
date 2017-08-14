@@ -10,24 +10,24 @@ Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
 from pytracer import *
-import pytracer.geometry as geo
-import pytracer.shape as sh
+from pytracer.geometry import (Point, Vector, Normal, RayDifferential)
+from pytracer.geometry.utility import normalize
 
 
 class DifferentialGeometry(object):
 	"""
 	Differential Geometry class
 	"""
-	def __init__(self, pnt: 'geo.Point', dpdu: 'geo.Vector', dpdv: 'geo.Vector',
-	             dndu: 'geo.Normal', dndv: 'geo.Normal', uu: 'FLOAT',
-	             vv: 'FLOAT', shape: 'sh.Shape'):
+	def __init__(self, pnt: 'Point', dpdu: 'Vector', dpdv: 'Vector',
+	             dndu: 'Normal', dndv: 'Normal', uu: 'FLOAT',
+	             vv: 'FLOAT', shape: 'Shape'):
 		self.p = pnt.copy()
 		self.dpdu = dpdu.copy()
 		self.dpdv = dpdv.copy()
 		self.dndu = dndu.copy()
 		self.dndv = dndv.copy()
 
-		self.nn = geo.Normal.from_arr(geo.normalize(dpdu.cross(dpdv)))
+		self.nn = Normal.from_arr(normalize(dpdu.cross(dpdv)))
 		self.u = uu
 		self.v = vv
 		self.shape = shape
@@ -39,14 +39,13 @@ class DifferentialGeometry(object):
 
 		# for anti-aliasing
 		self.dudx = self.dvdx = self.dudy = self.dvdy = FLOAT(0.)
-		self.dpdx = self.dpdy = geo.Vector(0., 0., 0.)
+		self.dpdx = self.dpdy = Vector(0., 0., 0.)
 
 	def __repr__(self):
-		return "{}\ngeo.Normal geo.Vector: {}\n".format(self.__class__, self.nn)
+		return "{}\nNormal Vector: {}\n".format(self.__class__, self.nn)
 
 	def copy(self):
-		return DifferentialGeometry(self.p, self.dpdu, self.dpdv,
-				self.dndu, self.dndv, self.u, self.v, self.shape)
+		return DifferentialGeometry(self.p, self.dpdu, self.dpdv, self.dndu, self.dndv, self.u, self.v, self.shape)
 
 	def compute_differential(self, ray: 'RayDifferential'):
 		if ray.has_differentials:
@@ -56,7 +55,7 @@ class DifferentialGeometry(object):
 
 			d = -self.nn.dot(self.p)
 
-			#  dot product between geo.Normal and geo.Point is defined =D
+			#  dot product between Normal and Point is defined =D
 			tx = -(self.nn.dot(ray.rxOrigin) + d) / (self.nn.dot(ray.rxDirection))
 			px = ray.rxOrigin + tx * ray.rxDirection
 
@@ -70,18 +69,17 @@ class DifferentialGeometry(object):
 
 			# init coefficients
 			axes = [0, 1]
-			if np.fabs(self.nn.x) > np.fabs(self.nn.y) and \
-					np.fabs(self.nn.x) > np.fabs(self.nn.z):
+			if np.fabs(self.nn.x) > np.fabs(self.nn.y) and np.fabs(self.nn.x) > np.fabs(self.nn.z):
 				axes = [1, 2]
 			elif np.fabs(self.nn.y) > np.fabs(self.nn.z):
 				axes = [0, 2]
 
 			A = [[self.dpdu[axes[0]], self.dpdv[axes[0]]],
-				 [self.dpdu[axes[1]], self.dpdv[axes[1]]]]
+			     [self.dpdu[axes[1]], self.dpdv[axes[1]]]]
 			Bx = [px[axes[0]] - self.p[axes[0]],
-				  px[axes[1]] - self.p[axes[1]]]
+			      px[axes[1]] - self.p[axes[1]]]
 			By = [py[axes[0]] - self.p[axes[0]],
-				  py[axes[1]] - self.p[axes[1]]]
+			      py[axes[1]] - self.p[axes[1]]]
 
 			try:
 				[self.dudx, self.dvdx] = np.linalg.solve(A, Bx)
@@ -95,18 +93,4 @@ class DifferentialGeometry(object):
 
 		else:
 			self.dudx = self.dvdx = self.dudy = self.dvdy = FLOAT(0.)
-			self.dpdx = self.dpdy = geo.Vector(0., 0., 0.)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+			self.dpdx = self.dpdy = Vector(0., 0., 0.)

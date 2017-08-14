@@ -12,7 +12,6 @@ Modified on Aug 13, 2017
 from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.sampler as spler
 from pytracer.reflection.bdf.bdf import (BDFType, BDF)
 
 
@@ -36,12 +35,12 @@ class BSDFSample(object):
 		                                                        self.u_com)
 
 	@classmethod
-	def fromRand(cls, rng=np.random.rand):
+	def from_rand(cls, rng=np.random.rand):
 		self = cls(rng(), rng(), rng())
 		return self
 
 	@classmethod
-	def fromSample(cls, sample: 'Sample', offset: 'BSDFSampleOffset', n: UINT):
+	def from_sample(cls, sample: 'Sample', offset: 'BSDFSampleOffset', n: UINT):
 		self = cls(sample.twoD[offset.offset_dir][n][0],
 		           sample.twoD[offset.offset_dir][n][1],
 		           sample.oneD[offset.offset_com][n])
@@ -227,8 +226,9 @@ class BSDF(object):
 		Computs hemispherical-directional reflectance function.
 
 		"""
+		from pytracer.sampler import stratified_sample_2d
 		nSamples = sqrt_samples * sqrt_samples
-		smp = spler.stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
+		smp = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
 
 		sp = Spectrum(0.)
 		for bdf in self.bdfs:
@@ -242,9 +242,10 @@ class BSDF(object):
 		Computs hemispherical-hemispherical reflectance function.
 
 		"""
+		from pytracer.sampler import stratified_sample_2d
 		nSamples = sqrt_samples * sqrt_samples
-		smp_1 = spler.stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
-		smp_2 = spler.stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
+		smp_1 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
+		smp_2 = stratified_sample_2d(sqrt_samples, sqrt_samples, rng=rng)
 
 		sp = Spectrum(0.)
 		for bdf in self.bdfs:

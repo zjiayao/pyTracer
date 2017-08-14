@@ -7,12 +7,13 @@ Created by Jiayao on July 27, 2017
 Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
-from .. import *
-from . import Shape
-from .. import geometry as geo
-from .. import transform as trans
+from pytracer import *
+import pytracer.geometry as geo
+import pytracer.transform as trans
+from pytracer.shape import Shape
 
 __all__ = ['Cylinder']
+
 
 class Cylinder(Shape):
 	"""

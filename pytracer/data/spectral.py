@@ -1,11 +1,12 @@
-'''
+"""
 src.data.spectral
 
 Spectral Data
 
 Created by Jiayao on July 31, 2017
-'''
-from src.pytracer import *
+"""
+import numpy as np
+from pytracer import *
 
 N_CIE_SAMPLES = 471
 CIE_Y_INTEGRAL = 106.856895

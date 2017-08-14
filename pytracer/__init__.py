@@ -5,7 +5,6 @@ pytracer package
 
 Created by Jiayao on Aug 13, 2017
 """
-# from .utility import *
 from __future__ import (absolute_import, print_function, division)
 import numpy as np
 import scipy.spatial  # cKdTree
@@ -17,7 +16,7 @@ KdTree = scipy.spatial.cKDTree
 EPS = 1e-5
 INT = int
 UINT = np.uint32
-FLOAT = float
+FLOAT = np.float64
 DOUBLE = np.float64
 HANDEDNESS = 'left'
 
@@ -33,4 +32,7 @@ ReHalfangleData = {}
 
 
 # Utility functions
-from . import utility as util
+import pytracer.utility as util
+
+# Spectrum
+from pytracer.spectral import (Spectrum, SpectrumType)

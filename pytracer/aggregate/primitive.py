@@ -13,9 +13,6 @@ from __future__ import absolute_import
 from abc import (ABCMeta, abstractmethod)
 import pytracer.geometry as geo
 import pytracer.transform as trans
-import pytracer.reflection as refl
-import pytracer.volume as vol
-from pytracer.aggregate.intersection import Intersection
 
 __all__ = ['Primitive', 'GeometricPrimitive', 'TransformedPrimitive']
 
@@ -58,11 +55,11 @@ class Primitive(object, metaclass=ABCMeta):
 		raise NotImplementedError('{}.get_area_light(): Not implemented'.format(self.__class__))
 
 	@abstractmethod
-	def get_bsdf(self, dg: 'geo.DifferentialGeometry', o2w: 'trans.Transform') -> 'refl.BSDF':
+	def get_bsdf(self, dg: 'geo.DifferentialGeometry', o2w: 'trans.Transform') -> 'BSDF':
 		raise NotImplementedError('{}.get_bsdf(): Not implemented'.format(self.__class__))
 
 	@abstractmethod
-	def get_bssrdf(self, dg: 'geo.DifferentialGeometry', o2w: 'trans.Transform') -> 'vol.BSSRDF':
+	def get_bssrdf(self, dg: 'geo.DifferentialGeometry', o2w: 'trans.Transform') -> 'BSSRDF':
 		raise NotImplementedError('{}.get_bssrdf(): Not implemented'.format(self.__class__))
 
 	def full_refine(self, refined: ['Primitive']):

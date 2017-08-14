@@ -8,14 +8,17 @@ functions.
 Created by Jiayao on July 27, 2017
 Modfied on Aug 13, 2017
 """
+import numpy as np
 import PIL.Image
-from ..utility import *
+import os
+from pytracer import INT
+import pytracer.utility.utility as util
+import pytracer.spectral as spec
 
-# Utilities
-from .. import spectral as sp
+__all__ = ['read_image', 'write_image']
 
 
-def read_image(filename: str) -> ['sp.Spectrum']:
+def read_image(filename: str) -> ['spec.Spectrum']:
 	"""
 	Reads an image and returns a list
 	of list of `Spectrum`s, width and height
@@ -29,10 +32,10 @@ def read_image(filename: str) -> ['sp.Spectrum']:
 		width, height, chn = np.shape(img) # note the order of height and width
 
 		# avoid expensive resizing in src.core.texture.MIPMap.__init__()
-		if (not is_pow_2(width)) or (not is_pow_2(height)):
+		if (not util.is_pow_2(width)) or (not util.is_pow_2(height)):
 			# re-sample to power of 2
-			width = next_pow_2(width)
-			height = next_pow_2(height)
+			width = util.next_pow_2(width)
+			height = util.next_pow_2(height)
 			pic.resize((width, height))
 			img = np.array(pic)
 
@@ -40,7 +43,7 @@ def read_image(filename: str) -> ['sp.Spectrum']:
 		if chn == 3:
 			for t in range(height):
 				for s in range(width):
-					specs[t, s] = sp.Spectrum.fromRGB(img[t,s,:])
+					specs[t, s] = spec.Spectrum.fromRGB(img[t,s,:])
 		# monochrome
 		elif chn == 1:
 			for t in range(height):
@@ -55,8 +58,8 @@ def read_image(filename: str) -> ['sp.Spectrum']:
 
 
 def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
-				xRes: INT, yRes: INT, xFullRes: INT, yFullRes: INT,
-				xOffset: INT, yOffset: INT):
+                xRes: INT, yRes: INT, xFullRes: INT, yFullRes: INT,
+                xOffset: INT, yOffset: INT):
 
 	if filename is None or rgb is None:
 		raise IOError('scr.core.pytracer.write_image(): filename and rgb cannot '

@@ -18,7 +18,7 @@ Modified on Aug 13, 2017
 from __future__ import absolute_import
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
-import pytracer.geometry as gep
+import pytracer.geometry as geo
 import pytracer.transform as trans
 
 
@@ -139,11 +139,11 @@ class Shape(object, metaclass=ABCMeta):
 		# convert light sample weight to solid angle measure
 		return (pnt - ray(thit)).sq_length() / (dg_light.nn.abs_dot(-wi) * self.area())
 
-from .loopsubdiv import *
-from .triangle import *
-from .sphere import *
-from .cylinder import *
-from .disk import *
+from pytracer.shape.loopsubdiv import *
+from pytracer.shape.triangle import *
+from pytracer.shape.sphere import *
+from pytracer.shape.cylinder import *
+from pytracer.shape.disk import *
 
 __all__ = ['Shape', 'create_loop_subdiv','LoopSubdiv',
            'create_triangle_mesh', 'TriangleMesh', 'Triangle',

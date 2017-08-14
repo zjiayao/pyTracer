@@ -8,13 +8,8 @@ Models Whitted integrator
 Created by Jiayao on Aug 9, 2017
 """
 from __future__ import absolute_import
-from enum import Enum
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.aggregate as agg
-import pytracer.sampler as spler
-import pytracer.scene as scn
-import pytracer.renderer as ren
 from pytracer.integrator.surface import SurfaceIntegrator
 
 
@@ -28,8 +23,8 @@ class WhittedIntegrator(SurfaceIntegrator):
 	def __repr__(self):
 		return "{}\nMax Depth: {}\n".format(self.__class__, self.max_depth)
 
-	def li(self, scene: 'scn.Scene', renderer: 'ren.Renderer', ray: 'geo.RayDifferential',
-			isect: 'agg.Intersection', sample: 'spler.Sample', rng=np.random.rand) -> 'Spectrum':
+	def li(self, scene: 'Scene', renderer: 'Renderer', ray: 'geo.RayDifferential',
+			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
 		L = Spectrum(0.)
 		# Evaluate refl.BSDF at hit point
 		bsdf = isect.get_BSDF(ray)
