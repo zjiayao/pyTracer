@@ -1,82 +1,80 @@
 """
-test_geometry.py
+test_transform.py
 
 A test script that (roughly) test
 the implementation of various classes
 
-Created by Jiayao on 1 Aug, 2017
+Created by Jiayao on 15 Aug, 2017
 """
 from __future__ import absolute_import
 
 import numpy as np
+from numpy.testing import assert_array_almost_equal
 import pytest
-from pytracer import EPS
 import pytracer.geometry as geo
 from pytracer.transform import (Transform, AnimatedTransform)
 import pytracer.transform.quat as quat
 
-N_TEST_CASE = 5
+N_TEST_CASE = 10
 VAR = 10
+EPS = 6
 np.random.seed(1)
 rng = np.random.rand
 
-testdata = {
+test_data = {
 	'vector': [geo.Vector(rng(), rng(), rng()) * VAR for _ in range(N_TEST_CASE)],
 	'normal': [geo.Normal(rng(), rng(), rng()) * VAR for _ in range(N_TEST_CASE)],
 	'point': [geo.Point(rng(), rng(), rng()) * VAR for _ in range(N_TEST_CASE)],
 	'quat': [quat.Quaternion(rng(), rng(), rng(), rng()) * VAR for _ in range(N_TEST_CASE)],
 
 }
-testdata['vector'].extend([geo.Vector(0., 0., 0.), geo.Vector(1., 0., 0.), geo.Vector(0., 1., 0.,), geo.Vector(1., 0., 0.)])
-testdata['normal'].extend([geo.Normal(0., 0., 0.), geo.Normal(1., 0., 0.), geo.Normal(0., 1., 0.,), geo.Normal(1., 0., 0.)])
-testdata['point'].extend([geo.Point(0., 0., 0.), geo.Point(1., 0., 0.), geo.Point(0., 1., 0.,), geo.Point(1., 0., 0.)])
-testdata['quat'].extend([quat.Quaternion(0., 0., 0., 0.)])
+test_data['vector'].extend([geo.Vector(0., 0., 0.), geo.Vector(1., 0., 0.), geo.Vector(0., 1., 0., ), geo.Vector(1., 0., 0.)])
+test_data['normal'].extend([geo.Normal(0., 0., 0.), geo.Normal(1., 0., 0.), geo.Normal(0., 1., 0., ), geo.Normal(1., 0., 0.)])
+test_data['point'].extend([geo.Point(0., 0., 0.), geo.Point(1., 0., 0.), geo.Point(0., 1., 0., ), geo.Point(1., 0., 0.)])
+test_data['quat'].extend([quat.Quaternion(0., 0., 0., 0.)])
+
+geometry_data = {
+	'trans_vec': [geo.Vector(1., 2., 3.)],
+	'scale_coef': [np.array([1., 2., 3.])],
+	'origin': [geo.Point(0., 0., 0.)],
+	'x_axis': [geo.Vector(1., 0., 0.)],
+	'y_axis': [geo.Vector(0., 1., 0.)],
+	'z_axis': [geo.Vector(0., 0., 1.)],
+	't1': [Transform.look_at(geo.Point(0., 0., 0.),
+	                         geo.Point(0., 0., 1.),
+	                         geo.Vector(0., 1., 0.))],
+	't2': [Transform.look_at(geo.Point(0., 1., 1.),
+	                         geo.Point(0., 0., 1.),
+	                         geo.Vector(0., 0., 1.))],
+}
 
 
 def assert_almost_eq(a, b, thres=EPS):
-	assert a == b or a == pytest.approx(b, abs=thres)
-
-
-def assert_triple_eq(a: 'np.ndarray', b: 'np.ndarray', thres=EPS):
-	assert a == b or a == pytest.approx(b, abs=thres)
-
-
-def assert_elem_eq(a: 'np.ndarray', b: 'np.ndarray', thres=EPS):
-	assert np.shape(a) == np.shape(b)
-	for i in range(len(a)):
-		assert_almost_eq(a[i], b[i])
+	assert_array_almost_equal(a, b, thres)
 
 
 class TestTransform(object):
-
-	def __init__(self):
-		self.trans_vec = geo.Vector(1., 2., 3.)
-		self.scale_coef = np.array([1., 2., 3.])
-		self.origin = geo.Point(0., 0., 0.)
-		self.x_axis = geo.Vector(1., 0., 0.)
-		self.y_axis = geo.Vector(0., 1., 0.)
-		self.z_axis = geo.Vector(0., 0., 1.)
 
 	def test_init(self):
 		m = np.random.rand(4, 4)
 		m_inv = np.linalg.inv(m)
 
 		t = Transform(m, m_inv)
-		assert m == t.m
+		assert (m == t.m).all()
 		assert not id(m) == id(t.m)
-		assert m_inv == t.m_inv
+		assert (m_inv == t.m_inv).all()
 		assert not id(m_inv) == id(t.m_inv)
 
-		with pytest.raises(PermissionError):
+		with pytest.raises(AttributeError):
 			t.m = m
 
-		with pytest.raises(PermissionError):
+		with pytest.raises(AttributeError):
 			t.m_inv = m
 
 		t = Transform()
 		assert not id(t.m) == id(t.m_inv)
-		assert t.m == t.m_inv
-		assert t.m == np.eye(4)
+		assert (t.m == t.m_inv).all()
+		assert (t.m == np.eye(4)).all()
 
 		t = Transform(m)
 		assert_almost_eq(t.m_inv, m_inv)
@@ -86,7 +84,7 @@ class TestTransform(object):
 
 		t = Transform()
 		tt = t.copy()
-		assert tt == t
+		assert (tt == t)
 		assert not id(tt) == id(t)
 
 	def test_inverse(self):
@@ -106,7 +104,7 @@ class TestTransform(object):
 	def test_swap_handedness(self):
 		assert not Transform().swaps_handedness()
 
-	@pytest.mark.parametrize("vec", testdata['vector'])
+	@pytest.mark.parametrize("vec", test_data['vector'])
 	def test_call_vector(self, vec):
 		t = Transform()
 		v = t(vec)
@@ -114,12 +112,12 @@ class TestTransform(object):
 		assert v == vec
 		assert not id(v) == id(vec)
 
-		v = t(np.ndarray(vec), dtype=geo.Vector)
+		v = t(np.array(vec), dtype=geo.Vector)
 		assert isinstance(v, geo.Vector)
 		assert v == vec
 		assert not id(v) == id(vec)
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
+	@pytest.mark.parametrize("pnt", test_data['point'])
 	def test_call_point(self, pnt):
 		t = Transform()
 		p = t(pnt)
@@ -127,12 +125,12 @@ class TestTransform(object):
 		assert p == pnt
 		assert not id(p) == id(pnt)
 
-		p = t(np.ndarray(pnt), dtype=geo.Point)
+		p = t(np.array(pnt), dtype=geo.Point)
 		assert isinstance(p, geo.Point)
 		assert p == pnt
 		assert not id(p) == id(pnt)
 
-	@pytest.mark.parametrize("norm", testdata['normal'])
+	@pytest.mark.parametrize("norm", test_data['normal'])
 	def test_call_normal(self, norm):
 		t = Transform()
 		n = t(norm)
@@ -140,12 +138,12 @@ class TestTransform(object):
 		assert n == norm
 		assert not id(n) == id(norm)
 
-		n = t(np.ndarray(norm), dtype=geo.Normal)
+		n = t(np.array(norm), dtype=geo.Normal)
 		assert n == norm
 		assert not id(n) == id(norm)
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
-	@pytest.mark.parametrize("vec", testdata['vector'])
+	@pytest.mark.parametrize("pnt", test_data['point'])
+	@pytest.mark.parametrize("vec", test_data['vector'])
 	def test_call_ray(self, pnt, vec):
 		ray = geo.Ray(pnt, vec)
 		t = Transform()
@@ -154,8 +152,8 @@ class TestTransform(object):
 		assert r.o == ray.o
 		assert r.d == ray.d
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
-	@pytest.mark.parametrize("vec", testdata['vector'])
+	@pytest.mark.parametrize("pnt", test_data['point'])
+	@pytest.mark.parametrize("vec", test_data['vector'])
 	def test_call_ray_differential(self, pnt, vec):
 		ray = geo.RayDifferential(pnt, vec)
 		t = Transform()
@@ -164,8 +162,8 @@ class TestTransform(object):
 		assert r.o == ray.o
 		assert r.d == ray.d
 
-	@pytest.mark.parametrize("p1", testdata['point'])
-	@pytest.mark.parametrize("p2", testdata['point'])
+	@pytest.mark.parametrize("p1", test_data['point'])
+	@pytest.mark.parametrize("p2", test_data['point'])
 	def test_call_bbox(self, p1, p2):
 		box = geo.BBox(p1, p2)
 		t = Transform()
@@ -189,13 +187,14 @@ class TestTransform(object):
 		t2 = Transform(m2, m2_inv)
 
 		t = t1 * t2
-		assert t.m == m1.dot(m2)
-		assert t.m_inv == m2_inv.dot(m1_inv)
+		assert (t.m == m1.dot(m2)).all()
+		assert (t.m_inv == m2_inv.dot(m1_inv)).all()
 
 	# translation
-	@pytest.mark.parametrize("vec", testdata['vector'])
-	def test_translate_vec(self, vec):
-		t = Transform.translate(self.trans_vec)
+	@pytest.mark.parametrize("vec", test_data['vector'])
+	@pytest.mark.parametrize("trans_vec", geometry_data['trans_vec'])
+	def test_translate_vec(self, vec, trans_vec):
+		t = Transform.translate(trans_vec)
 
 		v = t(vec)
 		assert v == vec
@@ -203,162 +202,190 @@ class TestTransform(object):
 		vv = t.inverse()(v)
 		assert vv == vec
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
-	def test_translate_pnt(self, pnt):
-		t = Transform.translate(self.trans_vec)
+	@pytest.mark.parametrize("pnt", test_data['point'])
+	@pytest.mark.parametrize("trans_vec", geometry_data['trans_vec'])
+	def test_translate_pnt(self, pnt, trans_vec):
+		t = Transform.translate(trans_vec)
 
 		p = t(pnt)
-		assert p == pnt + self.trans_vec
+		assert p == pnt + trans_vec
 
 		pp = t.inverse()(p)
-		assert pp == pnt
+		assert_almost_eq(pp, pnt)
 
-	@pytest.mark.parametrize("norm", testdata['normal'])
-	def test_translate_norm(self, norm):
-		t = Transform.translate(self.trans_vec)
+	@pytest.mark.parametrize("norm", test_data['normal'])
+	@pytest.mark.parametrize("trans_vec", geometry_data['trans_vec'])
+	def test_translate_norm(self, norm, trans_vec):
+		t = Transform.translate(trans_vec)
 
 		n = t(norm)
 		assert n == norm
 
 		nn = t.inverse()(n)
-		assert nn == norm
+		assert_almost_eq(nn, norm)
 
-	@pytest.mark.parametrize("p1", testdata['point'])
-	@pytest.mark.parametrize("p2", testdata['point'])
-	def test_translate_bbox(self, p1, p2):
-		t = Transform.translate(self.trans_vec)
+	@pytest.mark.parametrize("p1", test_data['point'])
+	@pytest.mark.parametrize("p2", test_data['point'])
+	@pytest.mark.parametrize("trans_vec", geometry_data['trans_vec'])
+	def test_translate_bbox(self, p1, p2, trans_vec):
+		t = Transform.translate(trans_vec)
 
 		b = geo.BBox(p1, p2)
 		bb = t(b)
 
-		assert bb.pMin == b.pMin + self.trans_vec
-		assert bb.pMax == b.pMax + self.trans_vec
+		assert_almost_eq(bb.pMin, b.pMin + trans_vec)
+		assert_almost_eq(bb.pMax, b.pMax + trans_vec)
 
 		bbb = t.inverse()(bb)
-		assert bbb.pMin == b.pMin
-		assert bbb.pMax == b.pMax
+		assert_almost_eq(bbb.pMin, b.pMin)
+		assert_almost_eq(bbb.pMax, b.pMax)
 
 	# scale
-	@pytest.mark.parametrize("vec", testdata['vector'])
-	def test_scale_vec(self, vec):
-		t = Transform.scale(self.scale_coef[0],
-		                    self.scale_coef[1],
-		                    self.scale_coef[2])
+	@pytest.mark.parametrize("vec", test_data['vector'])
+	@pytest.mark.parametrize("scale_coef", geometry_data['scale_coef'])
+	def test_scale_vec(self, vec, scale_coef):
+		t = Transform.scale(scale_coef[0],
+		                    scale_coef[1],
+		                    scale_coef[2])
 
 		v = t(vec)
-		assert_almost_eq(v, vec * self.scale_coef)
+		assert_almost_eq(v, vec * scale_coef)
 
 		vv = t.inverse()(v)
 		assert_almost_eq(vv, vec)
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
-	def test_scale_pnt(self, pnt):
-		t = Transform.scale(self.scale_coef[0],
-		                    self.scale_coef[1],
-		                    self.scale_coef[2])
+	@pytest.mark.parametrize("pnt", test_data['point'])
+	@pytest.mark.parametrize("scale_coef", geometry_data['scale_coef'])
+	def test_scale_pnt(self, pnt, scale_coef):
+		t = Transform.scale(scale_coef[0],
+		                    scale_coef[1],
+		                    scale_coef[2])
 
 		p = t(pnt)
-		assert_almost_eq(p, pnt * self.scale_coef)
+		assert_almost_eq(p, pnt * scale_coef)
 
 		pp = t.inverse()(p)
 		assert_almost_eq(pp, pnt)
 
-	@pytest.mark.parametrize("norm", testdata['normal'])
-	def test_scale_norm(self, norm):
-		t = Transform.scale(self.scale_coef[0],
-		                    self.scale_coef[1],
-		                    self.scale_coef[2])
+	@pytest.mark.parametrize("norm", test_data['normal'])
+	@pytest.mark.parametrize("scale_coef", geometry_data['scale_coef'])
+	def test_scale_norm(self, norm, scale_coef):
+		t = Transform.scale(scale_coef[0],
+		                    scale_coef[1],
+		                    scale_coef[2])
 
 		n = t(norm)
-		assert_almost_eq(n, norm / self.scale_coef)
+		assert_almost_eq(n, norm / scale_coef)
 
 		nn = t.inverse()(n)
 		assert_almost_eq(nn, norm)
 
-	@pytest.mark.parametrize("p1", testdata['point'])
-	@pytest.mark.parametrize("p2", testdata['point'])
-	def test_scale_bbox(self, p1, p2):
-		t = Transform.scale(self.scale_coef[0],
-		                    self.scale_coef[1],
-		                    self.scale_coef[2])
+	@pytest.mark.parametrize("p1", test_data['point'])
+	@pytest.mark.parametrize("p2", test_data['point'])
+	@pytest.mark.parametrize("scale_coef", geometry_data['scale_coef'])
+	def test_scale_bbox(self, p1, p2, scale_coef):
+		t = Transform.scale(scale_coef[0],
+		                    scale_coef[1],
+		                    scale_coef[2])
 
 		b = geo.BBox(p1, p2)
 		bb = t(b)
 
-		assert bb.pMin == b.pMin + geo.Vector(1., 2., 3.)
-		assert bb.pMax == b.pMax + geo.Vector(1., 2., 3.)
+		assert_almost_eq(bb.pMin, b.pMin * scale_coef)
+		assert_almost_eq(bb.pMax, b.pMax * scale_coef)
 
 		bbb = t.inverse()(bb)
-		assert bbb.pMin == b.pMin
-		assert bbb.pMax == b.pMax
+		assert_almost_eq(bbb.pMin, b.pMin)
+		assert_almost_eq(bbb.pMax, b.pMax)
 
-	def test_rotate_x(self):
+	@pytest.mark.parametrize("x_axis", geometry_data['x_axis'])
+	@pytest.mark.parametrize("y_axis", geometry_data['y_axis'])
+	@pytest.mark.parametrize("z_axis", geometry_data['z_axis'])
+	def test_rotate_x(self, x_axis, y_axis, z_axis):
 		t = Transform.rotate_x(45)
-		assert_almost_eq(t(self.x_axis), self.x_axis)
-		v = t(self.y_axis)
-		assert_almost_eq(v, geo.Vector(0., np.sqrt(2), np.sqrt(2)))
+		assert_almost_eq(t(x_axis), x_axis)
+		v = t(y_axis)
+		assert_almost_eq(v, geo.Vector(0., np.sqrt(2) / 2., np.sqrt(2) / 2.))
 		vv = t(v)
-		assert_almost_eq(vv, self.z_axis)
+		assert_almost_eq(vv, z_axis)
 		vv = t.inverse()(v)
-		assert_almost_eq(vv, self.y_axis)
+		assert_almost_eq(vv, y_axis)
 
-	def test_rotate_y(self):
+	@pytest.mark.parametrize("x_axis", geometry_data['x_axis'])
+	@pytest.mark.parametrize("y_axis", geometry_data['y_axis'])
+	@pytest.mark.parametrize("z_axis", geometry_data['z_axis'])
+	def test_rotate_y(self, x_axis, y_axis, z_axis):
 		t = Transform.rotate_y(30)
-		assert_almost_eq(t(self.y_axis), self.y_axis)
-		p = geo.Point.from_arr(self.z_axis)
-		pp = t(t(p))
-		assert_almost_eq(pp, -self.x_axis)
+		assert_almost_eq(t(y_axis), y_axis)
+		p = geo.Point.from_arr(z_axis)
+		pp = t(t(t(p)))
+		assert_almost_eq(pp, x_axis)
 
-	def test_rotate_z(self):
+	@pytest.mark.parametrize("x_axis", geometry_data['x_axis'])
+	@pytest.mark.parametrize("y_axis", geometry_data['y_axis'])
+	@pytest.mark.parametrize("z_axis", geometry_data['z_axis'])
+	def test_rotate_z(self, x_axis, y_axis, z_axis):
 		t = Transform.rotate_z(90)
-		assert_almost_eq(t(self.z_axis), self.z_axis)
-		n = geo.Normal.from_arr(self.y_axis)
+		assert_almost_eq(t(z_axis), z_axis)
+		n = geo.Normal.from_arr(y_axis)
 		nn = t(t(t(n)))
-		assert_almost_eq(nn, self.x_axis)
+		assert_almost_eq(nn, x_axis)
 
-	def test_rotate(self):
-		t = Transform.rotate(45., self.x_axis)
-		assert_almost_eq(t(self.x_axis), self.x_axis)
-		v = t(self.y_axis)
-		assert_almost_eq(v, geo.Vector(0., np.sqrt(2), np.sqrt(2)))
+	@pytest.mark.parametrize("x_axis", geometry_data['x_axis'])
+	@pytest.mark.parametrize("y_axis", geometry_data['y_axis'])
+	@pytest.mark.parametrize("z_axis", geometry_data['z_axis'])
+	def test_rotate(self, x_axis, y_axis, z_axis):
+		t = Transform.rotate(45., x_axis)
+		assert_almost_eq(t(x_axis), x_axis)
+		v = t(y_axis)
+		assert_almost_eq(v, geo.Vector(0., np.sqrt(2) / 2., np.sqrt(2) / 2.))
 		vv = t(v)
-		assert_almost_eq(vv, self.z_axis)
+		assert_almost_eq(vv, z_axis)
 		vv = t.inverse()(v)
-		assert_almost_eq(vv, self.y_axis)
+		assert_almost_eq(vv, y_axis)
 
-		t = Transform.rotate(30., self.y_axis)
-		assert_almost_eq(t(self.y_axis), self.y_axis)
-		p = geo.Point.from_arr(self.z_axis)
-		pp = t(t(p))
-		assert_almost_eq(pp, -self.x_axis)
+		t = Transform.rotate(30., y_axis)
+		assert_almost_eq(t(y_axis), y_axis)
+		p = geo.Point.from_arr(z_axis)
+		pp = t(t(t(p)))
+		assert_almost_eq(pp, x_axis)
 
-		t = Transform.rotate(90., self.z_axis)
-		assert_almost_eq(t(self.z_axis), self.z_axis)
-		n = geo.Normal.from_arr(self.y_axis)
+		t = Transform.rotate(90., z_axis)
+		assert_almost_eq(t(z_axis), z_axis)
+		n = geo.Normal.from_arr(y_axis)
 		nn = t(t(t(n)))
-		assert_almost_eq(nn, self.x_axis)
+		assert_almost_eq(nn, x_axis)
 
-	@pytest.mark.parametrize("p1", testdata['point'])
-	@pytest.mark.parametrize("p2", testdata['point'])
-	def test_rotate_bbox(self, p1, p2):
+
+	def test_rotate_bbox(self):
 		t = Transform.rotate(180., geo.Vector(1., 1., 1.))
+		p1 = geo.Point(0., 0., 0.)
+		p2 = geo.Point(1., 1., 1.)
 		box = geo.BBox(p1, p2)
 		b = t(box)
+		pmax = t(box.pMax)
+		pmin = t(box.pMin)
 
-		assert_almost_eq(b.pMin, -box.pMax)
-		assert_almost_eq(b.pMax, -box.pMin)
+		assert_almost_eq(b.pMin, pmin)
+		assert_almost_eq(b.pMax, pmax)
 
 		bb = t(b)
-		assert_almost_eq(bb.pMin, box.pMin)
-		assert_almost_eq(bb.pmax, box.pMax)
+		pmax = t(pmax)
+		pmin = t(pmin)
+		assert_almost_eq(bb.pMin, pmin)
+		assert_almost_eq(bb.pMax, pmax)
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
-	@pytest.mark.parametrize("vec", testdata['vector'])
-	def test_look_at(self, pnt, vec):
-		t = Transform.look_at(pnt, vec, self.y_axis)
+	@pytest.mark.parametrize("pnt", test_data['point'])
+	@pytest.mark.parametrize("vec", test_data['vector'])
+	@pytest.mark.parametrize("x_axis", geometry_data['x_axis'])
+	@pytest.mark.parametrize("y_axis", geometry_data['y_axis'])
+	@pytest.mark.parametrize("z_axis", geometry_data['z_axis'])
+	@pytest.mark.parametrize("origin", geometry_data['origin'])
+	def test_look_at(self, pnt, vec, x_axis, y_axis, z_axis, origin):
+		t = Transform.look_at(pnt, vec, y_axis)
 
-		assert_almost_eq(t(self.origin), pnt)
-		assert_almost_eq(t.inverse()(pnt), self.origin)
+		assert_almost_eq(t(origin), pnt)
+		assert_almost_eq(t.inverse()(pnt), origin)
 
 	def test_orthographic(self):
 		znear = rng()
@@ -370,94 +397,98 @@ class TestTransform(object):
 		assert_almost_eq(t(p).z, 1.)
 
 	def test_perspective(self):
-		znear = rng()
+		znear = rng() * VAR
 		zfar = znear + rng() * VAR
-		fov = rng() * 90
+		fov = rng() * 45. + 45.
+
 		t = Transform.perspective(fov, znear, zfar)
-		p = geo.Point(rng(), rng(), znear)
-		assert_almost_eq(t(p).x, p.x)
-		assert_almost_eq(t(p).y, p.y)
-		assert_almost_eq(t(p).z, 0.)
-		p = geo.Point(rng(), rng(), zfar)
-		assert_almost_eq(t(p).x, p.x / zfar)
-		assert_almost_eq(t(p).y, p.y / zfar)
-		assert_almost_eq(t(p).z, 1.)
+		p = geo.Point(znear * rng(), znear * rng(), znear + rng() * (zfar - znear))
+		pp = t(p)
+		assert_almost_eq(pp.z, (p.z - znear) * zfar / ((zfar - znear) * p.z))
+		assert_almost_eq(pp.x, p.x / (p.z * np.tan(np.deg2rad(.5 * fov))))
+		assert_almost_eq(pp.y, p.y / (p.z * np.tan(np.deg2rad(.5 * fov))))
 
 
 class TestQuat(object):
 
-	@pytest.mark.parametrize("q1", testdata['quat'])
-	@pytest.mark.parametrize("q2", testdata['quat'])
+	@pytest.mark.parametrize("q1", test_data['quat'])
+	@pytest.mark.parametrize("q2", test_data['quat'])
 	def test_dot(self, q1, q2):
 		q = quat.dot(q1, q2)
 		assert_almost_eq(q, q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z)
 
-	@pytest.mark.parametrize("q", testdata['quat'])
+	@pytest.mark.parametrize("q", test_data['quat'])
 	def test_to_transform(self, q):
 		t = quat.to_transform(q)
 
-	@pytest.mark.parametrize("vec", testdata['vector'])
+	@pytest.mark.parametrize("vec", test_data['vector'])
 	def test_from_transform_and_arr(self, vec):
 		t = Transform.rotate(rng() * 360., vec)
 		q1 = quat.from_transform(t)
 		q2 = quat.from_arr(t.m)
 		assert q1 == q2
 
-	@pytest.mark.parametrize("q1", testdata['quat'])
-	@pytest.mark.parametrize("q2", testdata['quat'])
+	@pytest.mark.parametrize("q1", test_data['quat'])
+	@pytest.mark.parametrize("q2", test_data['quat'])
 	def test_slerp(self, q1, q2):
 		q = quat.slerp(rng(), q1, q2)
 		assert isinstance(q, quat.Quaternion)
 
 
 class TestAnimatedTransform(object):
-	def __init__(self):
-		self.t1 = Transform.look_at(geo.Point(0., 0., 0.),
-		                            geo.Point(0., 0., 1.),
-		                            geo.Vector(0., 1., 0.))
-		self.t2 = Transform.look_at(geo.Point(0., 1., 1.),
-		                            geo.Point(0., 0., 1.),
-		                            geo.Vector(0., 0., 1.))
 
-	def test_init(self):
+	@pytest.mark.parametrize("t1", geometry_data['t1'])
+	@pytest.mark.parametrize("t2", geometry_data['t2'])
+	def test_init(self, t1, t2):
 		tm = rng()
-		at = AnimatedTransform(self.t1, tm, self.t1, tm)
+		at = AnimatedTransform(t1, tm, t1, tm)
 		assert not at.animated
-		at = AnimatedTransform(self.t1, 0., self.t2, tm)
+		at = AnimatedTransform(t1, tm, t1, tm + rng())
+		assert not at.animated
+		at = AnimatedTransform(t1, 0., t2, tm)
 		assert at.animated
 
-	@pytest.mark.parametrize("pnt", testdata['point'])
-	@pytest.mark.parametrize("vec", testdata['vector'])
-	def test_call(self, pnt, vec):
+	@pytest.mark.parametrize("pnt", test_data['point'])
+	@pytest.mark.parametrize("vec", test_data['vector'])
+	@pytest.mark.parametrize("t1", geometry_data['t1'])
+	@pytest.mark.parametrize("t2", geometry_data['t2'])
+	def test_call(self, pnt, vec, t1, t2):
 		ray = geo.Ray(pnt, vec)
 		tm = rng()
-		at = AnimatedTransform(self.t1, tm, self.t1, tm)
-		assert at(ray).o == self.t1(ray).o
-		assert at(ray).d == self.t1(ray).d
-		assert at(rng(), pnt) == self.t1(pnt)
-		assert at(rng(), vec) == self.t1(vec)
+		at = AnimatedTransform(t1, tm, t1, tm)
+		assert at(ray).o == t1(ray).o
+		assert at(ray).d == t1(ray).d
+		assert at(rng(), pnt) == t1(pnt)
+		assert at(rng(), vec) == t1(vec)
 
-		at = AnimatedTransform(self.t1, 0., self.t2, tm)
+		at = AnimatedTransform(t1, 0., t2, tm)
 		at(ray)
 		at(rng(), pnt)
 		at(rng(), vec)
 
-	def test_motion_bounds(self):
+	@pytest.mark.parametrize("t1", geometry_data['t1'])
+	@pytest.mark.parametrize("t2", geometry_data['t2'])
+	def test_motion_bounds(self, t1, t2):
 		tm = rng()
-		at = AnimatedTransform(self.t1, 0., self.t2, tm)
-		b1 = at.motion_bounds()
+		at = AnimatedTransform(t1, 0., t2, tm)
+		b1 = at.motion_bounds(geo.BBox(geo.Point(0., 0., 0.), geo.Point(0., 0., 0.)), False)
 		b2 = geo.BBox(geo.Point(0., 0., 0.), geo.Point(0., 1., 1.))
 		assert b1 == b2
 
-	def test_interpolate(self):
+	@pytest.mark.parametrize("t1", geometry_data['t1'])
+	@pytest.mark.parametrize("t2", geometry_data['t2'])
+	def test_interpolate(self, t1, t2):
 		tm = rng()
-		at = AnimatedTransform(self.t1, 0., self.t2, tm)
+		at = AnimatedTransform(t1, 0., t2, tm)
 		t = at.interpolate(rng())
 
 	def test_decompose(self):
 		with pytest.raises(TypeError):
-			t, r, s = AnimatedTransform.decompose(rng(4, 4))
+			t, r, s = AnimatedTransform.decompose(rng(3, 3))
 		t, r, s = AnimatedTransform.decompose(rng(4, 4))
+		assert isinstance(t, geo.Vector)
+		assert isinstance(r, quat.Quaternion)
+		assert isinstance(s, np.ndarray)
 
 
 

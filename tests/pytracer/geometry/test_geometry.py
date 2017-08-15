@@ -13,7 +13,7 @@ import pytest
 from pytracer import EPS
 import pytracer.geometry as geo
 
-N_TEST_CASE = 5
+N_TEST_CASE = 10
 VAR = 10
 np.random.seed(1)
 rng = np.random.rand
