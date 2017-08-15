@@ -48,7 +48,7 @@ class Transform(object):
 	def __ne__(self, other):
 		return not np.array_equal(self.m, other.m)
 
-	def __copy__(self):
+	def copy(self):
 		return Transform(self.m.copy(), self.m_inv.copy())
 
 	def __call__(self, arg, dtype=None):
@@ -274,7 +274,9 @@ class AnimatedTransform(object):
 		self.startTransform = t1
 		self.endTransform = t2
 		self.animated = (t1 != t2)
-		self.T = self.R = self.S = [None, None]
+		self.T = [None, None]
+		self.R = [None, None]
+		self.S = [None, None]
 		self.T[0], self.R[0], self.S[0] = AnimatedTransform.decompose(t1.m)
 		self.T[1], self.R[1], self.S[1] = AnimatedTransform.decompose(t2.m)
 
@@ -294,7 +296,7 @@ class AnimatedTransform(object):
 			tr.time = r.time
 			return tr
 
-		elif isinstance(arg_1, FLOAT) and isinstance(arg_2, geo.Point):
+		elif isinstance(arg_1, (float, FLOAT, np.float)) and isinstance(arg_2, geo.Point):
 			time = arg_1
 			p = arg_2
 			if not self.animated or time < self.startTime:
@@ -303,7 +305,7 @@ class AnimatedTransform(object):
 				return self.endTransform(p)
 			return self.interpolate(time)(p)
 
-		elif isinstance(arg_1, FLOAT) and isinstance(arg_2, geo.Vector):
+		elif isinstance(arg_1, (float, FLOAT, np.float)) and isinstance(arg_2, geo.Vector):
 			time = arg_1
 			v = arg_2
 			if not self.animated or time < self.startTime:
@@ -314,7 +316,7 @@ class AnimatedTransform(object):
 		else:
 			raise TypeError()
 
-	def motion_bounds(self, b: 'geo.BBox', use_inv: bool) -> 'geo.BBox':
+	def motion_bounds(self, b: 'geo.BBox', use_inv: bool=False) -> 'geo.BBox':
 		if not self.animated:
 			return self.startTransform.inverse()(b)
 		ret = geo.BBox()
@@ -334,10 +336,9 @@ class AnimatedTransform(object):
 		m = T R S
 		Assume m is an affine transformation
 		"""
-		if not np.shape(m) == [4, 4]:
+		if not np.shape(m) == (4, 4):
 			raise TypeError
 
-		from pytracer.transform.quat import from_arr
 		T = geo.Vector(m[0, 3], m[1, 3], m[2, 3])
 		M = m.copy()
 		M[0:3, 3] = M[3, 0:3] = 0
@@ -356,6 +357,7 @@ class AnimatedTransform(object):
 			norm = max(norm, np.max(np.sum(D, axis=0)))
 			R = Rnext
 
+		from pytracer.transform.quat import from_arr
 		Rquat = from_arr(R)
 		S = np.linalg.inv(R).dot(M)
 
@@ -377,4 +379,6 @@ class AnimatedTransform(object):
 		rot = slerp(dt, self.R[0], self.R[1])
 		scale = util.ufunc_lerp(dt, self.S[0], self.S[1])
 
-		return Transform.translate(trans) * to_transform(rot) * Transform(scale)
+		return Transform.translate(trans) *\
+		       to_transform(rot) *\
+		       Transform(scale)
