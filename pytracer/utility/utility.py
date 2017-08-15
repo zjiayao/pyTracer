@@ -102,4 +102,9 @@ def is_pow_2(x: INT) -> bool:
 	# return True if x == 0 else (np.log2(x) % 1) == 0.
 
 # Numpy universal function for linear interpolation
-ufunc_lerp = np.frompyfunc(lerp, 3, 1)
+_ulerp = np.frompyfunc(lerp, 3, 1)
+
+
+def ufunc_lerp(dt, x, y):
+	res = _ulerp(dt, x, y)
+	return res.astype(FLOAT)
