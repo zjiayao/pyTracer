@@ -29,7 +29,7 @@ class Sampler(object, metaclass=ABCMeta):
 		'''
 		self.xPixel_start = xs
 		self.xPixel_end = xe
-		self.yPixel_strat = ys
+		self.yPixel_start = ys
 		self.yPixel_end = ye
 		self.spp = spp  # samples per pixel
 		self.s_open = s_open
@@ -39,7 +39,7 @@ class Sampler(object, metaclass=ABCMeta):
 	def __repr__(self):
 		return "{}\nx: {} - {}\ny: {} - {}\nSamples per pixel: {}" \
 			.format(self.__class__, self.xPixel_start, self.xPixel_end,
-		            self.yPixel_strat, self.yPixel_end, self.spp)
+		            self.yPixel_start, self.yPixel_end, self.spp)
 
 	def __iter__(self):
 		return self
@@ -103,7 +103,7 @@ class Sampler(object, metaclass=ABCMeta):
 		# determine the number of tiles in each dimension
 		# in effort to make square tiles
 		dx = self.xPixel_end - self.xPixel_start
-		dy = self.yPixel_end - self.yPixel_strat
+		dy = self.yPixel_end - self.yPixel_start
 		nx = cnt
 		ny = 1
 		while nx & 0x1 == 0 and 2 * dx * ny < dy * nx:
@@ -114,9 +114,9 @@ class Sampler(object, metaclass=ABCMeta):
 		x0 = num % nx
 		y0 = num // nx
 		x = np.clip([x0 / nx, (x0 + 1) / nx], self.xPixel_start, self.xPixel_end)
-		y = np.clip([y0 / ny, (y0 + 1) / ny], self.yPixel_strat, self.yPixel_end)
+		y = np.clip([y0 / ny, (y0 + 1) / ny], self.yPixel_start, self.yPixel_end)
 		return np.concatenate([util.ufunc_lerp(x, self.xPixel_start, self.xPixel_end),
-		                       util.ufunc_lerp(y, self.yPixel_strat, self.yPixel_end)])
+		                       util.ufunc_lerp(y, self.yPixel_start, self.yPixel_end)])
 
 
 from pytracer.sampler.sampler.stratified import *

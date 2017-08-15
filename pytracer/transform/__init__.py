@@ -97,36 +97,36 @@ class Transform(object):
 
 	def __mul__(self, other):
 		m = self.m.dot(other.m)
-		mInv = other.m_inv.dot(self.m_inv)
-		return Transform(m, mInv)
+		m_inv = other.m_inv.dot(self.m_inv)
+		return Transform(m, m_inv)
 
 	@classmethod
 	def translate(cls, delta: 'geo.Vector', dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
-		mInv = np.eye(4, 4, dtype=dtype)
+		m_inv = np.eye(4, 4, dtype=dtype)
 
 		m[0][3] = delta.x
 		m[1][3] = delta.y
 		m[2][3] = delta.z
-		mInv[0][3] = -delta.x
-		mInv[1][3] = -delta.y
-		mInv[2][3] = -delta.z
+		m_inv[0][3] = -delta.x
+		m_inv[1][3] = -delta.y
+		m_inv[2][3] = -delta.z
 
-		return cls(m, mInv, dtype)
+		return cls(m, m_inv, dtype)
 
 	@classmethod
 	def scale(cls, x, y, z, dtype=FLOAT) -> 'Transform':
 		m = np.eye(4, 4, dtype=dtype)
-		mInv = np.eye(4, 4, dtype=dtype)
+		m_inv = np.eye(4, 4, dtype=dtype)
 
 		m[0][0] = x
 		m[1][1] = y
 		m[2][2] = z
-		mInv[0][0] = 1. / x
-		mInv[1][1] = 1. / y
-		mInv[2][2] = 1. / z
+		m_inv[0][0] = 1. / x
+		m_inv[1][1] = 1. / y
+		m_inv[2][2] = 1. / z
 
-		return cls(m, mInv, dtype)
+		return cls(m, m_inv, dtype)
 
 	# all angles are in degrees
 	@classmethod
@@ -233,7 +233,7 @@ class Transform(object):
 		return cls(c2w, w2c, dtype)
 
 	@classmethod
-	def orthographic(cls, znear: FLOAT, zfar: FLOAT, dtype=FLOAT):
+	def orthographic(cls, znear: FLOAT, zfar: FLOAT):
 		return cls.scale(1., 1., 1. / (zfar - znear)) * cls.translate(geo.Vector(0., 0., -znear))
 
 	@classmethod
@@ -246,8 +246,8 @@ class Transform(object):
 		m[3, 3] = 0.
 
 		# scale to viewing volume
-		tanInv = 1. / np.tan(np.deg2rad(fov) / 2.)
-		return cls.scale(tanInv, tanInv, 1.) * cls(m)
+		tan_inv = 1. / np.tan(np.deg2rad(fov) / 2.)
+		return cls.scale(tan_inv, tan_inv, 1.) * cls(m)
 
 	def inverse(self) -> 'Transform':
 		"""
@@ -334,6 +334,9 @@ class AnimatedTransform(object):
 		m = T R S
 		Assume m is an affine transformation
 		"""
+		if not np.shape(m) == [4, 4]:
+			raise TypeError
+
 		from pytracer.transform.quat import from_arr
 		T = geo.Vector(m[0, 3], m[1, 3], m[2, 3])
 		M = m.copy()

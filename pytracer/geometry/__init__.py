@@ -6,6 +6,7 @@ pytracer.geometry package
 Created by Jiayao on Aug 13, 2017
 """
 from __future__ import absolute_import
+from typing import overload
 from pytracer import *
 
 # Classes
@@ -18,17 +19,24 @@ class Vector(np.ndarray):
 	A wrappper subclasses numpy.ndarray which
 	models a 3D vector.
 	"""
+	@overload
+	def __new__(cls, x: float=0., y: float=0., z: float=0, dtype=float):
+		pass
 
-	def __new__(cls, x: FLOAT = 0., y: FLOAT = 0., z: FLOAT = 0, dtype=FLOAT):
+	def __new__(cls, x: FLOAT=0., y: FLOAT=0., z: FLOAT=0, dtype=FLOAT):
 		return np.empty(3, dtype=dtype).view(cls)
 
-	def __init__(self, x: FLOAT = 0., y: FLOAT = 0., z: FLOAT = 0., dtype=FLOAT):
+	@overload
+	def __init__(self, x: float=0., y: float=0., z: float=0., dtype=float):
+		pass
+
+	def __init__(self, x: FLOAT=0., y: FLOAT=0., z:FLOAT=0., dtype=FLOAT):
 		if np.isnan(x) or np.isnan(y) or np.isnan(z):
 			raise ValueError
 		super().__init__()
-		self.x = x
-		self.y = y
-		self.z = z
+		self[0] = x
+		self[1] = y
+		self[2] = z
 
 	@classmethod
 	def from_arr(cls, n: 'np.ndarray'):  # Forward type hint (PEP-484)
@@ -94,10 +102,18 @@ class Point(np.ndarray):
 	of the first operant, thus we may, e.g., offset
 	a point by a vector.
 	"""
-	def __new__(cls, x: FLOAT = 0., y: FLOAT = 0., z: FLOAT = 0, dtype=FLOAT):
+	@overload
+	def __new__(cls, x: float=0., y: float=0., z: float=0, dtype=float):
+		pass
+
+	def __new__(cls, x: FLOAT=0., y: FLOAT=0., z: FLOAT=0, dtype=FLOAT):
 		return np.empty(3, dtype=dtype).view(cls)
 
-	def __init__(self, x: FLOAT = 0., y: FLOAT = 0., z: FLOAT = 0., dtype=FLOAT):
+	@overload
+	def __init__(self, x: float=0., y: float=0., z: float=0., dtype=float):
+		pass
+
+	def __init__(self, x: FLOAT=0., y: FLOAT=0., z:FLOAT=0., dtype=FLOAT):
 		if np.isnan(x) or np.isnan(y) or np.isnan(z):
 			raise ValueError
 		super().__init__()
@@ -179,10 +195,18 @@ class Normal(np.ndarray):
 	A wrapper subclasses numpy.ndarray which
 	models a 3D vector.
 	"""
-	def __new__(cls, x: FLOAT = 0., y: FLOAT = 0., z: FLOAT = 0, dtype=FLOAT):
+	@overload
+	def __new__(cls, x: float=0., y: float=0., z: float=0, dtype=float):
+		pass
+
+	def __new__(cls, x: FLOAT=0., y: FLOAT=0., z: FLOAT=0, dtype=FLOAT):
 		return np.empty(3, dtype=dtype).view(cls)
 
-	def __init__(self, x: FLOAT = 0., y: FLOAT = 0., z: FLOAT = 0., dtype=FLOAT):
+	@overload
+	def __init__(self, x: float=0., y: float=0., z: float=0., dtype=float):
+		pass
+
+	def __init__(self, x: FLOAT=0., y: FLOAT=0., z:FLOAT=0., dtype=FLOAT):
 		super().__init__()
 		if np.isnan(x) or np.isnan(y) or np.isnan(z):
 			raise ValueError

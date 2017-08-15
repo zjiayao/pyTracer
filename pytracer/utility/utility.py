@@ -12,22 +12,58 @@ from __future__ import absolute_import
 import numpy as np
 from pytracer import (FLOAT, INT, UINT, EPS)
 
-__all__ = ['feq', 'eq_unity', 'ne_unity', 'ftoi', 'ctoi', 'rtoi',
+__all__ = ['progress_reporter','logging','feq', 'eq_unity', 'ne_unity', 'ftoi', 'ctoi', 'rtoi',
            'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp']
+
+
 # Global Functions
+def logging(tp: str, msg: str):
+	print("[{}] {}".format(tp.upper(), msg))
+
+
+def progress_reporter(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█'):
+	"""
+	Call in a loop to create terminal progress bar
+	:params:
+		iteration   - Required  : current iteration (Int)
+		total       - Required  : total iterations (Int)
+		prefix      - Optional  : prefix string (Str)
+		suffix      - Optional  : suffix string (Str)
+		decimals    - Optional  : positive number of decimals in percent complete (Int)
+		length      - Optional  : character length of bar (Int)
+		fill        - Optional  : bar fill character (Str)
+	"""
+	percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+	filled_length = int(length * iteration // total)
+	bar = fill * filled_length + '-' * (length - filled_length)
+	print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end='\r')
+	# Print New Line on Complete
+	if iteration == total:
+		print()
+
+
 def feq(x: FLOAT, y: FLOAT) -> bool:
-	"""Equality test for floats"""
+	"""Equality test for floats."""
 	return np.isclose(x, y, atol=EPS)
 
 
 def eq_unity(x: FLOAT) -> bool:
-	"""Equality test with unity"""
+	"""Equality test with unity."""
 	return (x > 1. - EPS) and (x < 1. + EPS)
 
 
 def ne_unity(x: FLOAT) -> bool:
-	"""Inequality test with unity"""
+	"""Inequality test with unity."""
 	return x < 1. - EPS or x > 1. + EPS
+
+def is_zero(x: FLOAT) -> bool:
+	"""Equality test with zero."""
+	return x > -EPS and x < EPS
+
+
+def not_zero(x: FLOAT) -> bool:
+	"""Inequality test with zero"""
+	return x < -EPS or x > EPS
 
 
 def ftoi(x: FLOAT) -> INT:
@@ -62,7 +98,8 @@ def next_pow_2(x: INT) -> UINT:
 
 def is_pow_2(x: INT) -> bool:
 	"""Test whether is power of 2"""
-	return True if x == 0 else (np.log2(x) % 1) == 0.
+	return x & (x-1) == 0
+	# return True if x == 0 else (np.log2(x) % 1) == 0.
 
 # Numpy universal function for linear interpolation
 ufunc_lerp = np.frompyfunc(lerp, 3, 1)

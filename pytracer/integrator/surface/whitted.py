@@ -25,9 +25,11 @@ class WhittedIntegrator(SurfaceIntegrator):
 
 	def li(self, scene: 'Scene', renderer: 'Renderer', ray: 'geo.RayDifferential',
 			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
+		from pytracer.light import LightSample
+
 		L = Spectrum(0.)
 		# Evaluate refl.BSDF at hit point
-		bsdf = isect.get_BSDF(ray)
+		bsdf = isect.get_bsdf(ray)
 
 		# Init
 		p = bsdf.dgs.p
@@ -38,8 +40,8 @@ class WhittedIntegrator(SurfaceIntegrator):
 		L += isect.le(wo)
 
 		# iterate through all lights
-		for lgt in scene.lights:
-			Li, wi, pdf, vis = lgt.sample_l(p, isect.rEps, lgt.LightSample.from_rand(rng), ray.time)
+		for light in scene.lights:
+			Li, wi, pdf, vis = light.sample_l(p, isect.rEps, LightSample.from_rand(rng), ray.time)
 			if Li.is_black() or pdf == 0.:
 				continue
 

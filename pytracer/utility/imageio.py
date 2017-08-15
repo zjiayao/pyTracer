@@ -65,7 +65,9 @@ def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
 		raise IOError('scr.core.pytracer.write_image(): filename and rgb cannot '
 							'be None')
 	for i in range(3):
-		rgb[:, :, i] = (255 * rgb[:, :, i]) / np.max(rgb[:, :, i])
+		coef = np.max(rgb[:, :, i])
+		if not coef == 0.:
+			rgb[:, :, i] = (255 * rgb[:, :, i]) / coef
 	
 	rgb.astype(np.uint8)
 

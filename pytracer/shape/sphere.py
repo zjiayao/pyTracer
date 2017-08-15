@@ -43,7 +43,7 @@ class Sphere(Shape):
 		"""
 		account for partial sphere
 		"""
-		from ..montecarlo import uniform_sample_sphere
+		from pytracer.montecarlo import uniform_sample_sphere
 		v = uniform_sample_sphere(u1, u2)
 
 		phi = geo.spherical_theta(v) * self.phiMax * INV_2PI
@@ -52,7 +52,7 @@ class Sphere(Shape):
 		v = geo.spherical_direction(np.sin(theta), np.cos(theta), phi) * self.radius
 		v.z = self.zmin + v.z * (self.zmax - self.zmin)
 
-		p = geo.Point.fromVector(v)
+		p = geo.Point.from_arr(v)
 		Ns = geo.normalize(self.o2w(geo.Normal(p.x, p.y, p.z)))
 		if self.ro:
 			Ns *= -1.
@@ -93,7 +93,7 @@ class Sphere(Shape):
 		st_max_sq = self.radius * self.radius / pnt.sq_dist(ctr)
 		ct_max = np.sqrt(max(0., 1. - st_max_sq))
 
-		from montecarlo import uniform_sample_cone
+		from pytracer.montecarlo import uniform_sample_cone
 		r = geo.Ray(pnt, uniform_sample_cone(u1, u2, ct_max, wc_x, wc_y, wc), EPS)
 
 		hit, thit, _, _ = self.intersect(r)
@@ -102,7 +102,7 @@ class Sphere(Shape):
 			thit = (ctr - pnt).dot(geo.normalize(r.d))
 
 		ps = r(thit)
-		ns = geo.Normal.fromVector(geo.normalize(ps - ctr))
+		ns = geo.Normal.from_arr(geo.normalize(ps - ctr))
 		if self.ro:
 			ns *= -1.
 
@@ -118,7 +118,7 @@ class Sphere(Shape):
 		st_max_sq = self.radius * self.radius / pnt.sq_dist(ctr)
 		ct_max = np.sqrt(max(0., 1. - st_max_sq))
 
-		from montecarlo import uniform_cone_pdf
+		from pytracer.montecarlo import uniform_cone_pdf
 		return uniform_cone_pdf(ct_max)
 
 	def intersect(self, r: 'geo.Ray') -> [bool, FLOAT, FLOAT, 'geo.DifferentialGeometry']:
@@ -222,7 +222,7 @@ class Sphere(Shape):
 		dg = geo.DifferentialGeometry(o2w(phit), o2w(dpdu), o2w(dpdv), o2w(dndu), o2w(dndv), u, v, self)
 		return True, thit, EPS * thit, dg
 
-	def intersectP(self, r: 'geo.Ray') -> bool:
+	def intersect_p(self, r: 'geo.Ray') -> bool:
 		# transform ray to object space
 		ray = self.w2o(r)
 

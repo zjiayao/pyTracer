@@ -301,168 +301,167 @@ class MIPMap(object):
 						       self.texel(i - 1, 2 * s + 1, 2 * t + 1))
 
 				# init EVA filter weighted if needed
-		if MIPMap.wight_lut is None:
+		if MIPMap.weight_lut is None:
 			alpha = 2.
 			r2 = np.arange(MIPMap.weight_lut_size) / (MIPMap.weight_lut_size - 1)
-			MIPMap.wight_lut = np.exp(-alpha * r2) - np.exp(-alpha)
+			MIPMap.weight_lut = np.exp(-alpha * r2) - np.exp(-alpha)
 
-		@property
-		def texel(self, level: UINT, s: INT, t: INT):
-			l = self.__pyramid[level]
-			u, v = np.shape(l)
-			# compute texel (s, t)
-			if self.wrap == ImageWrap.REPEAT:
-				s = s % u
-				t = t % v
-			elif self.wrap == ImageWrap.CLAMP:
-				s = np.clip(s, 0, u - 1)
-				t = np.clip(t, 0, v - 1)
-			elif self.wrap == ImageWrap.BLACK:
-				if s < 0 or s >= u or t < 0 or t >= v:
-					return self.typename(0.)
+	def texel(self, level: UINT, s: INT, t: INT):
+		l = self.__pyramid[level]
+		u, v = np.shape(l)
+		# compute texel (s, t)
+		if self.wrap == ImageWrap.REPEAT:
+			s = s % u
+			t = t % v
+		elif self.wrap == ImageWrap.CLAMP:
+			s = np.clip(s, 0, u - 1)
+			t = np.clip(t, 0, v - 1)
+		elif self.wrap == ImageWrap.BLACK:
+			if s < 0 or s >= u or t < 0 or t >= v:
+				return self.typename(0.)
 
-			return l(s, t)
+		return l[s, t]
 
-		@property
-		def width(self):
-			return self.__width
+	@property
+	def width(self):
+		return self.__width
 
-		@property
-		def height(self):
-			return self.__height
+	@property
+	def height(self):
+		return self.__height
 
-		@property
-		def levels(self):
-			return self.__n_levels
+	@property
+	def levels(self):
+		return self.__n_levels
 
-		def __triagle(self, level: UINT, s: FLOAT, t: FLOAT):
-			level = np.clip(level, 0, self.__n_levels - 1)
-			s, t = [s, t] * np.shape(self.__pyramid[level]) - .5
-			s0, t0 = util.ftoi(s), util.ftoi(t)
-			ds = s - s0
-			dt = t - t0
-			return (1. - ds) * (1. - dt) * self.texel(level, s0, t0) + \
-			       (1. - ds) * dt * self.texel(level, s0, t0 + 1) + \
-			       ds * (1. - dt) * self.texel(level, s0 + 1, t0) + \
-			       ds * dt * self.texel(level, s0 + 1, t0 + 1)
+	def __triangle(self, level: UINT, s: FLOAT, t: FLOAT):
+		level = np.clip(level, 0, self.__n_levels - 1)
+		s, t = np.array([s, t]) * np.shape(self.__pyramid[level]) - .5
+		s0, t0 = util.ftoi(s), util.ftoi(t)
+		ds = s - s0
+		dt = t - t0
+		return ((1. - ds) * (1. - dt) * self.texel(level, s0, t0) +
+		        (1. - ds) * dt * self.texel(level, s0, t0 + 1) +
+		        ds * (1. - dt) * self.texel(level, s0 + 1, t0) +
+		        ds * dt * self.texel(level, s0 + 1, t0 + 1))
 
-		def __EWA(self, level: UINT, s, t, ds0, dt0, ds1, dt1):
-			if level >= self.__n_levels:
-				return self.texel(self.__n_levels - 1, 0, 0)
-			# convert EWA coord to proper scale for level
-			u, v = np.shape(self.__pyramid[level])
-			s = s * u - .5
-			t = t * v - .5
-			ds0 *= u
-			dt0 *= v
-			ds1 *= u
-			dt1 *= v
+	def __EWA(self, level: UINT, s, t, ds0, dt0, ds1, dt1):
+		if level >= self.__n_levels:
+			return self.texel(self.__n_levels - 1, 0, 0)
+		# convert EWA coord to proper scale for level
+		u, v = np.shape(self.__pyramid[level])
+		s = s * u - .5
+		t = t * v - .5
+		ds0 *= u
+		dt0 *= v
+		ds1 *= u
+		dt1 *= v
 
-			# pnt inside ellipse:
-			# $e(s, t) = A s ^ 2 + B s t + C t ^ 2 < F$
-			A = dt0 * dt0 + dt1 * dt1 + 1
-			B = -2. * (ds0 * dt0 + ds1 * dt1)
-			C = ds0 * ds0 + ds1 * ds1 + 1
-			# additional 1 ensures ellipse does not fall
-			# into texels
+		# pnt inside ellipse:
+		# $e(s, t) = A s ^ 2 + B s t + C t ^ 2 < F$
+		A = dt0 * dt0 + dt1 * dt1 + 1
+		B = -2. * (ds0 * dt0 + ds1 * dt1)
+		C = ds0 * ds0 + ds1 * ds1 + 1
+		# additional 1 ensures ellipse does not fall
+		# into texels
 
-			# compute ellipse coef to bound filtering region
-			invF = 1. / (A * C - B * B * .25)
-			A *= invF
-			B *= invF
-			C *= invF
+		# compute ellipse coef to bound filtering region
+		invF = 1. / (A * C - B * B * .25)
+		A *= invF
+		B *= invF
+		C *= invF
 
-			# compute ellipse's (s, t) bounding box
-			det = -B * B + 4. * A * C
-			invDet = 1. / det
-			u_sq = np.sqrt(det * C)
-			v_sq = np.srqt(det * A)
-			s0 = util.ctoi(s - 2. * invDet * u_sq)
-			s1 = util.ftoi(s + 2. * invDet * u_sq)
-			t0 = util.ctoi(t - 2. * invDet * v_sq)
-			t1 = util.ftoi(t + 2. * invDet * v_sq)
+		# compute ellipse's (s, t) bounding box
+		det = -B * B + 4. * A * C
+		invDet = 1. / det
+		u_sq = np.sqrt(det * C)
+		v_sq = np.srqt(det * A)
+		s0 = util.ctoi(s - 2. * invDet * u_sq)
+		s1 = util.ftoi(s + 2. * invDet * u_sq)
+		t0 = util.ctoi(t - 2. * invDet * v_sq)
+		t1 = util.ftoi(t + 2. * invDet * v_sq)
 
-			# scan over bound and compute quad eqn.
-			ret = self.typename(0.)
-			sum_wt = 0.
-			for ti in range(t0, t1 + 1):
-				tt = ti - t
-				for si in range(s0, s1 + 1):
-					ss = si - s
-					# compute squared radius and filter texel if inside
-					r2 = A * ss * ss + B * ss * tt + C * tt * tt
-					if r2 < 1.:
-						# inside
-						wt = MIPMap.wight_lut[min(r2 * MIPMap.weight_lut_size, MIPMap.weight_lut_size - 1)]
-						ret += self.texel(level, si, ti) * wt
-						sum_wt += wt
+		# scan over bound and compute quad eqn.
+		ret = self.typename(0.)
+		sum_wt = 0.
+		for ti in range(t0, t1 + 1):
+			tt = ti - t
+			for si in range(s0, s1 + 1):
+				ss = si - s
+				# compute squared radius and filter texel if inside
+				r2 = A * ss * ss + B * ss * tt + C * tt * tt
+				if r2 < 1.:
+					# inside
+					wt = MIPMap.weight_lut[min(r2 * MIPMap.weight_lut_size, MIPMap.weight_lut_size - 1)]
+					ret += self.texel(level, si, ti) * wt
+					sum_wt += wt
 
-			return ret / sum_wt
+		return ret / sum_wt
 
-		def look_up(self, param: [FLOAT]):
-			"""
-			Textel look-up
+	def look_up(self, param: [FLOAT]):
+		"""
+		Textel look-up
 
-			Isotropic Triangle Filter:
-			param := [s, t, width]
+		Isotropic Triangle Filter:
+		param := [s, t, width]
 
-			EWA:
-			param := [s, t, dsdx, dtdx, dsdy, dtdy]
-			"""
-			if len(param) == 2 or len(param) == 3:
-				# Isotropic Triangle Filter
-				# Chooses a level which filter covers
-				# four texels
-				if len(param) == 2:
-					s, t = param
-					width = 0.
+		EWA:
+		param := [s, t, dsdx, dtdx, dsdy, dtdy]
+		"""
+		if len(param) == 2 or len(param) == 3:
+			# Isotropic Triangle Filter
+			# Chooses a level which filter covers
+			# four texels
+			if len(param) == 2:
+				s, t = param
+				width = 0.
 
-				else:
-					s, t, width = param
+			else:
+				s, t, width = param
 
-				# mipmap level
-				level = self.__n_levels - 1 + np.log2(max(width, EPS))
+			# mipmap level
+			level = self.__n_levels - 1 + np.log2(max(width, EPS))
 
-				# trilinear interpolation
-				# for smooth MIPMap transittion
-				if level < 0:
-					return self.__triangle(0, s, t)
-				elif level >= self.__n_levels - 1:
-					return self.__triangle(self.__n_levels, 0, 0)
-				else:
-					i_level = util.ftoi(level)
-					delta = level - i_level
-					return (1. - delta) * self.__triangle(i_level, s, t) + \
-					       delta * self.__triangle(i_level + 1, s, t)
+			# trilinear interpolation
+			# for smooth MIPMap transittion
+			if level < 0:
+				return self.__triangle(0, s, t)
+			elif level >= self.__n_levels - 1:
+				return self.__triangle(self.__n_levels, 0, 0)
+			else:
+				i_level = util.ftoi(level)
+				delta = level - i_level
+				return (1. - delta) * self.__triangle(i_level, s, t) + \
+				       delta * self.__triangle(i_level + 1, s, t)
 
-			elif len(param) == 6:
-				# EWA
-				s, t, ds0, dt0, ds1, dt1 = param
-				if self.trilinear:
-					return self.look_up([s, t, 2. * np.max(np.fabs(param[2:6]))])
-				# compute ellipse minor and major axes
-				if ds0 * ds0 + dt0 * dt0 < ds1 * ds1 + dt1 * dt1:
-					ds0, ds1 = ds1, ds0
-					dt0, dt1 = dt1, dt0
+		elif len(param) == 6:
+			# EWA
+			s, t, ds0, dt0, ds1, dt1 = param
+			if self.trilinear:
+				return self.look_up([s, t, 2. * np.max(np.fabs(param[2:6]))])
+			# compute ellipse minor and major axes
+			if ds0 * ds0 + dt0 * dt0 < ds1 * ds1 + dt1 * dt1:
+				ds0, ds1 = ds1, ds0
+				dt0, dt1 = dt1, dt0
 
-				major_len = np.sqrt(ds0 * ds0 + dt0 * dt0)
-				minor_len = np.sqrt(ds1 * ds1 + dt1 * dt1)
+			major_len = np.sqrt(ds0 * ds0 + dt0 * dt0)
+			minor_len = np.sqrt(ds1 * ds1 + dt1 * dt1)
 
-				# clamp eccentricity if too large
-				if minor_len * self.max_aniso < major_len and minor_len > 0.:
-					scale = major_len / (minor_len * self.max_aniso)
-					ds0 *= scale
-					ds1 *= scale
-					minor_len *= scale
+			# clamp eccentricity if too large
+			if minor_len * self.max_aniso < major_len and minor_len > 0.:
+				scale = major_len / (minor_len * self.max_aniso)
+				ds0 *= scale
+				ds1 *= scale
+				minor_len *= scale
 
-				if minor_len == 0.:
-					return self.__triangle(0, s, t)
+			if minor_len == 0.:
+				return self.__triangle(0, s, t)
 
-				# choose level of detail and perform EWA filtering
-				lod = max(0., self.__n_levels - 1. + np.log2(minor_len))
-				lodi = util.ftoi(lod)
+			# choose level of detail and perform EWA filtering
+			lod = max(0., self.__n_levels - 1. + np.log2(minor_len))
+			lodi = util.ftoi(lod)
 
-				d = lod - lodi
+			d = lod - lodi
 
-				return (1. - d) * self.__EWA(lodi, s, t, ds0, dt0, ds1, dt1) + \
-				       d * self.__EWA(lodi + 1, s, t, ds0, dt0, ds1, dt1)
+			return (1. - d) * self.__EWA(lodi, s, t, ds0, dt0, ds1, dt1) + \
+			       d * self.__EWA(lodi + 1, s, t, ds0, dt0, ds1, dt1)

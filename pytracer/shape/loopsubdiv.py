@@ -424,3 +424,10 @@ class LoopSubdiv(Shape):
 
 		from .triangle import create_triangle_mesh
 		return [create_triangle_mesh(self.o2w, self.w2o, self.ro, params)]
+
+	def intersect(self, r: 'geo.Ray') -> (bool, FLOAT, FLOAT, 'geo.DifferentialGeometry'):
+		raise NotImplementedError('{} cannot intersect before refinement'.format(self.__class__))
+
+	def intersect_p(self, r: 'geo.Ray') -> bool:
+		raise NotImplementedError('{} cannot intersect before refinement'.format(self.__class__))
+

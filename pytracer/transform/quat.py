@@ -11,6 +11,9 @@ from __future__ import absolute_import
 from .. import *
 import numpy
 import quaternion
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.transform import Transform
 
 Quaternion = numpy.quaternion
 
@@ -21,12 +24,13 @@ def dot(q1: 'Quaternion', q2: 'Quaternion') -> 'FLOAT':
 
 def to_transform(q: 'Quaternion') -> 'Transform':
 	x, y, z, w = q.w, q.x, q.y, q.z
-	m = np.array([[1. - 2. * (y * y + z * z), 2. * (x * y + z * w), 2. * (x * z - y * w)],
-				  [2. * (x * y - z * w), 1. - 2. * (x * x + z * z), 2. * (y * z + x * w)],
-				  [2. * (x * z + y * w), 2. * (y * z - x * w), 1. - 2. * (x * x + y * y)]], 
+	m = np.array([[1. - 2. * (y * y + z * z), 2. * (x * y + z * w), 2. * (x * z - y * w), 0.],
+				  [2. * (x * y - z * w), 1. - 2. * (x * x + z * z), 2. * (y * z + x * w), 0.],
+				  [2. * (x * z + y * w), 2. * (y * z - x * w), 1. - 2. * (x * x + y * y), 0.],
+	              [0., 0., 0., 1.]],
 				  dtype=FLOAT)
 	from pytracer.transform import Transform
-	return Transform(m) 
+	return Transform(m.T, m)    # transpose for left-handedness
 
 
 def from_transform(t: 'Transform') -> 'Quaternion':

@@ -94,7 +94,7 @@ class ShapeSet(object):
 		self.sum_area = 0.
 		for sh in self.shapes:
 			area = sh.area()
-			self.areas.push_back(area)
+			self.areas.append(area)
 			self.sum_area += area
 
 		self.area_dist = mc.Distribution1D(self.areas)
@@ -102,7 +102,7 @@ class ShapeSet(object):
 	def __repr__(self):
 		return "{}\nNumber of Shapes: {}\n".format(self.__class__, len(self.shapes))
 
-	def sample(self, p: 'geo.Point', ls: 'LightSample') -> ['geo.Point', 'geo.Normal']:
+	def sample_p(self, p: 'geo.Point', ls: 'LightSample') -> ['geo.Point', 'geo.Normal']:
 		sn, _ = self.area_dist.sample_dis(ls.u_com)
 		pt, ns = self.shapes[sn].sample_p(p, ls.u_pos[0], ls.u_pos[1])
 
@@ -115,15 +115,27 @@ class ShapeSet(object):
 			hit, thit, _, dg = sh.intersect(r)
 			any_hit |= hit
 		if any_hit:
-			ns = dg.nn
+			return [r(thit), dg.nn]
+		else:
+			return [pt, ns]
 
-		return [r(thit), ns]
+	def sample(self, ls: 'LightSample') -> ['geo.Point', 'geo.Normal']:
+		sn, _ = self.area_dist.sample_dis(ls.u_com)
+		pt, ns = self.shapes[sn].sample(ls.u_pos[0], ls.u_pos[1])
+
+		return [pt, ns]
 
 	def pdf(self, p: 'geo.Point', wi: 'geo.Vector') -> FLOAT:
 		pdf = 0.
 		for i, sh in enumerate(self.shapes):
 			pdf += self.areas[i] * sh.pdf_p(p, wi)
 		return pdf / self.sum_area
+
+	def pdf_p(self, p: 'geo.Point') -> FLOAT:
+		pdf = 0.
+		for i, sh in enumerate(self.shapes):
+			pdf += self.areas[i] * sh.pdf(p)
+		return pdf / (self.sum_area * len(self.shapes))
 
 
 class LightSampleOffset(object):

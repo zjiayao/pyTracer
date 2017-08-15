@@ -10,6 +10,11 @@ import os
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
 import pytracer.geometry as geo
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.texture import Texture
+	from pytracer.reflection import BSDF
+	from pytracer.volume import BSSRDF
 
 
 __all__ = ['Material', 'MatteMaterial', 'PlasticMaterial',
@@ -84,7 +89,7 @@ class Material(object, metaclass=ABCMeta):
 		dg.dpdu = dgs.dpdu + (u_disp - disp) / du * dgs.nn + disp * geo.Vector.fromNormal(dgs.dndu)
 		dg.dpdv = dgs.dpdv + (v_disp - disp) / dv * dgs.nn + disp * geo.Vector.fromNormal(dgs.dndv)
 		dg.nn = geo.Normal.from_arr(geo.normalize(dg.dpdu.cross(dg.dpdv)))
-		if (dgs.shape.ro ^ dgs.shape.transform_swaps_handedness):
+		if dgs.shape.ro ^ dgs.shape.transform_swaps_handedness:
 			dg.nn *= -1.
 
 		# orient shding normal to match goemtric normal
@@ -112,7 +117,6 @@ class MatteMaterial(Material):
 		self.Kd = Kd
 		self.sigma = sigma
 		self.bump_map = bump_map
-
 
 	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		from pytracer.reflection import (BSDF, Lambertian, OrenNayar)
@@ -158,7 +162,6 @@ class PlasticMaterial(Material):
 		self.roughness = roughness
 		self.bump_map = bump_map
 
-
 	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		from pytracer.reflection import (BSDF, Lambertian, FresnelDielectric, Microfacet, Blinn)
 		# possibly bump mapping
@@ -172,7 +175,7 @@ class PlasticMaterial(Material):
 		# diffuse
 		kd = self.Kd(dgs).clip()
 		diff = Lambertian(kd)
-		fresnel = FresnelDielectric(1.5, 1.)
+		fresnel = FresnelDielectric(Spectrum(1.5), Spectrum(1.))
 
 		# glossy specular
 		ks = self.Ks(dgs).clip()
@@ -192,7 +195,7 @@ class MixMaterial(Material):
 	Models mixed materials. Use texture
 	spectrum to blend.
 	"""
-	def __init__(self, m1: 'Texture', m2: 'Texture', scale: 'Texture'):
+	def __init__(self, m1: 'Material', m2: 'Material', scale: 'Texture'):
 		"""
 		m1, m2: `Material` `Spectrum`
 		scale: `Spectrum` `Texture` for blend
@@ -200,7 +203,6 @@ class MixMaterial(Material):
 		self.m1 = m1
 		self.m2 = m2
 		self.scale = scale
-
 
 	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		"""
@@ -244,7 +246,7 @@ class MeasuredMaterial(Material):
 		self.bump_map = bump_map
 		self.regular_data = None
 		self.theta_phi_tree = None
-		self.theta_phi_data = None
+		self.theta_phi_samples = None
 
 		dire, file = os.path.split(filename)
 		name, ext = os.path.splitext(file)
@@ -304,7 +306,6 @@ class MeasuredMaterial(Material):
 			self.theta_phi_tree = KdTree(tree_data)
 			IrIsotropicData[file] = [self.theta_phi_samples, self.theta_phi_tree]
 
-
 		elif ext == '.binary':
 			# Regular Halfangle BRDF
 			self.n_theta_h = 90
@@ -317,13 +318,11 @@ class MeasuredMaterial(Material):
 					': Has not support MERL yet'.format(self.__class__,
 							file, ext))
 
-
-
-
 		else:
 			raise IOError('src.core.material.{}.__init__() '
 					': Cannot load {}, unknown type {}'.format(self.__class__,
 							file, ext))
+
 
 	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		"""
@@ -339,8 +338,7 @@ class MeasuredMaterial(Material):
 
 		if self.regular_data is not None:
 			# regular tabulate
-			bsdf.push_back(ReHalfangleBRDF(self.regular_data), self.n_theta_h, self.n_theta_d,
-						self.n_phi_d)
+			bsdf.push_back(ReHalfangleBRDF(self.regular_data, self.n_theta_h, self.n_theta_d, self.n_phi_d))
 
 		elif self.theta_phi_tree is not None:
 			# irregular
@@ -375,7 +373,7 @@ class SubsurfaceMaterial(Material):
 		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(Spectrum(1.), self.eta(dgs))))
 
 		return bsdf
 
@@ -416,7 +414,7 @@ class KdSubsurfaceMaterial(Material):
 		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(Spectrum(1.), self.eta(dgs))))
 
 		return bsdf
 

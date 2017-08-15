@@ -6,7 +6,6 @@ The base class of the spectrum.
 Created by Jiayao on July 30, 2017
 """
 from __future__ import absolute_import
-from typing import Union, Iterable, overload
 from abc import (ABCMeta, abstractmethod)
 from enum import Enum
 from pytracer import *
@@ -515,7 +514,8 @@ class RGBSpectrum(CoefficientSpectrum):
 		s.c = np.array(rgb)
 		return s
 
-	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'):
+	@classmethod
+	def fromRGBSpectrum(cls, r: 'RGBSpectrum', t: 'SpectrumType'= SpectrumType.REFLECTANCE):
 		rgb = r.c.copy()
 		return cls.fromRGB(rgb, t)
 

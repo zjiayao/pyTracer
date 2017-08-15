@@ -76,7 +76,7 @@ class OrthoCamera(ProjectiveCamera):
 		if self.lens_rad > 0.:
 			# sample point on lens
 
-			from ..montecarlo import concentric_sample_disk
+			from pytracer.montecarlo import concentric_sample_disk
 			lens_u, lens_v = \
 				concentric_sample_disk(sample.lens_u, sample.lens_v)
 			lens_u *= self.lens_rad
@@ -135,12 +135,12 @@ class PerspectiveCamera(ProjectiveCamera):
 		Pras = geo.Point(sample.imageX, sample.imageY, 0.)
 		Pcam = self.r2c(Pras)
 
-		ray = geo.Ray(geo.Point(0., 0., 0.), geo.Vector.fromgeo.Point(geo.normalize(Pcam)), 0., np.inf)  # ray.d is a geo.Vector init from a geo.Point
+		ray = geo.Ray(geo.Point(0., 0., 0.), geo.Vector.from_arr(geo.normalize(Pcam)), 0., np.inf)  # ray.d is a geo.Vector init from a geo.Point
 		# modify ray for dof
 		if self.lens_rad > 0.:
 			# sample point on lens
 
-			from ..montecarlo import concentric_sample_disk
+			from pytracer.montecarlo import concentric_sample_disk
 
 			lens_u, lens_v = \
 				concentric_sample_disk(sample.lens_u, sample.lens_v)
@@ -163,15 +163,15 @@ class PerspectiveCamera(ProjectiveCamera):
 		"""
 		Generate ray differential.
 		"""
-		Pras = geo.Point(sample.imageX, sample.imageY, 0.)
-		Pcam = self.r2c(Pras)
+		p_ras = geo.Point(sample.imageX, sample.imageY, 0.)
+		p_cam = self.r2c(p_ras)
 
-		ray = geo.RayDifferential(geo.Point(0., 0., 0.), geo.Vector.from_arr(geo.normalize(Pcam)), 0., np.inf)  # ray.d is a geo.Vector init from a geo.Point
+		ray = geo.RayDifferential(geo.Point(0., 0., 0.), geo.Vector.from_arr(geo.normalize(p_cam)), 0., np.inf)  # ray.d is a geo.Vector init from a geo.Point
 
+		from pytracer.montecarlo import concentric_sample_disk
 		if self.lens_rad > 0.:
 			# depth of field
 
-			from ..montecarlo import concentric_sample_disk
 			lens_u, lens_v = \
 				concentric_sample_disk(sample.lens_u, sample.lens_v)
 			lens_u *= self.lens_rad
@@ -187,20 +187,18 @@ class PerspectiveCamera(ProjectiveCamera):
 
 		if self.lens_rad > 0.:
 			# with defocus blue
-
-			lens_u, lens_v = \
-				concentric_sample_disk(sample.lens_u, sample.lens_v)
+			lens_u, lens_v = concentric_sample_disk(sample.lens_u, sample.lens_v)
 			lens_u *= self.lens_rad
 			lens_v *= self.lens_rad
 
 			# compute point on focal plane
-			dx = geo.normalize(self.dxCam + Pcam)
+			dx = geo.normalize(self.dxCam + p_cam)
 			ft = self.focal_dist / dx.z
 			Pfoc = geo.Point(0., 0., 0.) + ft * dx
 			ray.rxOrigin = geo.Point(lens_u, lens_v, 0.)
 			ray.rxDirection = geo.normalize(Pfoc - ray.rxOrigin)
 
-			dy = geo.normalize(geo.Vector.fromgeo.Point(Pcam + self.dyCam))
+			dy = geo.normalize(geo.Vector.from_arr(p_cam + self.dyCam))
 			ft = self.focal_dist / dy.z
 			Pfoc = geo.Point(0., 0., 0.) + ft * dy
 			ray.ryOrigin = geo.Point(lens_u, lens_v, 0.)
@@ -208,8 +206,8 @@ class PerspectiveCamera(ProjectiveCamera):
 
 		else:
 			ray.rxOrigin = ray.ryOrigin = ray.o
-			ray.rxDirection = geo.normalize(self.dxCam + Pcam)  # geo.Vector + geo.Point => geo.Vector
-			ray.ryDirection = geo.normalize(self.dyCam + Pcam)
+			ray.rxDirection = geo.normalize(self.dxCam + p_cam)  # geo.Vector + geo.Point => geo.Vector
+			ray.ryDirection = geo.normalize(self.dyCam + p_cam)
 
 		ray.time = sample.time
 		ray = self.c2w(ray)

@@ -11,6 +11,11 @@ from __future__ import absolute_import
 import threading
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
+import pytracer.utility.imageio as iio
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.filter import Filter
+
 
 __all__ = ['Film', 'ImageFilm']
 
@@ -99,7 +104,6 @@ class ImageFilm(Film):
 
 		def __repr__(self):
 			return "{}\nLocked: {}".format(self.__class__, self.lock.locked())
-
 
 	def __init__(self, xr: INT, yr: INT, filt: 'Filter', crop: [FLOAT], fn: str):
 		super().__init__(xr, yr)
@@ -232,25 +236,25 @@ class ImageFilm(Film):
 		Display or write image to file
 		"""
 		# convert to RGB and compute pixel values
-		nPix = self.xPixel_cnt * self.yPixel_cnt
+		from pytracer.spectral import xyz2rgb
 		rgb = np.empty([self.xPixel_cnt, self.yPixel_cnt, 3], dtype=FLOAT)
 
 		for y in range(self.yPixel_cnt):
 			for x in range(self.xPixel_cnt):
 				
-				rgb[y, x] = Spectrum.xyz2rgb(self.pixels[x][y].Lxyz)
+				rgb[y, x] = xyz2rgb(self.pixels[x][y].Lxyz)
 				ws = self.pixels[x][y].weight_sum
 
 				if not ws == 0.:
 					rgb[y, x] = np.maximum(0., rgb[y, x] / ws)
 
 				# add splat values
-				rgb[y, x] += splat_scale * Spectrum.xyz2rgb(self.pixels[x][y].splatXYZ)
+				rgb[y, x] += splat_scale * xyz2rgb(self.pixels[x][y].splatXYZ)
 
 		# write image
-		pt.write_image(self.filename, rgb, None,
-				self.xPixel_cnt, self.yPixel_cnt, self.xResolution, self.yResolution,
-				self.xPixel_start, self.yPixel_start)
+		iio.write_image(self.filename, rgb, None,
+		                self.xPixel_cnt, self.yPixel_cnt, self.xResolution, self.yResolution,
+		                self.xPixel_start, self.yPixel_start)
 
 
 

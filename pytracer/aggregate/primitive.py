@@ -85,6 +85,7 @@ class GeometricPrimitive(Primitive):
 		return super().__repr__() + '\n{}'.format(self.shape)
 
 	def intersect(self, r: 'geo.Ray') -> [bool, 'Intersection']:
+		from pytracer.aggregate import Intersection
 		is_intersect, thit, rEps, dg = self.shape.intersect(r)
 		if not is_intersect:
 			return [False, None]

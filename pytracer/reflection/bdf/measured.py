@@ -13,7 +13,6 @@ Created by Jiayao on Aug 2, 2017
 from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.montecarlo as mc
 from pytracer.reflection.utility import (cos_phi, sin_phi, cos_theta, sin_theta, brdf_remap)
 from pytracer.reflection.bdf.bdf import (BDFType, BDF)
 
@@ -102,9 +101,9 @@ class ReHalfangleBRDF(BDF):
 		wdp = geo.spherical_phi(wd)
 		if wdp > PI:
 			wdp -= PI
-		wht_idx = np.clip(INT((np.sqrt(max(0., t / (PI / 2.)))) / (self.nThetaH)), 0, self.nThetaH - 1)
+		wht_idx = np.clip(INT((np.sqrt(max(0., t / (PI / 2.)))) / self.nThetaH), 0, self.nThetaH - 1)
 
-		wdt_idx = np.clip(INT((wdt) / (self.nThetaD * PI)), 0, self.nThetaD - 1)
+		wdt_idx = np.clip(INT(wdt / (self.nThetaD * PI)), 0, self.nThetaD - 1)
 
-		wdp_idx = np.clip(INT((wdp) / (self.nPhiD * PI)), 0, self.nPhiD - 1)
+		wdp_idx = np.clip(INT(wdp / (self.nPhiD * PI)), 0, self.nPhiD - 1)
 		return Spectrum.fromRGB(self.brdf[wht_idx][wdt_idx][wdp_idx])

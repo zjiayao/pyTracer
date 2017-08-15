@@ -4,8 +4,15 @@ from __future__ import absolute_import
 def test_import():
 	import pytracer
 	import pytracer.geometry
+	import pytracer.geometry.utility
+	import pytracer.geometry.diffgeom
 	import pytracer.transform
 	import pytracer.shape
+	import pytracer.shape.disk
+	import pytracer.shape.sphere
+	import pytracer.shape.cylinder
+	import pytracer.shape.triangle
+	import pytracer.shape.loopsubdiv
 	import pytracer.aggregate
 	import pytracer.film
 	import pytracer.camera

@@ -39,6 +39,7 @@ class FresnelConductor(Fresnel):
 	def __call__(self, cosi: FLOAT):
 		return fr_cond(np.fabs(cosi), self.eta, self.k)
 
+
 class FresnelDielectric(Fresnel):
 	"""
 	Fresnel Class
