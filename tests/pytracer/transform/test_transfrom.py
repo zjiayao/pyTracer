@@ -169,8 +169,8 @@ class TestTransform(object):
 		t = Transform()
 		b = t(box)
 		assert isinstance(b, geo.BBox)
-		assert b.pMax == box.pMax
-		assert b.pMin == box.pMin
+		assert_almost_eq(b.pMax, box.pMax)
+		assert_almost_eq(b.pMin, box.pMin)
 
 	def test_call_logic(self):
 		t = Transform()
