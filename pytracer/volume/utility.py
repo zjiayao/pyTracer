@@ -72,8 +72,8 @@ def get_volume_scattering(name: str) -> ['Spectrum', 'Spectrum']:
 	"""
 	from pytracer.data.volume import MEASURED_SUF_SC
 	if name in MEASURED_SUF_SC:
-		return [Spectrum.fromRGB(MEASURED_SUF_SC[name][0]),
-				Spectrum.fromRGB(MEASURED_SUF_SC[name][1])]
+		return [Spectrum.from_rgb(MEASURED_SUF_SC[name][0]),
+		        Spectrum.from_rgb(MEASURED_SUF_SC[name][1])]
 	return [None, None]
 
 

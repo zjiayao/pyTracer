@@ -42,46 +42,47 @@ def progress_reporter(iteration, total, prefix='', suffix='', decimals=1, length
 		print()
 
 
-def feq(x: FLOAT, y: FLOAT) -> bool:
+def feq(x: (float, FLOAT), y: (float, FLOAT)) -> bool:
 	"""Equality test for floats."""
 	return np.isclose(x, y, atol=EPS)
 
 
-def eq_unity(x: FLOAT) -> bool:
+def eq_unity(x: (float, FLOAT)) -> bool:
 	"""Equality test with unity."""
 	return (x > 1. - EPS) and (x < 1. + EPS)
 
 
-def ne_unity(x: FLOAT) -> bool:
+def ne_unity(x: (float, FLOAT)) -> bool:
 	"""Inequality test with unity."""
 	return x < 1. - EPS or x > 1. + EPS
 
-def is_zero(x: FLOAT) -> bool:
+
+def is_zero(x: (float, FLOAT)) -> bool:
 	"""Equality test with zero."""
 	return x > -EPS and x < EPS
 
 
-def not_zero(x: FLOAT) -> bool:
+def not_zero(x: (float, FLOAT)) -> bool:
 	"""Inequality test with zero"""
 	return x < -EPS or x > EPS
 
 
-def ftoi(x: FLOAT) -> INT:
+def ftoi(x: (float, FLOAT)) -> INT:
 	"""Floor to integer"""
 	return INT(np.floor(x))
 
 
-def ctoi(x: FLOAT) -> INT:
+def ctoi(x: (float, FLOAT)) -> INT:
 	"""Ceiling to integer"""
 	return INT(np.ceil(x))
 
 
-def rtoi(x: FLOAT) -> INT:
+def rtoi(x: (float, FLOAT)) -> INT:
 	"""Round to integer"""
 	return INT(np.round(x))
 
 
-def lerp(t: FLOAT, v1: FLOAT, v2: FLOAT) -> FLOAT:
+def lerp(t: (float, FLOAT), v1: (float, FLOAT), v2: (float, FLOAT)) -> (float, FLOAT):
 	"""Linear interpolation between `v1` and `v2`"""
 	return (1. - t) * v1 + t * v2
 

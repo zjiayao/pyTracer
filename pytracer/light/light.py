@@ -560,7 +560,7 @@ class InfiniteAreaLight(Light):
 		"""
 		super().__init__(l2w, ns)
 		self.pos = l2w(geo.Point(0., 0., 0.)) # where the light is positioned in the world
-		texels = np.array([[l.toRGBSpectrum()]])
+		texels = np.array([[l.to_rgb()]])
 		width, height = 1, 1
 
 		if texmap is not None:
@@ -571,7 +571,7 @@ class InfiniteAreaLight(Light):
 			except:
 				print('src.core.texture.{}.get_texture(): cannot process file {}, '
 				'use default one-valued MIPMap'.format(self.__class__, texmap))
-				texels = np.array([[l.toRGBSpectrum()]])
+				texels = np.array([[l.to_rgb()]])
 				width, height = 1, 1
 
 		from pytracer.texture import MIPMap
@@ -598,7 +598,7 @@ class InfiniteAreaLight(Light):
 		wh = geo.normalize(self.w2l(rd.d))
 		s = geo.spherical_phi(wh) * INV_2PI
 		t = geo.spherical_theta(wh) * INV_PI
-		return Spectrum.fromRGBSpectrum(self.radMap.look_up(s, t), SpectrumType.ILLUMINANT)
+		return Spectrum.from_rgb(self.radMap.look_up(s, t), SpectrumType.ILLUMINANT)
 
 	def sample_l(self, p: 'geo.Point', pEps: FLOAT, ls: 'LightSample',
 			time: FLOAT,) -> ['Spectrum', 'geo.Vector', FLOAT, 'VisibilityTester']:	
@@ -624,7 +624,7 @@ class InfiniteAreaLight(Light):
 		vis = VisibilityTester()
 		vis.set_ray(p, pEps, wi, time)
 
-		return [Spectrum.fromRGBSpectrum( self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT),
+		return [Spectrum.from_rgb(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT),
 					wi, pdf, vis]
 
 	def pdf(self, p: 'geo.Point', w: 'geo.Vector') -> FLOAT:
@@ -674,12 +674,12 @@ class InfiniteAreaLight(Light):
 		if st == 0.:
 			pdf == 0.
 
-		return [ray, Ns, pdf, Spectrum.fromRGBSpectrum(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT)]
+		return [ray, Ns, pdf, Spectrum.from_rgb(self.radMap.look_up([uv[0], uv[1]]), SpectrumType.ILLUMINANT)]
 
 	@property
 	def power(self, scene: 'Scene') -> 'Spectrum':
 		_, rad = scene.world_bound().bounding_sphere()
-		return PI * rad * rad * Spectrum.fromRGBSpectrum(self.radMap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)
+		return PI * rad * rad * Spectrum.from_rgb(self.radMap.look_up([.5, .5, .5]), SpectrumType.ILLUMINANT)
 
 	def is_delta_light(self) -> bool:
 		return False

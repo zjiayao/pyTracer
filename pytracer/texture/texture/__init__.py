@@ -110,7 +110,7 @@ class UVTexture(Texture):
 
 	def __call__(self, dg: 'geo.DifferentialGeometry'):
 		s, t, _, _, _, _ = self.mapping(dg)
-		return Spectrum.fromRGB([s - util.ftoi(s), t - util.ftoi(t), 0.])
+		return Spectrum.from_rgb([s - util.ftoi(s), t - util.ftoi(t), 0.])
 
 
 class Chekcerboard2DTexture(Texture):
@@ -312,10 +312,10 @@ class MarbleTexture(Texture):
 		# evaluate marble spline at $t$
 		fst = util.ftoi(t * self.spline_num - 3)
 		t = t * (self.spline_num - 3) - fst
-		c0 = Spectrum.fromRGB(self.spline[fst:fst+3])
-		c1 = Spectrum.fromRGB(self.spline[fst+1:fst+4])
-		c2 = Spectrum.fromRGB(self.spline[fst+2:fst+5])
-		c3 = Spectrum.fromRGB(self.spline[fst+3:fst+6])
+		c0 = Spectrum.from_rgb(self.spline[fst:fst + 3])
+		c1 = Spectrum.from_rgb(self.spline[fst + 1:fst + 4])
+		c2 = Spectrum.from_rgb(self.spline[fst + 2:fst + 5])
+		c3 = Spectrum.from_rgb(self.spline[fst + 3:fst + 6])
 
 		# Bezier spline evaluated with de Castilejau's algorithm
 		s0 = (1. - t) * c0 + t * c1

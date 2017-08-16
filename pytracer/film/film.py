@@ -158,7 +158,7 @@ class ImageFilm(Film):
 			return
 
 		# add sample to pixel arrays
-		xyz = L.toXYZ()
+		xyz = L.to_xyz()
 
 		## precomputes offsets		
 		ifx = np.minimum(FILTER_TABLE_SIZE-1,
@@ -199,7 +199,7 @@ class ImageFilm(Film):
 		Used to sum the contribution
 		around a pixel sample
 		"""
-		xyz = L.toXYZ()
+		xyz = L.to_xyz()
 
 		x = INT(np.floor(sample.imageX))
 		y = INT(np.floor(sample.imageY))

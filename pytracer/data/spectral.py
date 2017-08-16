@@ -6,9 +6,18 @@ Spectral Data
 Created by Jiayao on July 31, 2017
 """
 import numpy as np
-from pytracer import *
+from pytracer import FLOAT
+
+__all__ = ['N_CIE_SAMPLES', 'CIE_Y_INTEGRAL', 'CIE_X', 'CIE_Y', 'CIE_Z',
+           'CIE_LAMBDA', 'N_RGB_SAMPLES', 'RGB2SpectLambda', 'RGBRefl2SpectWhite',
+           'RGBRefl2SpectCyan', 'RGBRefl2SpectMagenta', 'RGBRefl2SpectYellow', 'RGBRefl2SpectRed',
+           'RGBRefl2SpectGreen', 'RGBRefl2SpectBlue', 'RGBIllum2SpectWhite', 'RGBIllum2SpectCyan',
+           'RGBIllum2SpectMagenta', 'RGBIllum2SpectYellow', 'RGBIllum2SpectRed', 'RGBIllum2SpectGreen',
+           'RGBIllum2SpectBlue']
+
 
 N_CIE_SAMPLES = 471
+
 CIE_Y_INTEGRAL = 106.856895
 
 CIE_X = np.array([
@@ -130,7 +139,6 @@ CIE_X = np.array([
 		0.000002522525,  0.000002351726,  0.000002192415,  0.000002043902,
 		0.000001905497,  0.000001776509,  0.000001656215,  0.000001544022,
 		0.000001439440, 0.000001341977, 0.000001251141], dtype=FLOAT)
-
 
 CIE_Y = np.array([
 		0.000003917000,  0.000004393581,  0.000004929604,  0.000005532136,
@@ -408,7 +416,7 @@ CIE_LAMBDA = np.array([
 		808, 809, 810, 811, 812, 813, 814, 815, 816, 817, 818, 819, 820, 821,
 		822, 823, 824, 825, 826, 827, 828, 829, 830], dtype=FLOAT)
 
-N_RGB_SAMPLES = 32;
+N_RGB_SAMPLES = 32
 
 RGB2SpectLambda = np.array([
 		380.000000, 390.967743, 401.935486, 412.903229, 423.870972, 434.838715,

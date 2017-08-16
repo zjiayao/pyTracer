@@ -43,7 +43,7 @@ def read_image(filename: str) -> ['spec.Spectrum']:
 		if chn == 3:
 			for t in range(height):
 				for s in range(width):
-					specs[t, s] = spec.Spectrum.fromRGB(img[t,s,:])
+					specs[t, s] = spec.Spectrum.from_rgb(img[t, s, :])
 		# monochrome
 		elif chn == 1:
 			for t in range(height):

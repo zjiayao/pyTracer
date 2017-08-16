@@ -106,4 +106,4 @@ class ReHalfangleBRDF(BDF):
 		wdt_idx = np.clip(INT(wdt / (self.nThetaD * PI)), 0, self.nThetaD - 1)
 
 		wdp_idx = np.clip(INT(wdp / (self.nPhiD * PI)), 0, self.nPhiD - 1)
-		return Spectrum.fromRGB(self.brdf[wht_idx][wdt_idx][wdp_idx])
+		return Spectrum.from_rgb(self.brdf[wht_idx][wdt_idx][wdp_idx])

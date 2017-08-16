@@ -295,7 +295,7 @@ class MeasuredMaterial(Material):
 				pos += 4
 				wo = geo.spherical_direction(np.sin(tho), np.cos(tho), pho)
 				wi = geo.spherical_direction(np.sin(thi), np.cos(thi), phi)
-				s = Spectrum.fromSampled(wls, val[pos:pos+num_wls], num_wls)
+				s = Spectrum.from_sampled(wls, val[pos:pos + num_wls], num_wls)
 				p = brdf_remap(wo, wi)
 				samples.append(IrIsotropicBRDFSample(p, s))
 				pos += num_wls

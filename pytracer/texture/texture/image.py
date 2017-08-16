@@ -108,7 +108,7 @@ class ImageTexture(Texture):
 
 		if isinstance(texel, 'RGBSpectrum') and \
 						type_ret is Spectrum:
-			return Spectrum.fromRGB(texel.toRGB())
+			return Spectrum.from_rgb(texel.toRGB())
 		elif (isinstance(texel, float) or isinstance(texel, FLOAT)) and \
 						type_ret is (float or FLOAT):
 			return texel
