@@ -109,7 +109,7 @@ class MatteMaterial(Material):
 			0 at some point; OrenNayer otherwise
 
 	"""
-	def __init__(self, Kd: 'Texture', sigma: 'Texture', bump_map: 'Texture'):
+	def __init__(self, Kd: 'Texture', sigma: 'Texture', bump_map: 'Texture'=None):
 		"""
 		Kd: `Spectrum` `Texture`
 		sigma, bump_map: `FLOAT` `Texture`
@@ -129,7 +129,7 @@ class MatteMaterial(Material):
 		bsdf = BSDF(dgs, dg_g.nn)
 
 		# evaluate textures
-		r = self.Kd(dgs).clip()
+		r = util.clip(self.Kd(dgs))
 		sigma = np.clip(self.sigma(dgs), 0., 90.)
 		if sigma == 0.:
 			# use Lambertian
@@ -152,7 +152,7 @@ class PlasticMaterial(Material):
 	rough: Roughness, determines specular highlight
 
 	"""
-	def __init__(self, Kd: 'Texture', Ks: 'Texture', roughness: 'Texture', bump_map: 'Texture'):
+	def __init__(self, Kd: 'Texture', Ks: 'Texture', roughness: 'Texture', bump_map: 'Texture'=None):
 		"""
 		Kd: `Spectrum` `Texture`
 		sigma, bump_map: `FLOAT` `Texture`
@@ -231,7 +231,7 @@ class MeasuredMaterial(Material):
 	Models materials using measured BSDF,
 	either irregular or regular.
 	"""
-	def __init__(self, filename: 'str', bump_map: 'Texture'):
+	def __init__(self, filename: 'str', bump_map: 'Texture'=None):
 		"""
 		filename: filename of measured material
 		bump_map: `FLOAT` `Texture`
@@ -285,20 +285,23 @@ class MeasuredMaterial(Material):
 			wls = val[1:1+num_wls]
 
 			samples = []
-			tree_data = np.empty([num_smp, 4])
+			tree_data = np.empty([num_smp, 3])  # indexed by point structure
 
 			pos = 1 + num_wls
 			cnt = 0
 			while pos < len_val:
-				thi, phi, tho, pho = tree_data[cnt,:] = val[pos:pos+4]
-				cnt += 1
+				thi, phi, tho, pho = val[pos:pos+4]
 				pos += 4
 				wo = geo.spherical_direction(np.sin(tho), np.cos(tho), pho)
 				wi = geo.spherical_direction(np.sin(thi), np.cos(thi), phi)
-				s = Spectrum.from_sampled(wls, val[pos:pos + num_wls], num_wls)
+				s = Spectrum.from_sampled(wls, val[pos:pos + num_wls])
 				p = brdf_remap(wo, wi)
-				samples.append(IrIsotropicBRDFSample(p, s))
+				smp = IrIsotropicBRDFSample(p, s)
+				tree_data[cnt, :] = smp.p
+				samples.append(smp)
 				pos += num_wls
+				cnt += 1
+
 
 			val = [] # release memory
 
@@ -322,7 +325,6 @@ class MeasuredMaterial(Material):
 			raise IOError('src.core.material.{}.__init__() '
 					': Cannot load {}, unknown type {}'.format(self.__class__,
 							file, ext))
-
 
 	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
 		"""
@@ -354,7 +356,7 @@ class SubsurfaceMaterial(Material):
 	Models translucent objects
 	"""
 	def __init__(self, scale: FLOAT, kr: 'Texture', sigma_a: 'Texture',
-					sigma_prime_s: 'Texture', eta: 'Texture', bump_map: 'Texture'):
+					sigma_prime_s: 'Texture', eta: 'Texture', bump_map: 'Texture'=None):
 		self.scale = scale
 		self.kr = kr
 		self.sigma_a = sigma_a
@@ -395,7 +397,7 @@ class KdSubsurfaceMaterial(Material):
 	Models translucent objects
 	"""
 	def __init__(self, kd: 'Texture', kr: 'Texture', mfp: 'Texture',
-					eta: 'Texture', bump_map: 'Texture'):
+					eta: 'Texture', bump_map: 'Texture'=None):
 		self.kd = kd
 		self.kr = kr
 		self.mfp = mfp # mean free path

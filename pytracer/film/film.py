@@ -126,11 +126,13 @@ class ImageFilm(Film):
 
 		# precompute filter table
 		# as an np array of np arrays
-		self.filter_table = np.empty(FILTER_TABLE_SIZE, dtype=object)
-		dx = self.filter.yw / FILTER_TABLE_SIZE
-		dy = self.filter.xw / FILTER_TABLE_SIZE
+		self.filter_table = np.empty([FILTER_TABLE_SIZE, FILTER_TABLE_SIZE], dtype=FLOAT)
+		dx = self.filter.xw / FILTER_TABLE_SIZE
+		dy = self.filter.yw / FILTER_TABLE_SIZE
 		for y in range(FILTER_TABLE_SIZE):
-			self.filter_table[y] = self.filter((np.arange(FILTER_TABLE_SIZE) + .5) * dx, (y + .5) * dy)
+			fy = (y + .5) * dy
+			for x in range(FILTER_TABLE_SIZE):
+				self.filter_table[y, x] = self.filter((x + .5) * dx, fy)
 
 	def add_sample(self, sample: 'CameraSample', L: 'Spectrum'):
 		"""
@@ -143,11 +145,10 @@ class ImageFilm(Film):
 
 		dX = sample.imageX - .5
 		dY = sample.imageY - .5
-		x0 = INT(np.ceil( dX - self.filter.xw))
-		x1 = INT(np.floor(dX + self.filter.xw))
-		y0 = INT(np.ceil( dX - self.filter.yw))
-		y1 = INT(np.floor(dX + self.filter.yw))
-
+		x0 = util.ctoi(dX - self.filter.xw)
+		x1 = util.ftoi(dX + self.filter.xw)
+		y0 = util.ctoi(dY - self.filter.yw)
+		y1 = util.ftoi(dY + self.filter.yw)
 
 		x0 = np.maximum(x0, self.xPixel_start, dtype=INT)
 		x1 = np.minimum(x1, self.xPixel_start + self.xPixel_cnt - 1, dtype=INT)
@@ -158,9 +159,10 @@ class ImageFilm(Film):
 			return
 
 		# add sample to pixel arrays
-		xyz = L.to_xyz()
+		from pytracer.spectral import rgb2xyz
+		xyz = rgb2xyz(L)
 
-		## precomputes offsets		
+		## precomputes offsets
 		ifx = np.minimum(FILTER_TABLE_SIZE-1,
 				np.floor(np.fabs((np.arange(x0, x1+1) - dX) * FILTER_TABLE_SIZE * self.filter.xwInv)).astype(INT) )
 		ify = np.minimum(FILTER_TABLE_SIZE-1,
@@ -176,11 +178,11 @@ class ImageFilm(Film):
 				# find filter value
 				
 				### DEBUG
-				### print("x: ", type(x), " y: ", type(y), " x0: ", type(x0), " y0: ",type(y0)) 
-				
-				wt = self.filter_table[y-y0][x-x0]
+				### print("x: ", type(x), " y: ", type(y), " x0: ", type(x0), " y0: ",type(y0))
+
+				wt = self.filter_table[ify[y - y0]][ifx[x - x0]]
 				pxl = self.pixels[x - self.xPixel_start][y - self.yPixel_start]
-				
+
 				if not sync:
 					pxl.Lxyz += wt * xyz
 					pxl.weight_sum += wt
@@ -189,10 +191,11 @@ class ImageFilm(Film):
 					# note locks are stored in Pixel
 					# which induce overhead
 					# may use atomic ops later
-					pxl.lock.acquire()			# using `with` causes jit exception
-					pxl.Lxyz += wt * xyz
-					pxl.weight_sum += wt					
-					pxl.lock.release()
+					with pxl.lock:
+					# pxl.lock.acquire()			# using `with` causes jit exception
+						pxl.Lxyz += wt * xyz
+						pxl.weight_sum += wt
+					# pxl.lock.release()
 
 	def splat(self, sample: 'CameraSample', L: 'Spectrum'):
 		"""

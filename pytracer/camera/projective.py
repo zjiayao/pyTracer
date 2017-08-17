@@ -14,8 +14,26 @@ from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
 from pytracer.camera.camera import Camera
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.sampler import CameraSample, StratifiedSampler
 
-__all__ = ['ProjectiveCamera', 'OrthoCamera', 'PerspectiveCamera']
+__all__ = ['ProjectiveCamera', 'OrthoCamera', 'PerspectiveCamera', 'PinholeCamera']
+
+
+class PinholeCamera(Camera):
+	def __init__(self, c2w: 'trans.AnimatedTransform', focald: FLOAT, f: 'Film'):
+		super().__init__(c2w, 0., 0., f)
+		self.focal = focald
+
+	def generate_ray(self, sample: 'CameraSample') -> [FLOAT, 'geo.Ray']:
+		p = geo.Point(sample.imageX, sample.imageY, 0.)
+		pp = geo.Point(0., 0., self.focal)
+		d = self.c2w.startTransform(pp - p)
+		p = self.c2w.startTransform(p)
+		return 1., geo.Ray(p, d)
+
+
 
 
 class ProjectiveCamera(Camera):

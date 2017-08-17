@@ -164,7 +164,7 @@ class BDF(object, metaclass=ABCMeta):
 		return r
 
 	def match_flag(self, flag: 'BDFType') -> bool:
-		return (self.type & flag) == type
+		return self.type.v & flag.v == self.type.v
 
 
 # adapter from BRDF to BTDF
@@ -316,7 +316,10 @@ class Lambertian(BDF):
 		R: Spectrum Reflectance
 		"""
 		super().__init__(BDFType.REFLECTION | BDFType.DIFFUSE)
-		self.R = r
+		if isinstance(r, Spectrum):
+			self.R = r
+		else:
+			self.R = Spectrum(r)
 
 	def f(self, wo: 'geo.Vector', wi: 'geo.Vector') -> 'Spectrum':
 		"""

@@ -259,9 +259,9 @@ class Transform(object):
 		return np.array_equal(self.m, np.eye(4, 4))
 
 	def has_scale(self) -> bool:
-		return util.ne_unity(self.m[0][0] * self.m[0][0]) or \
-		       util.ne_unity(self.m[1][1] * self.m[1][1]) or \
-		       util.ne_unity(self.m[2][2] * self.m[2][2])
+		return util.ne_unity(self.m[0][0:3].dot(self.m[0][0:3])) or \
+		       util.ne_unity(self.m[1][0:3].dot(self.m[1][0:3])) or \
+		       util.ne_unity(self.m[2][0:3].dot(self.m[2][0:3]))
 
 	def swaps_handedness(self) -> bool:
 		return (np.linalg.det(self.m[0:3, 0:3]) < 0.)

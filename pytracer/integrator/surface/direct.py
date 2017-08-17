@@ -43,7 +43,7 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 	def __repr__(self):
 		return "{}\nStrategy: {}\n".format(self.__class__, self.strategy)
 
-	def request_samples(self, sampler: 'Sample', sample: 'Sample', scene: 'Scene'):
+	def request_samples(self, sampler: 'Sampler', sample: 'Sample', scene: 'Scene'):
 		from pytracer.light import LightSampleOffset
 		from pytracer.reflection import BSDFSampleOffset
 		if self.strategy == LightStrategy.SAMPLE_ALL_UNIFORM:
@@ -51,7 +51,7 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 			n_lights = len(scene.lights)
 			self.light_sample_offsets = []
 			self.bsdf_sample_offsets = []
-			for light in enumerate(scene.lights):
+			for _, light in enumerate(scene.lights):
 				n_smp = light.ns
 				if sampler is not None:
 					n_smp = sampler.round_size(n_smp)
@@ -72,7 +72,7 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
 		L = Spectrum(0.)
 		# Evaluate BSDF at hit point
-		bsdf = isect.get_BSDF(ray)
+		bsdf = isect.get_bsdf(ray)
 
 		# Init
 		p = bsdf.dgs.p

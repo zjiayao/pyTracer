@@ -19,6 +19,9 @@ from abc import (ABCMeta, abstractmethod)
 from enum import Enum
 from pytracer import *
 import pytracer.geometry as geo
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.texture.texturemap import TextureMapping2D
 
 
 class Texture(object, metaclass=ABCMeta):
@@ -37,7 +40,7 @@ class Texture(object, metaclass=ABCMeta):
 
 class ConstantTexture(Texture):
 	def __init__(self, value):
-		self.value = value.copy()
+		self.value = value
 
 	def __call__(self, dg: 'geo.DifferentialGeometry'):
 		return self.value

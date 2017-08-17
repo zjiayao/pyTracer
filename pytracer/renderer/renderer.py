@@ -9,6 +9,13 @@ from __future__ import absolute_import
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
 import pytracer.geometry as geo
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.aggregate import Intersection
+	from pytracer.scene import Scene
+	from pytracer.camera import Camera
+	from pytracer.sampler import (Sampler, Sample)
+	from pytracer.integrator import (SurfaceIntegrator)
 
 __all__ = ['Renderer', 'SamplerRenderer', 'SamplerRendererTask']
 
@@ -81,7 +88,7 @@ class SamplerRenderer(Renderer):
 			self.vol_integrator.preprocess(scene, self.camera, self)
 
 		# init sample
-		sample = Sample(self.sampler, self.surf_integrator, self.vol_integrator,scene)
+		sample = Sample(self.sampler, self.surf_integrator, self.vol_integrator, scene)
 
 		task = SamplerRendererTask(scene, self, self.camera, self.sampler, sample, False, 1, 1)
 		task()		
@@ -137,13 +144,15 @@ class SamplerRendererTask(object):
 		Ls = [None] * max_smp
 		Ts = [None] * max_smp
 		isects = [None] * max_smp
+		samples = self.orig_sample.duplicate(max_smp)
 
 		# get samples and update image
 		total_iteration = (sampler.xPixel_end - sampler.xPixel_start) * (sampler.yPixel_end - sampler.yPixel_start)
-		for cnt, samples in enumerate(sampler):
-			assert(samples is not None)
-
+		# for cnt, samples in enumerate(sampler):
+		cnt = 0
+		while sampler.generate(samples):
 			util.progress_reporter(cnt, total_iteration)
+			cnt += 1
 
 			# generate camera ray and compute radiance
 			for i, sample in enumerate(samples):
@@ -154,6 +163,10 @@ class SamplerRendererTask(object):
 				rays[i].scale_differential(1. / np.sqrt(sampler.spp))
 
 				hit, isects[i] = self.scene.intersect(rays[i])
+				if hit:
+					a = 1
+					b = 2
+					c = 3
 
 				if self.vis_obj_id:
 					if hit and wt > 0.:

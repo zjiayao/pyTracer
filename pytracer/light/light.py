@@ -616,9 +616,10 @@ class InfiniteAreaLight(Light):
 		wi = self.l2w(geo.Vector(st * cp, st * sp, ct))
 
 		# compute pdf for sampled inf light direction
-		pdf = pdf / (2. * PI * PI * st)
 		if st == 0.:
 			pdf = 0.
+		pdf = pdf / (2. * PI * PI * st)
+
 
 		# return radiance value
 		vis = VisibilityTester()

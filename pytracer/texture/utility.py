@@ -223,7 +223,7 @@ class MIPMap(object):
 		self.max_aniso = max_aniso
 		self.wrap = wrap
 
-		sres, tres = np.shape(img)
+		sres, tres, chn = img.shape
 
 		resampled = None
 
@@ -288,7 +288,7 @@ class MIPMap(object):
 
 		for i in range(1, self.__n_levels):
 			# bottom-up init
-			u, v = np.shape(self.__pyramid[i - 1])
+			u, v = self.__pyramid[i - 1].shape[0:2]
 			s_res = max(1, UINT(u // 2))
 			t_res = max(1, UINT(v // 2))
 			self.__pyramid[i] = np.empty([t_res, s_res])
@@ -308,7 +308,7 @@ class MIPMap(object):
 
 	def texel(self, level: UINT, s: INT, t: INT):
 		l = self.__pyramid[level]
-		u, v = np.shape(l)
+		u, v = l.shape[0:2]
 		# compute texel (s, t)
 		if self.wrap == ImageWrap.REPEAT:
 			s = s % u
@@ -320,7 +320,7 @@ class MIPMap(object):
 			if s < 0 or s >= u or t < 0 or t >= v:
 				return self.typename(0.)
 
-		return l[s, t]
+		return l[s, t].view(self.typename)
 
 	@property
 	def width(self):
@@ -336,7 +336,7 @@ class MIPMap(object):
 
 	def __triangle(self, level: UINT, s: FLOAT, t: FLOAT):
 		level = np.clip(level, 0, self.__n_levels - 1)
-		s, t = np.array([s, t]) * np.shape(self.__pyramid[level]) - .5
+		s, t = np.array([s, t]) * self.__pyramid[level].shape[0:2] - .5
 		s0, t0 = util.ftoi(s), util.ftoi(t)
 		ds = s - s0
 		dt = t - t0
@@ -349,7 +349,7 @@ class MIPMap(object):
 		if level >= self.__n_levels:
 			return self.texel(self.__n_levels - 1, 0, 0)
 		# convert EWA coord to proper scale for level
-		u, v = np.shape(self.__pyramid[level])
+		u, v = self.__pyramid[level].shape[0:2]
 		s = s * u - .5
 		t = t * v - .5
 		ds0 *= u

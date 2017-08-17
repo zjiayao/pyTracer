@@ -11,7 +11,7 @@ from collections import (Iterable, Sequence, MutableSequence)
 from abc import (ABCMeta, abstractmethod)
 from enum import Enum
 from pytracer import *
-from pytracer.data.spectral import *
+from pytracer.data.spectral import CIE_Y_INTEGRAL
 
 __all__ = ['xyz2rgb', 'rgb2xyz', 'Spectrum', 'SpectrumType', 'RGBSpectrum']
 
@@ -72,17 +72,16 @@ class CoefficientSpectrum(np.ndarray, metaclass=ABCMeta):
 		return self
 
 	@classmethod
-	@overload
-	def create(cls, sample: Iterable):
-		pass
+	def create_from_array(cls, arr: 'np.ndarray'):
+		return arr.copy().view(cls)
 
 	@classmethod
-	@overload
-	def create(cls, spec: 'CoefficientSpectrum'):
-		pass
+	def create_from_list(cls, lst: list):
+		return np.array(lst).view(cls)
 
 	@classmethod
 	def create(cls, arg):
+		"""Creates from arg. Specific factory methods are preferred."""
 		if isinstance(arg, CoefficientSpectrum):
 			return arg.copy().view(cls)
 
@@ -303,6 +302,28 @@ class SampledSpectrum(CoefficientSpectrum):
 		"""
 		To be called at startup when pyTracer initialize
 		"""
+		from pytracer.data.spectral import (
+			CIE_LAMBDA,
+			CIE_X,
+			CIE_Y,
+			CIE_Z,
+			RGB2SpectLambda,
+			RGBRefl2SpectWhite,
+			RGBRefl2SpectCyan,
+			RGBRefl2SpectMagenta,
+			RGBRefl2SpectYellow,
+			RGBRefl2SpectRed,
+			RGBRefl2SpectGreen,
+			RGBRefl2SpectBlue,
+			RGBIllum2SpectWhite,
+			RGBIllum2SpectCyan,
+			RGBIllum2SpectMagenta,
+			RGBIllum2SpectYellow,
+			RGBIllum2SpectRed,
+			RGBIllum2SpectGreen,
+			RGBIllum2SpectBlue
+		)
+		
 		SampledSpectrum.X = SampledSpectrum()
 		SampledSpectrum.Y = SampledSpectrum()
 		SampledSpectrum.Z = SampledSpectrum()
@@ -532,22 +553,28 @@ class RGBSpectrum(CoefficientSpectrum):
 	Subclasses `CoefficientSpectrum`, used to
 	model RGB spectrum.
 	"""
-	def __new__(cls, v: Iterable=None):
-		if v is None:
-			return np.full(3, 0.).view(cls)
-		elif isinstance(v, Iterable) and np.ndim(v) == 1 and np.shape(v)[0] == 3:
-			return np.array(v).view(cls)
-		raise TypeError('Unsupported type {} while initializing {}'.format(type(v), __class__))
+	def __new__(cls, v: FLOAT=0.):
+		return np.full(3, v).view(cls)
+		# raise TypeError('Unsupported type {} while initializing {}'.format(type(v), __class__))
 
-	def __init__(self, v: Iterable=None):
-		super().__init__(3)
+	def __init__(self, v):
 		pass
 
-	def init(self):
-		pass
+	@staticmethod
+	def init():
+		SampledSpectrum.init()
+
+	@classmethod
+	def create_from_array(cls, arr: 'np.ndarray'):
+		return arr.copy().view(cls)
+
+	@classmethod
+	def create_from_list(cls, lst: list):
+		return np.array(lst).view(cls)
 
 	@classmethod
 	def create(cls, arg):
+		"""Create from arg. Specific factory methods are preferred."""
 		if isinstance(arg, CoefficientSpectrum) and arg.n_samples == 3:
 			return arg.copy().view(cls)
 

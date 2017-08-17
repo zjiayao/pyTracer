@@ -52,9 +52,8 @@ class IrIsotropicBRDF(BDF):
 		m = brdf_remap(wo, wi)
 		max_dist = .01
 		while True:
-			indices = self.tree.query_ball_point(m, max_dist)
-			if len(indices) > 2 or max_dist > 1.5:
-				idx = indices[0]
+			idx = self.tree.query_ball_point(m, max_dist)
+			if len(idx) > 2 or max_dist > 1.5:
 				sum_wt = 0.
 				v = Spectrum(0.)
 				for sample in self.data[idx]:

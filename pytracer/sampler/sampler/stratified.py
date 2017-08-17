@@ -42,14 +42,17 @@ class StratifiedSampler(Sampler):
 		self.xSamples = xst
 		self.ySamples = yst
 
-	def __next__(self, rng=np.random.rand) -> 'np.ndarray':
+	def generate(self, samples: ['Sample'], rng=np.random.rand) -> bool:
 		"""
-		returns an np object array holding `Sample`s
+		It is the caller's responsibility to ensure
+		samples are initiliazed and len(samplse) == self.xSamples * self.ySamples.
+		Return a bool indicating whether there is are more samples to generate.
 		"""
 		if self.yPos == self.yPixel_end:
-			raise StopIteration
+			return False
 
 		n_samples = self.xSamples * self.ySamples
+		assert n_samples == len(samples)
 		# generate stratified samples
 		image_samples = stratified_sample_2d(self.xSamples, self.ySamples, self.jitter, rng)
 		lens_samples = stratified_sample_2d(self.xSamples, self.ySamples, self.jitter, rng)
@@ -63,17 +66,19 @@ class StratifiedSampler(Sampler):
 		np.random.shuffle(time_samples)
 
 		# init `Sample` object
-		samples = np.empty(n_samples, dtype=object)
-		for i in range(n_samples):
-			samples[i] = Sample(imageX=image_samples[i, 0], imageY=image_samples[i, 1],
-			                    lens_u=lens_samples[i, 0], lens_v=lens_samples[i, 1],
-			                    time=util.lerp(time_samples[i], self.s_open, self.s_close))
+		# samples = np.empty(n_samples, dtype=object)
+		for i, sample in enumerate(samples):
+			sample.imageX = image_samples[i, 0]
+			sample.imageY = image_samples[i, 1]
+			sample.lens_u = lens_samples[i, 0]
+			sample.lens_v = lens_samples[i, 1]
+			sample.time = util.lerp(time_samples[i], self.s_open, self.s_close)
 
 			# generate patterns for integraters, if needed
-			for j, n in enumerate(samples[i].n1D):
-				samples[i].oneD[j] = latin_hypercube_1d(n, rng)
+			for j, n in enumerate(sample.n1D):
+				sample.oneD[j] = latin_hypercube_1d(n, rng)
 			for j, n in enumerate(samples[i].n2D):
-				samples[i].twoD[j] = latin_hypercube_2d(n, rng)
+				sample.twoD[j] = latin_hypercube_2d(n, rng)
 
 		# advance current position
 		self.xPos += 1
@@ -81,7 +86,7 @@ class StratifiedSampler(Sampler):
 			self.xPos = self.xPixel_start
 			self.yPos += 1
 
-		return samples
+		return True
 
 	def round_size(self, size: INT) -> INT:
 		"""

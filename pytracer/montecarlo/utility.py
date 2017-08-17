@@ -179,7 +179,7 @@ def cosine_sample_hemisphere(u1: FLOAT, u2: FLOAT) -> 'geo.Vector':
 	`u1` and `u2` are two
 	random numbers passed in.
 	"""
-	vec = concentric_sample_disk(u1, u2)
+	vec = uniform_sample_sphere(u1, u2)
 	vec.z = np.sqrt(max(0., 1. - vec.x * vec.x - vec.y * vec.y))
 	return vec
 

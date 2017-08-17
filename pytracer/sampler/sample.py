@@ -32,6 +32,7 @@ class CameraSample(object):
 		return "{}\nImage: ({}, {})\nLens:({}, {})\nTime: {}".format(self.__class__,
 			self.imageX, self.imageY, self.lens_u, self.lens_v, self.time)
 
+
 class Sample(CameraSample):
 	def __init__(self, sampler: 'Sampler'=None, surf: 'SurfaceIntegrator'=None,
 					vol: 'VolumeIntegrator'=None, scene: 'Scene'=None,
@@ -48,18 +49,18 @@ class Sample(CameraSample):
 			vol.request_samples(sampler, self, scene)
 
 		# init sample np arrays
-		self.oneD = [None for _ in range(len(self.n1D))]
-		self.twoD = [None for _ in range(len(self.n2D))]
+		self.oneD = [None] * len(self.n1D)
+		self.twoD = [None] * len(self.n2D)
 
 	def duplicate(self, cnt: 'INT') -> ['Sample']:
-		ret = []
+		ret = [None] * cnt
 		for i in range(cnt):
 			smp = Sample()
-			smp.n1D = self.n1D.copy()
-			smp.n2D = self.n2D.copy()
-			smp.oneD = [None for _ in range(len(smp.n1D))]
-			smp.twoD = [None for _ in range(len(smp.n2D))]
-			ret.append(smp)
+			smp.n1D = self.n1D
+			smp.n2D = self.n2D
+			smp.oneD = [None] * len(self.n1D)
+			smp.twoD = [None] * len(self.n2D)
+			ret[i] = smp
 		return ret
 
 	def add_1d(self, num: INT) -> INT:

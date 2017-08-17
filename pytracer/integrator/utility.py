@@ -112,8 +112,10 @@ def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'geo.Point
 def specular_reflect(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersection',
                      renderer: 'Renderer', scene: 'Scene', sample: 'Sample', rng) -> 'Spectrum':
 	from pytracer.reflection import (BDFType, BSDFSample)
+
 	wo = -ray.d
 	p = bsdf.dgs.p
+
 	n = bsdf.dgs.nn
 	pdf, wi, _, f = bsdf.sample_f(wo, BSDFSample.from_rand(rng), BDFType(BDFType.REFLECTION | BDFType.SPECULAR))
 	L = Spectrum(0.)

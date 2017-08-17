@@ -10,6 +10,9 @@ Created by Jiayao on Aug 9, 2017
 from __future__ import absolute_import
 from abc import (ABCMeta, abstractmethod)
 from pytracer import *
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.sampler import Sample
 
 
 class Sampler(object, metaclass=ABCMeta):
@@ -41,21 +44,10 @@ class Sampler(object, metaclass=ABCMeta):
 			.format(self.__class__, self.xPixel_start, self.xPixel_end,
 		            self.yPixel_start, self.yPixel_end, self.spp)
 
-	def __iter__(self):
-		return self
-
 	@abstractmethod
-	def __next__(self, rng=None) -> 'np.ndarray':
-		'''
-		analogous to get_more_samples() in pbrt
-
-		rng is the seed.
-		returns an np object array holding samples,
-		zero if all samples has been generated
-		'''
-		raise NotImplementedError('src.core.sampler {}.__next__(): abstract method called' \
+	def generate(self, samples: ['Sample'], rng=np.random.rand) -> bool:
+		raise NotImplementedError('pytracer.sampler.__init__.{}.generate(): abstract method called' \
 		                          .format(self.__class__))
-
 	@abstractmethod
 	def maximum_sample_cnt(self) -> INT:
 		raise NotImplementedError('src.core.sampler {}.maximum_sample_cnt(): abstract method '

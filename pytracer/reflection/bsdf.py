@@ -110,13 +110,15 @@ class BSDF(object):
 		if n_match == 0:
 			return [0., None, None, Spectrum(0.)]
 
-		cnt = last = min(util.ftoi(bsdf_smp.u_com * n_match), n_match - 1)
+		cnt = min(util.ftoi(bsdf_smp.u_com * n_match), n_match - 1)
 		for func in self.bdfs:
 			if func.match_flag(flags):
-				cnt -= 1
 				if cnt == 0:
 					bdf = func
 					break
+				cnt -= 1
+
+
 		# sample BDFs
 		wo = self.w2l(wo_w)
 		pdf, wi, f = bdf.sample_f(wo, bsdf_smp.u_dir[0], bsdf_smp.u_dir[1])

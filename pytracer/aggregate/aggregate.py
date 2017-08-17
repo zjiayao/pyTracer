@@ -70,7 +70,9 @@ class Voxel(object):
 		any_hit = False
 		isect = None
 		for prim in self.primitives:
-			hit, isect = prim.intersect(ray)
+			hit, ist = prim.intersect(ray)
+			if hit:
+				isect = ist
 			if hit:
 				any_hit = True
 		return [any_hit, isect]  # weird of returning isect
@@ -182,10 +184,12 @@ class GridAccel(Aggregate):
 
 	def intersect(self, ray: 'geo.Ray') -> [bool, 'Intersection']:
 		# Check ray aginst overall bounds
+		ray_t = 0.
 		if self.bounds.inside(ray(ray.mint)):
 			ray_t = ray.mint
 		elif not self.bounds.intersect_p(ray):
 			return [False, None]
+
 		grid_intersect = ray(ray_t)
 
 		# Difference between Bresenham's Line Drawing:
@@ -212,7 +216,9 @@ class GridAccel(Aggregate):
 		while True:
 			voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
 			if voxel is not None:
-				hit, isect = voxel.intersect(ray, self.lock)
+				hit, ist = voxel.intersect(ray, self.lock)
+				if hit:
+					isect = ist
 				any_hit |= hit
 			# next voxel
 			step_axis = np.argmin(next_crossing)
@@ -228,6 +234,7 @@ class GridAccel(Aggregate):
 
 	def intersect_p(self, ray: 'geo.Ray') -> bool:
 		# Check ray aginst overall bounds
+		ray_t = 0.
 		if self.bounds.inside(ray(ray.mint)):
 			ray_t = ray.mint
 		elif not self.bounds.intersect_p(ray):
@@ -240,7 +247,7 @@ class GridAccel(Aggregate):
 		# digital differential analyzer
 		# Set up 3D DDA for geo.Ray
 
-		pos = [self.pos2voxel(axis) for axis in range(3)]
+		pos = [self.pos2voxel(grid_intersect, axis) for axis in range(3)]
 		next_crossing = [ray_t + self.voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
 		                 for axis in range(3)]
 		delta_t = self.width / ray.d
@@ -258,7 +265,7 @@ class GridAccel(Aggregate):
 		while True:
 			voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
 			if voxel is not None:
-				hit, isect = voxel.intersect_p(ray, self.lock)
+				hit = voxel.intersect_p(ray, self.lock)
 				any_hit |= hit
 			# next voxel
 			step_axis = np.argmin(next_crossing)

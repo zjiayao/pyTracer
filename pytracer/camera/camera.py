@@ -54,14 +54,14 @@ class Camera(object, metaclass=ABCMeta):
 		# find ray shift along x
 		from pytracer.sampler import CameraSample
 		
-		xshift = CameraSample.from_sample(sample)
+		xshift = sample.duplicate(1)[0]
 		xshift.imageX += 1
 		wtx, rx = self.generate_ray(xshift)
 		rd.rxOrigin = rx.o
 		rd.rxDirection = rx.d
 
 		# find ray shift along y
-		yshift = CameraSample.from_sample(sample)
+		yshift = sample.duplicate(1)[0]
 		yshift.imageY += 1
 		wty, ry = self.generate_ray(yshift)
 		rd.ryOrigin = ry.o

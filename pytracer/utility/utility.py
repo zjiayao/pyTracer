@@ -13,7 +13,7 @@ import numpy as np
 from pytracer import (FLOAT, INT, UINT, EPS)
 
 __all__ = ['progress_reporter','logging','feq', 'eq_unity', 'ne_unity', 'ftoi', 'ctoi', 'rtoi',
-           'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp']
+           'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp', 'clip']
 
 
 # Global Functions
@@ -33,6 +33,7 @@ def progress_reporter(iteration, total, prefix='', suffix='', decimals=1, length
 		length      - Optional  : character length of bar (Int)
 		fill        - Optional  : bar fill character (Str)
 	"""
+	# print()
 	percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
 	filled_length = int(length * iteration // total)
 	bar = fill * filled_length + '-' * (length - filled_length)
@@ -87,20 +88,29 @@ def lerp(t: (float, FLOAT), v1: (float, FLOAT), v2: (float, FLOAT)) -> (float, F
 	return (1. - t) * v1 + t * v2
 
 
-def round_pow_2(x: INT) -> UINT:
+def round_pow_2(x: INT) -> INT:
 	"""Round to nearest power of 2"""
-	return UINT(2 ** np.round(np.log2(x)))
+	return INT(2 ** np.round(np.log2(x)))
 
 
-def next_pow_2(x: INT) -> UINT:
+def next_pow_2(x: INT) -> INT:
 	"""Round to next(or current) power of 2"""
-	return UINT(2 ** np.ceil(np.log2(x)))
+	return INT(2 ** np.ceil(np.log2(x)))
 
 
 def is_pow_2(x: INT) -> bool:
 	"""Test whether is power of 2"""
 	return x & (x-1) == 0
 	# return True if x == 0 else (np.log2(x) % 1) == 0.
+
+
+def clip(x, min=0., max=np.inf):
+	from pytracer import Spectrum
+
+	if isinstance(x, (float, FLOAT, int, INT, UINT)):
+		return np.clip(x, min, max).astype(type(x))
+	elif isinstance(x, Spectrum):
+		return x.clip(min, max)
 
 # Numpy universal function for linear interpolation
 _ulerp = np.frompyfunc(lerp, 3, 1)
