@@ -38,23 +38,21 @@ def read_image(filename: str) -> ['spec.Spectrum']:
 			height = util.next_pow_2(height)
 			pic.resize((width, height))
 			img = np.array(pic)
-
-		specs = np.empty([height, width], dtype=object)
-		if chn == 3:
-			for t in range(height):
-				for s in range(width):
-					specs[t, s] = spec.Spectrum.from_rgb(img[t, s, :])
-		# monochrome
-		elif chn == 1:
-			for t in range(height):
-				for s in range(width):
-					specs[t, s] = img[t,s]	
+			return img
+		# specs = np.empty([height, width], dtype=object)
+		# if chn == 3:
+		# 	for t in range(height):
+		# 		for s in range(width):
+		# 			specs[t, s] = spec.Spectrum.from_rgb(img[t, s, :])
+		# # monochrome
+		# elif chn == 1:
+		# 	for t in range(height):
+		# 		for s in range(width):
+		# 			specs[t, s] = img[t,s]
 
 		else:
 			raise TypeError('pytracer.imageio.read_image(): unsupported '
 				'type of file {}'.format(filename))
-
-	return specs
 
 
 def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
@@ -69,7 +67,7 @@ def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
 		if not coef == 0.:
 			rgb[:, :, i] = (255 * rgb[:, :, i]) / coef
 	
-	rgb.astype(np.uint8)
+	rgb = rgb.astype('uint8')
 
 	if alpha is None:
 		if xRes == xFullRes and yRes == yFullRes:
