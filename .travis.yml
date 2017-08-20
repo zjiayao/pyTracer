@@ -4,6 +4,7 @@ python:
   - "3.6"
 install:
   - pip install -r requirements.txt
+  - CI=false pip install numpy-quaternion
 
 # command to run tests
 script: PYTHONPATH=$PWD:$PYTHONPATH py.test
