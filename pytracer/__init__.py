@@ -13,23 +13,22 @@ import scipy.spatial  # cKdTree
 KdTree = scipy.spatial.cKDTree
 
 # Global Constant
-EPS = 1e-5
 INT = int
 UINT = np.uint32
 FLOAT = np.float64
 DOUBLE = np.float64
-HANDEDNESS = 'left'
-
-PI = FLOAT(np.pi)
-INV_PI = 1. / np.pi
-INV_2PI = 1. / (2. * np.pi)
-
 FILTER_TABLE_SIZE = 16
+
+# Global Constants
+EPS = 1e-5
+HANDEDNESS = 'left'
+PI = FLOAT(np.pi)
+INV_PI = FLOAT(1. / np.pi)
+INV_2PI = FLOAT(1. / (2. * np.pi))
 
 # Global Static
 IrIsotropicData = {}
 ReHalfangleData = {}
-
 
 # Utility functions
 import pytracer.utility as util

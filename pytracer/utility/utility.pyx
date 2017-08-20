@@ -1,20 +1,37 @@
 """
 utility.py
 
-pytracer package
+pytracer.utility package
 
-Defines global constants and
-utility functions.
+Cython implementation of utility
+functions.
 
 Created by Jiayao on Aug 13, 2017
 """
-from __future__ import absolute_import
+from __future__ import (division, absolute_import)
 import numpy as np
+cimport numpy as np
+import scipy.spatial
 
-from pytracer import (FLOAT, INT, UINT, EPS)
+from pytracer.utility.typing import (FLOAT, INT, UINT)
 
 __all__ = ['progress_reporter','logging','feq', 'eq_unity', 'ne_unity',
            'ftoi', 'ctoi', 'rtoi', 'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp', 'clip']
+
+# Type Alias
+KdTree = scipy.spatial.cKDTree
+
+# Global Constants
+EPS = 1e-5
+HANDEDNESS = 'left'
+FILTER_TABLE_SIZE = 16
+PI = FLOAT(np.pi)
+INV_PI = FLOAT(1. / np.pi)
+INV_2PI = FLOAT(1. / (2. * np.pi))
+
+# Global Static
+IrIsotropicData = {}
+ReHalfangleData = {}
 
 
 # Global Functions
@@ -46,10 +63,17 @@ def progress_reporter(iteration, total, prefix='', suffix='', decimals=1, length
 		print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix))
 
 
-def feq(x: (float, FLOAT), y: (float, FLOAT)) -> bool:
-	"""Equality test for floats."""
-	return np.isclose(x, y, atol=EPS)
+cdef inline FLOAT fmin(FLOAT a, FLOAT b):
+	return a if a <= b else b
 
+cdef inline FLOAT fmax(FLOAT a, FLOAT b):
+	return a if a >= b else b
+
+cdef inline bool feq(FLOAT a, FLOAT b):
+	return a - b > -EPS and a - b < EPS
+
+cdef inline bool eq_unity(x: FLOAT):
+	return feq(x, )
 
 def eq_unity(x: (float, FLOAT)) -> bool:
 	"""Equality test with unity."""

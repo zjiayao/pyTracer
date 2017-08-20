@@ -255,7 +255,7 @@ class MeasuredMaterial(Material):
 		if ext == '.brdf' or ext == '.BRDF':
 			if file in IrIsotropicData:
 				# already read
-				self.theta_phi_tree, self.theta_phi_sample = IrIsotropicData[file]
+				self.theta_phi_sample, self.theta_phi_tree = IrIsotropicData[file]
 				return
 
 			# read file
@@ -301,7 +301,6 @@ class MeasuredMaterial(Material):
 				samples.append(smp)
 				pos += num_wls
 				cnt += 1
-
 
 			val = [] # release memory
 

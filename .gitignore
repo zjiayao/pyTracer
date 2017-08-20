@@ -5,4 +5,5 @@ __pycache__/
 /tmp
 rt.py
 /.idea
-/testlog
+/testlog*
+/profile*
