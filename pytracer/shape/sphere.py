@@ -14,6 +14,7 @@ from pytracer.shape import Shape
 
 __all__ = ['Sphere']
 
+
 class Sphere(Shape):
 	"""
 	Sphere Class
@@ -28,8 +29,8 @@ class Sphere(Shape):
 		self.radius = rad
 		self.zmin = np.clip(min(z0, z1), -rad, rad)
 		self.zmax = np.clip(max(z0, z1), -rad, rad)
-		self.thetaMin = np.arccos(np.clip(-self.zmin / rad, -1., 1.))
-		self.thetaMax = np.arccos(np.clip(-self.zmax / rad, -1., 1.))
+		self.thetaMin = np.arccos(np.clip(self.zmin / rad, -1., 1.))
+		self.thetaMax = np.arccos(np.clip(self.zmax / rad, -1., 1.))
 		self.phiMax = np.deg2rad(np.clip(pm, 0., 360.))
 
 	def __repr__(self):

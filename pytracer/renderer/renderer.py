@@ -32,13 +32,13 @@ class Renderer(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def li(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
-			rng='np.random.rand') -> ['Spectrum', 'Intersection']:
+			isect: 'Intersection', rng=np.random.rand) -> 'Spectrum':
 		raise NotImplementedError('src.core.renderer.{}.li(): abstract method '
 							'called'.format(self.__class__)) 
 
 	@abstractmethod
 	def transmittance(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
-									rng='np.random.rand') -> 'Spectrum':
+									rng=np.random.rand) -> 'Spectrum':
 		raise NotImplementedError('src.core.renderer.{}.transmittance(): abstract method '
 							'called'.format(self.__class__)) 
 
@@ -56,13 +56,12 @@ class SamplerRenderer(Renderer):
 		self.vol_integrator = vi
 
 	def li(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
-			rng=np.random.rand) -> ['Spectrum', 'Intersection']:
-		# local variables
+			isect: 'Intersection', rng=np.random.rand) -> ['Spectrum']:
+		# local variable
 		assert ray.time == sample.time
 
 		li = Spectrum(0.)
-		is_hit, isect = scene.intersect(ray)
-		if is_hit:
+		if scene.intersect(ray, isect):
 			li = self.surf_integrator.li(scene, self, ray, isect, sample, rng)
 		else:
 			for light in scene.lights:
@@ -71,13 +70,16 @@ class SamplerRenderer(Renderer):
 		if self.vol_integrator is not None:
 			lvi, T = self.vol_integrator.li(scene, self, ray, sample, rng)
 
-			return [T * li + lvi, T, isect]
+			return T * li + lvi, T
 		else:
-			return [li, Spectrum(0.), isect]
+			return li, Spectrum(0.)
 
 	def transmittance(self, scene: 'Scene', ray: 'geo.RayDifferential', sample: 'Sample',
 									rng='np.random.rand') -> 'Spectrum':
-		return self.vol_integrator.transmittance(scene, self, ray, sample, rng)
+		if self.vol_integrator is not None:
+			return self.vol_integrator.transmittance(scene, self, ray, sample, rng)
+		else:
+			return Spectrum(1.)
 
 	def render(self, scene: 'Scene'):
 		from pytracer.sampler import Sample
@@ -128,6 +130,7 @@ class SamplerRendererTask(object):
 		return "{}\n{}/{}".format(self.__class__, self.task_num, self.task_cnt)
 
 	def __call__(self):
+		from pytracer.aggregate import Intersection
 		# get sub-sampler
 		# sampler = self.main_sampler.get_subsampler(self.task_num, self.task_cnt)
 		sampler = self.main_sampler
@@ -143,7 +146,7 @@ class SamplerRendererTask(object):
 		rays = [None] * max_smp
 		Ls = [None] * max_smp
 		Ts = [None] * max_smp
-		isects = [None] * max_smp
+		isects = [Intersection() for _ in range(max_smp)]
 		samples = self.orig_sample.duplicate(max_smp)
 
 		# get samples and update image
@@ -151,8 +154,8 @@ class SamplerRendererTask(object):
 		# for cnt, samples in enumerate(sampler):
 		cnt = 0
 		while sampler.generate(samples):
-			util.progress_reporter(cnt, total_iteration)
 			cnt += 1
+			util.progress_reporter(cnt, total_iteration, prefix='Rendering')
 
 			# generate camera ray and compute radiance
 			for i, sample in enumerate(samples):
@@ -162,11 +165,7 @@ class SamplerRendererTask(object):
 				wt, rays[i] = self.camera.generate_ray_differential(sample)
 				rays[i].scale_differential(1. / np.sqrt(sampler.spp))
 
-				hit, isects[i] = self.scene.intersect(rays[i])
-				if hit:
-					a = 1
-					b = 2
-					c = 3
+				hit = self.scene.intersect(rays[i], isects[i])
 
 				if self.vis_obj_id:
 					if hit and wt > 0.:
@@ -175,8 +174,8 @@ class SamplerRendererTask(object):
 					else:
 						Ls[i] = Spectrum(0.)
 				else:
-					if wt > 0.:
-						Ls[i], Ts[i], isects[i] = self.renderer.li(self.scene,rays[i],sample, rng)
+					if hit and wt > 0.:
+						Ls[i], Ts[i] = self.renderer.li(self.scene, rays[i], sample, isects[i], rng)
 						Ls[i] *= wt
 
 					else:

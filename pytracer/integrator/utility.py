@@ -122,8 +122,8 @@ def specular_reflect(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersect
 	if pdf > 0. and not f.is_black() and wi.abs_dot(n) != 0.:
 		# compute ray differential
 		rd = geo.RayDifferential(p, wi, ray, isect.rEps)
-		if ray.hasDifferentials:
-			rd.hasDifferentials = True
+		if ray.has_differentials:
+			rd.has_differentials = True
 			rd.rxOrigin = p + isect.dg.dpdx
 			rd.ryOrigin = p + isect.dg.dpdy
 
@@ -158,8 +158,8 @@ def specular_transmit(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersec
 	if pdf > 0. and not f.is_black() and wi.abs_dot(n) != 0.:
 		# compute ray differential
 		rd = geo.RayDifferential(p, wi, ray, isect.rEps)
-		if ray.hasDifferentials:
-			rd.hasDifferentials = True
+		if ray.has_differentials:
+			rd.has_differentials = True
 			rd.rxOrigin = p + isect.dg.dpdx
 			rd.ryOrigin = p + isect.dg.dpdy
 

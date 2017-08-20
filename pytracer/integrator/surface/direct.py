@@ -67,7 +67,6 @@ class DirectLightingIntegrator(SurfaceIntegrator):
 			self.light_num_offset = sample.add1d(1)
 			self.bsdf_sample_offsets = [BSDFSampleOffset(1, sample)]
 
-
 	def li(self, scene: 'Scene', renderer: 'Renderer', ray: 'geo.RayDifferential',
 			isect: 'Intersection', sample: 'Sample', rng=np.random.rand) -> 'Spectrum':
 		L = Spectrum(0.)

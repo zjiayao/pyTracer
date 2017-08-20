@@ -13,6 +13,9 @@ from __future__ import absolute_import
 from abc import (ABCMeta, abstractmethod)
 import pytracer.geometry as geo
 import pytracer.transform as trans
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.aggregate import Intersection
 
 __all__ = ['Primitive', 'GeometricPrimitive', 'TransformedPrimitive']
 
@@ -39,7 +42,7 @@ class Primitive(object, metaclass=ABCMeta):
 		raise NotImplementedError('{}.can_intersect(): Not implemented'.format(self.__class__))
 
 	@abstractmethod
-	def intersect(self, r: 'geo.Ray') -> [bool, 'Intersection']:
+	def intersect(self, r: 'geo.Ray', isect: 'Intersection') -> bool:
 		raise NotImplementedError('{}.intersect(): Not implemented'.format(self.__class__))
 
 	@abstractmethod
@@ -84,16 +87,26 @@ class GeometricPrimitive(Primitive):
 	def __repr__(self):
 		return super().__repr__() + '\n{}'.format(self.shape)
 
-	def intersect(self, r: 'geo.Ray') -> [bool, 'Intersection']:
+	def intersect(self, r: 'geo.Ray', isect: 'Intersection') -> bool:
+		# it is the caller's responsibility to ensure
+		# isect is not None
 		from pytracer.aggregate import Intersection
 		is_intersect, thit, rEps, dg = self.shape.intersect(r)
 		if not is_intersect:
-			return [False, None]
+			return False
 
-		isect = Intersection(dg, self, self.shape.w2o, self.shape.o2w,
-			self.shape.shapeId, self.primitiveId, rEps)
+		isect.dg = dg
+		isect.primitive = self
+		isect.w2o = self.shape.w2o
+		isect.o2w = self.shape.o2w
+		isect.shapeId = self.shape.shapeId
+		isect.primitiveId = self.primitiveId
+		isect.rEps = rEps
+
+		# isect = Intersection(dg, self, self.shape.w2o, self.shape.o2w,
+			# self.shape.shapeId, self.primitiveId, rEps)
 		r.maxt = thit
-		return [True, isect]
+		return True
 
 	def intersect_p(self, r: 'geo.Ray') -> bool:
 		return self.shape.intersect_p(r)
@@ -131,13 +144,15 @@ class TransformedPrimitive(Primitive):
 	def __repr__(self):
 		return super().__repr__(self) + '\n{}'.format(self.prim)
 
-	def intersect(self, r: 'geo.Ray') -> [bool, 'Intersection']:
+	def intersect(self, r: 'geo.Ray', isect: 'Intersection') -> bool:
 		w2p = self.w2p.interpolate(r.time)
 		ray = w2p(r)
-		is_intersect, isect = self.primitive.intersect(ray)
+		is_intersect = self.primitive.intersect(ray, isect)
 		if not is_intersect:
-			return [False, None]
+			return False
+
 		r.maxt = ray.maxt
+
 		isect.primitiveId = self.primitiveId
 
 		if not w2p.is_identity():
@@ -153,7 +168,7 @@ class TransformedPrimitive(Primitive):
 			dg.dndu = p2w(dg.dndu)
 			dg.dndv = p2w(dg.dndv)
 
-		return True, isect
+		return True
 
 	def intersect_p(self, r: 'geo.Ray') -> bool:
 		return self.primitive.intersect_p(self.w2p(r))		

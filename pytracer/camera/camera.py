@@ -70,6 +70,6 @@ class Camera(object, metaclass=ABCMeta):
 		if wtx == 0. or wty == 0.:
 			return [0., rd]
 
-		rd.hasDifferentials = True
+		rd.has_differentials = True
 		return [wt, rd]
 

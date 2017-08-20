@@ -40,8 +40,9 @@ def progress_reporter(iteration, total, prefix='', suffix='', decimals=1, length
 	print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end='\r')
 	# Print New Line on Complete
 	if iteration == total:
-		print()
-
+		percent = ("{0:." + str(decimals) + "f}").format(100)
+		bar = fill * length
+		print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix))
 
 def feq(x: (float, FLOAT), y: (float, FLOAT)) -> bool:
 	"""Equality test for floats."""

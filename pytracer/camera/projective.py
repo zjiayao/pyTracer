@@ -34,8 +34,6 @@ class PinholeCamera(Camera):
 		return 1., geo.Ray(p, d)
 
 
-
-
 class ProjectiveCamera(Camera):
 	"""
 	ProjectiveCamera Class
@@ -123,7 +121,7 @@ class OrthoCamera(ProjectiveCamera):
 		rd.rxOrigin = rd.o + self.dxCam
 		rd.ryOrigin = rd.o + self.dyCam
 		rd.rxDirection = rd.ryDirection = rd.d
-		rd.hasDifferentials = True
+		rd.has_differentials = True
 		rd = self.c2w(rd)
 
 		return [wt, rd]
@@ -229,7 +227,7 @@ class PerspectiveCamera(ProjectiveCamera):
 
 		ray.time = sample.time
 		ray = self.c2w(ray)
-		ray.hasDifferentials = True
+		ray.has_differentials = True
 
 		return [1., ray]
 

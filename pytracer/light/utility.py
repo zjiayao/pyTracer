@@ -58,8 +58,7 @@ class VisibilityTester(object):
 		"""
 		return not scene.intersect_p(self.ray)
 
-	def transmittance(self, scene: 'scn.Scene', renderer: 'ren.Renderer', sample: 'spler.Sample',
-						rng=np.random.rand):
+	def transmittance(self, scene: 'scn.Scene', renderer: 'ren.Renderer', sample: 'spler.Sample', rng=np.random.rand):
 		"""
 		transmittance()
 
@@ -67,7 +66,7 @@ class VisibilityTester(object):
 		the light to the point that is not extinguished
 		by participating media.
 		"""
-		return renderer.transmittance(scene, geo.RayDifferential.fromRay(self.ray), sample. rng)
+		return renderer.transmittance(scene, geo.RayDifferential.from_ray(self.ray), sample, rng)
 
 
 class ShapeSet(object):
@@ -106,18 +105,19 @@ class ShapeSet(object):
 		sn, _ = self.area_dist.sample_dis(ls.u_com)
 		pt, ns = self.shapes[sn].sample_p(p, ls.u_pos[0], ls.u_pos[1])
 
+		return [pt, ns]
 		# find cloest intersection
-		r = geo.Ray(p, pt - p, EPS, np.inf)
-		any_hit = False
+		# r = geo.Ray(p, pt - p, EPS, np.inf)
+		# any_hit = False
 
-		# inefficient
-		for sh in self.shapes:
-			hit, thit, _, dg = sh.intersect(r)
-			any_hit |= hit
-		if any_hit:
-			return [r(thit), dg.nn]
-		else:
-			return [pt, ns]
+		# # inefficient
+		# for sh in self.shapes:
+		# 	hit, thit, _, dg = sh.intersect(r)
+		# 	any_hit |= hit
+		# if any_hit:
+		# 	return [r(thit), dg.nn]
+		# else:
+		# 	return [pt, ns]
 
 	def sample(self, ls: 'LightSample') -> ['geo.Point', 'geo.Normal']:
 		sn, _ = self.area_dist.sample_dis(ls.u_com)

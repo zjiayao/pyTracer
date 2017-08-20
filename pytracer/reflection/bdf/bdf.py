@@ -315,7 +315,7 @@ class Lambertian(BDF):
 		"""
 		R: Spectrum Reflectance
 		"""
-		super().__init__(BDFType.REFLECTION | BDFType.DIFFUSE)
+		super().__init__(BDFType(BDFType.REFLECTION | BDFType.DIFFUSE))
 		if isinstance(r, Spectrum):
 			self.R = r
 		else:
