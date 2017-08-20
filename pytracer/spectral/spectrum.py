@@ -557,7 +557,7 @@ class RGBSpectrum(CoefficientSpectrum):
 		return np.full(3, v).view(cls)
 		# raise TypeError('Unsupported type {} while initializing {}'.format(type(v), __class__))
 
-	def __init__(self, v):
+	def __init__(self, v=0.):
 		pass
 
 	@staticmethod

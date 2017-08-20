@@ -386,7 +386,8 @@ class TestTransform(object):
 
 		assert_almost_eq(t(origin), pnt)
 		assert_almost_eq(t.inverse()(pnt), origin)
-		assert not t.has_scale()
+		if not pnt == vec:
+			assert not t.has_scale()
 
 
 	def test_orthographic(self):
