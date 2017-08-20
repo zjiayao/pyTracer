@@ -121,7 +121,7 @@ class BSDF(object):
 
 		# sample BDFs
 		wo = self.w2l(wo_w)
-		pdf, wi, f = bdf.sample_f(wo, bsdf_smp.u_dir[0], bsdf_smp.u_dir[1])
+		pdf, f, wi = bdf.sample_f(wo, bsdf_smp.u_dir[0], bsdf_smp.u_dir[1])
 		wi_w = self.l2w(wi)
 
 		if pdf == 0.:
@@ -207,7 +207,7 @@ class BSDF(object):
 		wi = self.w2l(wi_w)
 		wo = self.w2l(wo_w)
 
-		if (wi_w.dot(self.ng)) * (wo_w.dot(self.ng)) < 0.:
+		if (wi_w.dot(self.ng)) * (wo_w.dot(self.ng)) > 0.:
 			# no transmission
 			flags = BDFType(flags & ~BDFType.TRANSMISSION)
 		else:
