@@ -386,7 +386,7 @@ class TestTransform(object):
 
 		assert_almost_eq(t(origin), pnt)
 		assert_almost_eq(t.inverse()(pnt), origin)
-		if not pnt == vec:
+		if not pnt == vec and not pnt == y_axis and not vec == y_axis:
 			assert not t.has_scale()
 
 
