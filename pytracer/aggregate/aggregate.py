@@ -15,10 +15,10 @@ import pytracer.transform as trans
 from pytracer.aggregate.primitive import Primitive
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-	from pytracer.aggregate import Intersection
+	from pytracer.aggregate import (Primitive, Intersection)
 
 
-__all__ = ['Aggregate', 'Voxel', 'GridAccel']
+__all__ = ['Aggregate', 'SimpleAggregate', 'Voxel', 'GridAccel']
 
 
 # Aggregates
@@ -36,6 +36,75 @@ class Aggregate(Primitive):
 		raise RuntimeError('{}.get_bssrdf(): Should not be called'.format(self.__class__))
 
 
+class SimpleAggregate(Aggregate):
+	def __init__(self, p: ['Primitive'], refine_imm: bool):
+		super().__init__()
+		if refine_imm:
+			self.primitives = []
+			for prim in p:
+				prim.full_refine(self.primitives)
+		else:
+			self.primitives = p
+
+		self.bounds = geo.BBox()
+		for pr in self.primitives:
+			self.bounds.union(pr.world_bound())
+
+	def refine(self, refined: ['Primitive']):
+		raise NotImplementedError('{}.refine(): Not implemented'.format(self.__class__))
+
+	def world_bound(self) -> 'geo.BBox':
+		return self.bounds
+
+	def can_intersect(self) -> bool:
+		return True
+
+	@staticmethod
+	def _copy_isect(src: 'Intersection', dest: 'Intersection'):
+		dest.dg = src.dg
+		dest.primitive = src.primitive
+		dest.w2o = src.w2o
+		dest.o2w = src.o2w
+		dest.shapeId = src.shapeId
+		dest.primitiveId = src.primitiveId
+		dest.rEps = src.rEps
+
+	def intersect(self, ray: 'geo.Ray', isect: 'Intersection') -> bool:
+		from pytracer.aggregate import Intersection
+		# refine primitives if needed
+		hit, t0, t1 = self.bounds.intersect_p(ray)
+		if not hit:
+			return False
+
+		tmp = Intersection()
+		any_hit = False
+		mint = np.inf
+		for pr in self.primitives:
+			if pr.intersect(ray, tmp):
+				t0 = max(t0, ray.maxt)
+				t1 = min(t1, ray.maxt)
+				if t0 > t1:
+					continue
+				any_hit = True
+				if ray.maxt < mint:
+					mint = ray.maxt
+					SimpleAggregate._copy_isect(tmp, isect)
+
+		return any_hit
+
+	def intersect_p(self, ray: 'geo.Ray') -> bool:
+		# refine primitives if needed
+		hit, t0, t1 = self.bounds.intersect_p(ray)
+		if not hit:
+			return False
+
+		for pr in self.primitives:
+			if pr.intersect_p(ray):
+				return True
+
+		return False
+
+
 class Voxel(object):
 	"""Voxel Class"""
 	def __init__(self, op: ['Primitive']):
@@ -48,7 +117,7 @@ class Voxel(object):
 	def add_primitive(self, prim: 'Primitive'):
 		self.primitives.append(prim)
 
-	def intersect(self, ray: 'geo.Ray', lock) -> [bool, 'Intersection']:
+	def intersect(self, ray: 'geo.Ray', isect: 'Intersection', lock) -> bool:
 		# refine primitives if needed
 		if not self.all_can_intersect:
 			lock.acquire()
@@ -68,14 +137,11 @@ class Voxel(object):
 		# loop over
 		# no data corrpution?
 		any_hit = False
-		isect = None
+		# isect = None
 		for prim in self.primitives:
-			hit, ist = prim.intersect(ray)
-			if hit:
-				isect = ist
-			if hit:
+			if prim.intersect(ray, isect):
 				any_hit = True
-		return [any_hit, isect]  # weird of returning isect
+		return any_hit  # weird of returning isect
 
 	def intersect_p(self, ray: 'geo.Ray', lock) -> bool:
 		# refine primitives if needed
@@ -115,7 +181,7 @@ class GridAccel(Aggregate):
 
 		# compute bounds and choose grid resolution
 		self.bounds = geo.BBox()
-		self.n_voxels = [0, 0, 0]
+		self.n_voxels = np.full(3, 0.)
 
 		for prim in self.primitives:
 			self.bounds.union(prim.world_bound())
@@ -129,16 +195,15 @@ class GridAccel(Aggregate):
 		self.width = geo.Vector()
 		self.invWidth = geo.Vector()
 
-		nVoxels = [0., 0., 0.]
 
 		for axis in range(3):
-			nVoxels[axis] = np.int(delta[axis] * voxels_per_unit_dist)
-			nVoxels[axis] = np.clip(nVoxels[axis], 1., 64.)
+			self.n_voxels[axis] = INT(delta[axis] * voxels_per_unit_dist)
+			self.n_voxels[axis] = np.clip(self.n_voxels[axis], 1., 64.)
 
-			self.width[axis] = delta[axis] / nVoxels[axis]
+			self.width[axis] = delta[axis] / self.n_voxels[axis]
 			self.invWidth[axis] = 0. if self.width[axis] == 0. else 1. / self.width[axis]
 
-		nv = np.prod(nVoxels).astype(INT)
+		nv = np.prod(self.n_voxels).astype(INT)
 		self.voxels = np.full(nv, None)
 
 		# add primitives to voxels
@@ -174,7 +239,7 @@ class GridAccel(Aggregate):
 		return self.bounds.pMin[axis] + p * self.width[axis]
 
 	def offset(self, x: INT, y: INT, z: INT) -> INT:
-		return z * self.n_voxels[0] * self.n_voxels[1] + y * self.n_voxels[0] + x
+		return INT(z * self.n_voxels[0] * self.n_voxels[1] + y * self.n_voxels[0] + x)
 
 	def world_bound(self) -> 'geo.BBox':
 		return self.bounds
@@ -182,13 +247,13 @@ class GridAccel(Aggregate):
 	def can_intersect(self) -> bool:
 		return True
 
-	def intersect(self, ray: 'geo.Ray') -> [bool, 'Intersection']:
+	def intersect(self, ray: 'geo.Ray', isect: 'Intersection') -> bool:
 		# Check ray aginst overall bounds
 		ray_t = 0.
 		if self.bounds.inside(ray(ray.mint)):
 			ray_t = ray.mint
-		elif not self.bounds.intersect_p(ray):
-			return [False, None]
+		elif not self.bounds.intersect_p(ray)[0]:
+			return False
 
 		grid_intersect = ray(ray_t)
 
@@ -198,28 +263,28 @@ class GridAccel(Aggregate):
 		# Set up 3D DDA for geo.Ray
 
 		pos = [self.pos2voxel(grid_intersect, axis) for axis in range(3)]
+
 		next_crossing = [ray_t + self.voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
 		                 for axis in range(3)]
 		delta_t = self.width / ray.d
-		step = [1, 1, 1]
+		step = np.full(3, 1)
 		out = self.n_voxels.copy()
 		for axis in range(3):
 			# compute current voxel
 			if ray.d[axis] < 0:
 				# ray with neg. direction for stepping
-				delta_t[axis] = -delta_t[axis]
-				step[axis] = out[axis] = -1
+				next_crossing[axis] = ray_t + self.voxel2pos(pos[axis], axis) - grid_intersect[axis] / ray.d[axis]
+				delta_t[axis] *= -1
+				step[axis] = -1
+				out[axis] = -1
 
 		# walk through grid
 		any_hit = False
-		isect = None
 		while True:
 			voxel = self.voxels[self.offset(pos[0], pos[1], pos[2])]
 			if voxel is not None:
-				hit, ist = voxel.intersect(ray, self.lock)
-				if hit:
-					isect = ist
-				any_hit |= hit
+				any_hit |= voxel.intersect(ray, isect, self.lock)
+
 			# next voxel
 			step_axis = np.argmin(next_crossing)
 
@@ -230,7 +295,7 @@ class GridAccel(Aggregate):
 				break
 			next_crossing[step_axis] += delta_t[step_axis]
 
-		return [any_hit, isect]
+		return any_hit
 
 	def intersect_p(self, ray: 'geo.Ray') -> bool:
 		# Check ray aginst overall bounds
@@ -248,17 +313,20 @@ class GridAccel(Aggregate):
 		# Set up 3D DDA for geo.Ray
 
 		pos = [self.pos2voxel(grid_intersect, axis) for axis in range(3)]
+
 		next_crossing = [ray_t + self.voxel2pos(pos[axis] + 1, axis) - grid_intersect[axis] / ray.d[axis] \
 		                 for axis in range(3)]
 		delta_t = self.width / ray.d
-		step = [1, 1, 1]
+		step = np.full(3, 1)
 		out = self.n_voxels.copy()
 		for axis in range(3):
 			# compute current voxel
 			if ray.d[axis] < 0:
 				# ray with neg. direction for stepping
-				delta_t[axis] = -delta_t[axis]
-				step[axis] = out[axis] = -1
+				next_crossing[axis] = ray_t + self.voxel2pos(pos[axis], axis) - grid_intersect[axis] / ray.d[axis]
+				delta_t[axis] *= -1
+				step[axis] = -1
+				out[axis] = -1
 
 		# walk through grid
 		any_hit = False
