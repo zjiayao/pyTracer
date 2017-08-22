@@ -240,7 +240,7 @@ class ImageFilm(Film):
 		"""
 		# convert to RGB and compute pixel values
 		from pytracer.spectral import xyz2rgb
-		rgb = np.empty([self.xPixel_cnt, self.yPixel_cnt, 3], dtype=FLOAT)
+		rgb = np.empty([self.yPixel_cnt, self.xPixel_cnt, 3], dtype=FLOAT)
 
 		for y in range(self.yPixel_cnt):
 			for x in range(self.xPixel_cnt):

@@ -68,8 +68,7 @@ class Primitive(object, metaclass=ABCMeta):
 	def full_refine(self, refined: ['Primitive']):
 		todo = [self]
 		while len(todo) > 0:
-			prim = todo[-1]
-			del todo[-1]
+			prim = todo.pop()
 			if prim.can_intersect():
 				refined.append(prim)
 			else:

@@ -13,7 +13,7 @@ from pytracer import *
 import pytracer.geometry as geo
 
 __all__ = ['balance_heuristic', 'power_heuristic', 'rejection_sample_disk',
-           'uniform_sample_hemisphere', 'uniform_hemisphere_pdf', 'uniform_sample_sphere',
+           'uniform_sample_hemisphere', 'uniform_sample_triangle', 'uniform_hemisphere_pdf', 'uniform_sample_sphere',
            'uniform_sphere_pdf', 'uniform_sample_disk', 'concentric_sample_disk',
            'cosine_sample_hemisphere', 'cosine_hemisphere_pdf', 'uniform_sample_cone',
            'uniform_cone_pdf', 'sample_hg', 'hg_pdf']

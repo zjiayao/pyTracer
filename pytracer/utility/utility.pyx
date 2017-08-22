@@ -75,7 +75,7 @@ cdef inline bool feq(FLOAT a, FLOAT b):
 cdef inline bool eq_unity(x: FLOAT):
 	return feq(x, )
 
-def eq_unity(x: (float, FLOAT)) -> bool:
+def eq_unity(x: (float, FLOAT)):
 	"""Equality test with unity."""
 	return (x > 1. - EPS) and (x < 1. + EPS)
 

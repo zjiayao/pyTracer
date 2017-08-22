@@ -20,12 +20,24 @@ def create_loop_subdiv(o2w: 'trans.Transform', w2o: 'trans.Transform',
                        ro: bool, params: {str: object}):
 	nlevels = 3 if 'nlevels' not in params else params['nlevels']
 	vi = None if 'indices' not in params else params['indices']
-	P = None if 'P' not in params else params['p']
+	P = None if 'P' not in params else params['P']
 
 	if vi is None or P is None:
 		return None
 
-	return LoopSubdiv(o2w, w2o, ro, len(vi) / 3, len(P), vi, P, nlevels)
+	if not len(P) % 3 == 0:
+		util.logging('Error', 'LoopSubDiv: data error')
+		return None
+
+	npnt = len(P) // 3
+
+	p = [None] * npnt
+	cnt = 0
+	for i in range(0, len(P), 3):
+		p[cnt] = geo.Point(P[i], P[i+1], P[i+2])
+		cnt += 1
+
+	return LoopSubdiv(o2w, w2o, ro, len(vi) // 3, npnt, vi, p, nlevels)
 
 
 class LoopSubdiv(Shape):
@@ -49,7 +61,7 @@ class LoopSubdiv(Shape):
 			self.regular = self.boundary = False
 
 		def __repr__(self):
-			return "{}\ngeo.Point: {}".format(self.__class__, self.P)
+			return "SDVertex: {}\nPoint: {}".format(id(self), self.P)
 
 		def __lt__(self, other):
 			return id(self) < id(other)
@@ -71,13 +83,14 @@ class LoopSubdiv(Shape):
 					f = f.next_face(self)
 				return nf
 			else:
-				# boudary
+				# boundary
 				nf = 1
 				f = f.next_face(self)
 				while f is not None:
 					nf += 1
 					f = f.next_face(self)
-				f = self.startFace(self).prev_face(self)
+				f = self.startFace
+				f = f.prev_face(self)
 				while f is not None:
 					nf += 1
 					f = f.prev_face(self)
@@ -123,7 +136,7 @@ class LoopSubdiv(Shape):
 			self.children = [None, None, None, None]  # ref to SDFace (4)
 
 		def __repr__(self):
-			return "{}".format(self.__class__)
+			return "SDFace: {}\n".format(id(self))
 
 		def vnum(self, vert) -> INT:
 			for i in range(3):
@@ -138,7 +151,7 @@ class LoopSubdiv(Shape):
 			return self.f[PREV(self.vnum(vert))]
 
 		def next_vert(self, vert):
-			return self.v[self.vnum(vert)]
+			return self.v[NEXT(self.vnum(vert))]
 
 		def prev_vert(self, vert):
 			return self.v[PREV(self.vnum(vert))]
@@ -162,7 +175,7 @@ class LoopSubdiv(Shape):
 			self.f0edge_num = -1
 
 		def __repr__(self):
-			return "{}".format(self.__class__)
+			return "SDEdge: {}\n".format(id(self))
 
 		def __lt__(self, other):
 			if id(self.v[0]) == id(other.v[0]):
@@ -173,22 +186,22 @@ class LoopSubdiv(Shape):
 			return id(self.v[0]) == id(other.v[0]) and id(self.v[1]) == id(other.v[1])
 
 		def __hash__(self):
-			return int(str(id(self.v[0]) + id(self.v[1])))
+			return hash( (id(self.v[0]), id(self.v[1])) )
 
 	def __init__(self, o2w: 'trans.Transform', w2o: 'trans.Transform',
 	             ro: bool, nf: INT, nv: INT, vi: [INT],
 	             P: ['geo.Point'], nl: INT):
 		super().__init__(o2w, w2o, ro)
 		self.nLevels = nl
-		self.vertices = np.array([self.SDVertex(P[i]) for i in range(nv)])
-		self.faces = np.array([self.SDFace() for i in range(nf)])
+		self.vertices = np.array([LoopSubdiv.SDVertex(P[i]) for i in range(nv)])
+		self.faces = np.array([self.SDFace() for _ in range(nf)])
 
 		# set face to vertex refs
+		k = 0
 		for i in range(nf):
 			f = self.faces[i]
-			k = 0
-			f.v = [self.vertices[vi[k + j]] for j in range(3)]
 			for j in range(3):
+				f.v[j] = self.vertices[vi[k + j]]
 				f.v[j].startFace = f
 			k += 3
 
@@ -206,6 +219,7 @@ class LoopSubdiv(Shape):
 					f.f[edge_num] = e.f[0]
 					del edges[e]  # by assumption, each edge appears at most twice
 				else:
+					# new edge
 					e.f[0] = f
 					e.f0edge_num = edge_num
 					edges[e] = e
@@ -217,11 +231,13 @@ class LoopSubdiv(Shape):
 			f = f.next_face(v)
 			while f is not None and not f == v.startFace:
 				f = f.next_face(v)
-			v.boundary = f is None
+			v.boundary = (f is None)
 
-			if v.boundary is not None and v.valence() == 6:
+			val = v.valence()
+
+			if not v.boundary and val == 6:
 				v.regular = True
-			elif v.boundary is not None and v.valence() == 4:
+			elif v.boundary and val == 4:
 				v.regular = True
 			else:
 				v.regular = False
@@ -430,4 +446,8 @@ class LoopSubdiv(Shape):
 
 	def intersect_p(self, r: 'geo.Ray') -> bool:
 		raise NotImplementedError('{} cannot intersect before refinement'.format(self.__class__))
+
+	def area(self) -> FLOAT:
+		raise NotImplementedError('unimplemented Shape.area() method called')
+
 

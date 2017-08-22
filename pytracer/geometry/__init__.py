@@ -87,6 +87,13 @@ class Vector(np.ndarray):
 	def length(self) -> FLOAT:
 		return np.sqrt(self.sq_length())
 
+	def normalize(self):
+		"""inplace normalization"""
+		length = self.length()
+		if not length == 0:
+			self /= length
+		return self
+
 
 class Point(np.ndarray):
 	"""

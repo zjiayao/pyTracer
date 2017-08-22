@@ -14,19 +14,29 @@ from pytracer.shape import Shape
 
 __all__ = ['create_triangle_mesh', 'Triangle', 'TriangleMesh']
 
+
 def create_triangle_mesh(o2w: 'trans.Transform', w2o: 'trans.Transform',
                          ro: bool, params: {str: object}, txt: {str: object} = None):
 	"""Create triangle mesh from file"""
 
 	vi = None if 'indices' not in params else params['indices']
-	P = None if 'P' not in params else params['P']
+	p = None if 'P' not in params else params['P']
 	uvs = None if 'uv' not in params else params['uv']
 	if uvs is None:
 		uvs = None if 'st' not in params else params['st']
 	discard = False if 'discard' not in params else params['discard']
 
+	if len(p) % 3 != 0:
+		raise RuntimeError
+
+	npi = len(p) // 3 if p is not None else -1
+	P = [None] * npi
+	cnt = 0
+	for i in range(0, len(p), 3):
+		P[cnt] = geo.Point(p[i], p[i+1], p[i+2])
+		cnt += 1
+
 	nvi = len(vi) if vi is not None else -1
-	npi = len(P) if P is not None else -1
 	nuvi = len(uvs) if uvs is not None else -1
 
 	if uvs is not None:
@@ -46,7 +56,7 @@ def create_triangle_mesh(o2w: 'trans.Transform', w2o: 'trans.Transform',
 	if S is not None and nsi != npi:
 		raise RuntimeError('src.core.shape.create_triangle_mesh(): \"S\" and \"P\" do not match')
 
-	N = None if 'N' not in params else params['S']
+	N = None if 'N' not in params else params['N']
 	nni = len(N) if N is not None else -1
 	if N is not None and nni != npi:
 		raise RuntimeError('src.core.shape.create_triangle_mesh(): \"N\" and \"P\" do not match')
@@ -84,7 +94,8 @@ def create_triangle_mesh(o2w: 'trans.Transform', w2o: 'trans.Transform',
 	# TODO
 	# alphaTex = ConstantTexture(0.)
 
-	return TriangleMesh(o2w, w2o, ro, nvi / 3, npi, vi, P, N, S, uvs, alphaTex)
+	return TriangleMesh(o2w, w2o, ro, nvi // 3, npi, vi, P, N, S, uvs, alphaTex)
+
 
 class Triangle(Shape):
 	"""
@@ -97,8 +108,9 @@ class Triangle(Shape):
 
 	def __init__(self, o2w: 'trans.Transform', w2o: 'trans.Transform',
 	             ro: bool, m: 'TriangleMesh', n: INT):
+		super().__init__(o2w, w2o, ro)
 		self.mesh = m
-		self.v = m.vertexIndex[3 * n]  # pbrt uses a pointer
+		self.v = 3 * n  # pbrt uses a pointer
 
 	def __repr__(self):
 		return "{}\nMesh: {}\nVertex Index: {}" \
@@ -113,29 +125,29 @@ class Triangle(Shape):
 			        [self.mesh.uvs[2 * (self.v + 2)], self.mesh.uvs[2 * (self.v + 2) + 1]]]
 
 	def object_bound(self) -> 'geo.BBox':
-		p1 = self.mesh.p[self.v]
-		p2 = self.mesh.p[self.v + 1]
-		p3 = self.mesh.p[self.v + 2]
+		p1 = self.mesh.p[self.mesh.vertexIndex[self.v]]
+		p2 = self.mesh.p[self.mesh.vertexIndex[self.v+1]]
+		p3 = self.mesh.p[self.mesh.vertexIndex[self.v+2]]
 		return geo.BBox(self.mesh.w2o(p1), self.mesh.w2o(p2)) \
 			.union(self.mesh.w2o(p3))
 
 	def world_bound(self) -> 'geo.BBox':
-		p1 = self.mesh.p[self.v]
-		p2 = self.mesh.p[self.v + 1]
-		p3 = self.mesh.p[self.v + 2]
+		p1 = self.mesh.p[self.mesh.vertexIndex[self.v]]
+		p2 = self.mesh.p[self.mesh.vertexIndex[self.v+1]]
+		p3 = self.mesh.p[self.mesh.vertexIndex[self.v+2]]
 		return geo.BBox(p1, p2).union(p3)
 
 	def sample(self, u1: FLOAT, u2: FLOAT) -> ['geo.Point', 'geo.Normal']:
-		from ..montecarlo import uniform_sample_triangle
+		from pytracer.montecarlo import uniform_sample_triangle
 		b1, b2 = uniform_sample_triangle(u1, u2)
 
-		p = b1 * self.mesh.p[self.v] + \
-		    b2 * self.mesh.p[self.v + 1] + \
-		    (1. - b1 - b2) * self.mesh.p[self.v + 2]
+		p = b1 * self.mesh.p[self.mesh.vertexIndex[self.v]] + \
+		    b2 * self.mesh.p[self.mesh.vertexIndex[self.v]+1] + \
+		    (1. - b1 - b2) * self.mesh.p[self.mesh.vertexIndex[self.v+2]]
 
-		Ns = geo.normalize(geo.Normal.fromVector(
-			(self.mesh.p[self.v + 1] - self.mesh.p[self.v]) \
-				.cross(self.mesh.p[self.v + 2] - self.mesh.p[self.v])))
+		Ns = geo.normalize(geo.Normal.from_arr(
+			(self.mesh.p[self.mesh.vertexIndex[self.v+1]] - self.mesh.p[self.mesh.vertexIndex[self.v]]) \
+				.cross(self.mesh.p[self.mesh.vertexIndex[self.v+2]] - self.mesh.p[self.mesh.vertexIndex[self.v]])))
 
 		if self.ro:
 			Ns *= -1.
@@ -148,9 +160,9 @@ class Triangle(Shape):
 		using Barycentric coordinates
 		"""
 		# compute s1
-		p1 = self.mesh.p[self.v]
-		p2 = self.mesh.p[self.v + 1]
-		p3 = self.mesh.p[self.v + 2]
+		p1 = self.mesh.p[self.mesh.vertexIndex[self.v]]
+		p2 = self.mesh.p[self.mesh.vertexIndex[self.v+1]]
+		p3 = self.mesh.p[self.mesh.vertexIndex[self.v+2]]
 
 		e1 = p2 - p1  # geo.Vector
 		e2 = p3 - p1
@@ -158,7 +170,7 @@ class Triangle(Shape):
 		div = s1.dot(e1)
 
 		if div == 0.:
-			return (False, None, None, None)
+			return [False, None, None, None]
 		divInv = 1. / div
 
 		# compute barycentric coordinate
@@ -166,17 +178,17 @@ class Triangle(Shape):
 		d = r.o - p1
 		b1 = d.dot(s1) * divInv
 		if b1 < 0. or b1 > 1.:
-			return (False, None, None, None)
+			return [False, None, None, None]
 		## second one
 		s2 = d.cross(e1)
 		b2 = r.d.dot(s2) * divInv
 		if b2 < 0. or (b1 + b2) > 1.:
-			return (False, None, None, None)
+			return [False, None, None, None]
 
 		# compute intersection
 		t = e2.dot(s2) * divInv
-		if t < r.mint or d > r.maxt:
-			return (False, None, None, None)
+		if t < r.mint or t > r.maxt:
+			return [False, None, None, None]
 
 		# compute partial derivatives
 		uvs = self.get_uvs()
@@ -202,27 +214,27 @@ class Triangle(Shape):
 		tv = b0 * uvs[0][1] + b1 * uvs[1][1] + b2 * uvs[2][1]
 
 		# test alpha texture
-		dg = geo.geo.DifferentialGeometry(r(t), dpdu, dpdv,
-		                          geo.Normal(0., 0., 0.), geo.Normal(0., 0., 0.),
-		                          tu, tv, self)
+		dg = geo.DifferentialGeometry(r(t), dpdu, dpdv,
+		                              geo.Normal(0., 0., 0.), geo.Normal(0., 0., 0.),
+		                              tu, tv, self)
 
 		if self.mesh.alphaTexture is not None:
 			# alpha mask presents
 			if self.mesh.alphaTexture.evaluate(dg) == 0.:
-				return (False, None, None, None)
+				return [False, None, None, None]
 
 		# have a hit
 		return True, t, 1e-3 * t, dg
 
-	def intersectP(self, r: 'Ray') -> bool:
+	def intersect_p(self, r: 'Ray') -> bool:
 		"""
 		Determine whether intersects
 		using Barycentric coordinates
 		"""
 		# compute s1
-		p1 = self.mesh.p[self.v]
-		p2 = self.mesh.p[self.v + 1]
-		p3 = self.mesh.p[self.v + 2]
+		p1 = self.mesh.p[self.mesh.vertexIndex[self.v]]
+		p2 = self.mesh.p[self.mesh.vertexIndex[self.v+1]]
+		p3 = self.mesh.p[self.mesh.vertexIndex[self.v+2]]
 
 		e1 = p2 - p1  # geo.Vector
 		e2 = p3 - p1
@@ -274,7 +286,7 @@ class Triangle(Shape):
 		tv = b0 * uvs[0][1] + b1 * uvs[1][1] + b2 * uvs[2][1]
 
 		# test alpha texture
-		dg = geo.geo.DifferentialGeometry(r(t), dpdu, dpdv,
+		dg = geo.DifferentialGeometry(r(t), dpdu, dpdv,
 		                          geo.Normal(0., 0., 0.), geo.Normal(0., 0., 0.),
 		                          tu, tv, self)
 
@@ -287,14 +299,14 @@ class Triangle(Shape):
 		return True
 
 	def area(self) -> FLOAT:
-		p1 = self.mesh.p[self.v]
-		p2 = self.mesh.p[self.v + 1]
-		p3 = self.mesh.p[self.v + 2]
+		p1 = self.mesh.p[self.mesh.vertexIndex[self.v]]
+		p2 = self.mesh.p[self.mesh.vertexIndex[self.v+1]]
+		p3 = self.mesh.p[self.mesh.vertexIndex[self.v+2]]
 		return .5 * (p2 - p1).cross(p3 - p1).length()
 
 	def get_shading_geometry(self, o2w: 'trans.Transform',
 	                         dg: 'geo.DifferentialGeometry') -> 'geo.DifferentialGeometry':
-		if self.mesh.n is not None and self.mesh.s is not None:
+		if self.mesh.n is None or self.mesh.s is None:
 			return dg
 		# compute barycentric coord
 		uvs = self.get_uvs()
@@ -308,7 +320,7 @@ class Triangle(Shape):
 			b = [1. / 3, 1. / 3, 1. / 3]
 
 		else:
-			b = [1. - b[1] - b[2], b[1], b[2]]
+			b = [1. - b[0] - b[1], b[0], b[1]]
 
 		# compute shading tangents
 		if self.mesh.n is not None:
@@ -338,9 +350,8 @@ class Triangle(Shape):
 			du2 = uvs[1][0] - uvs[2][0]
 			dv1 = uvs[0][1] - uvs[2][1]
 			dv2 = uvs[1][1] - uvs[2][1]
-			dn1 = self.mesh.n[self.v] - self.mesh.n[self.v + 2]
-			dn2 = self.mesh.n[self.v + 1] - self.mesh.n[self.v + 2]
-
+			dn1 = self.mesh.n[self.mesh.vertexIndex[self.v]] - self.mesh.n[self.mesh.vertexIndex[self.v+2]]
+			dn2 = self.mesh.n[self.mesh.vertexIndex[self.v+1]] - self.mesh.n[self.mesh.vertexIndex[self.v+2]]
 			det = du1 * dv2 - du2 * dv1
 			if det == 0.:
 				# choose an arbitrary system
@@ -349,11 +360,26 @@ class Triangle(Shape):
 				detInv = 1. / det
 				dndu = (dv2 * dn1 - dv1 * dn2) * detInv
 				dndv = (-du2 * dn1 + du1 * dn2) * detInv
+		else:
+			dndu = geo.Normal(0., 0., 0.)
+			dndv = geo.Normal(0., 0., 0.)
 
-		dg = geo.geo.DifferentialGeometry(dg.p, ss, ts,
-		                          self.mesh.o2w(dndu), self.mesh.o2w(dndv), dg.u, dg.v, dg.shape)
-		# todo
-		return dg
+		dgs = geo.DifferentialGeometry(dg.p, ss, ts, self.mesh.o2w(dndu), self.mesh.o2w(dndv), dg.u, dg.v, dg.shape)
+		dgs.dudx = dg.dudx
+		dgs.dvdx = dg.dvdx
+		dgs.dudy = dg.dudy
+		dgs.dvdy = dg.dvdy
+		dgs.dpdx = dg.dpdx
+		dgs.dpdy = dg.dpdy
+
+		return dgs
+
+	def refine(self) -> ['Shape']:
+		"""
+		If `Shape` cannot intersect,
+		return a refined subset
+		"""
+		raise NotImplementedError('Intersecable shapes are not refineable')
 
 
 class TriangleMesh(Shape):
@@ -420,3 +446,12 @@ class TriangleMesh(Shape):
 		"""
 		return [Triangle(self.o2w, self.w2o, self.ro, self, i) for i in range(self.ntris)]
 
+	def intersect(self, r: 'geo.Ray') -> (bool, FLOAT, FLOAT, 'geo.DifferentialGeometry'):
+		raise NotImplementedError('unimplemented Shape.intersect() method called')
+
+	def intersect_p(self, r: 'geo.Ray') -> bool:
+		raise NotImplementedError('unimplemented {}.intersect_p() method called'
+		                          .format(self.__class__))
+
+	def area(self) -> FLOAT:
+		raise NotImplementedError('unimplemented Shape.area() method called')

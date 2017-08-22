@@ -71,7 +71,7 @@ def uniform_sample_all_lights(scene: 'Scene', renderer: 'Renderer', p: 'geo.Poin
 
 def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'geo.Point', n: 'geo.Normal',
                              wo: 'geo.Vector', r_eps: FLOAT, time: FLOAT, bsdf: 'BSDF', sample: 'Sample', light_num_offset: INT=-1,
-                             light_offsets: ['LightSampleOffset']=None, bsdf_offsets: ['BSDFSampleOffset']=None, rng=np.random.rand):
+                             light_offset: 'LightSampleOffset'=None, bsdf_offset: 'BSDFSampleOffset'=None, rng=np.random.rand):
 	"""
 	uniform_sample_one_light()
 
@@ -98,9 +98,9 @@ def uniform_sample_one_light(scene: 'Scene', renderer: 'Renderer', p: 'geo.Point
 	light = scene.lights[light_num]
 
 	# init
-	if light_offsets is not None and bsdf_offsets is not None:
-		light_smp = LightSample.from_sample(sample, light_offsets[0], 0)
-		bsdf_smp = BSDFSample.from_sample(sample, bsdf_offsets[0], 0)
+	if light_offset is not None and bsdf_offset is not None:
+		light_smp = LightSample.from_sample(sample, light_offset, 0)
+		bsdf_smp = BSDFSample.from_sample(sample, bsdf_offset, 0)
 	else:
 		light_smp = LightSample.from_rand(rng)
 		bsdf_smp = BSDFSample.from_rand(rng)
@@ -226,7 +226,7 @@ def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'geo
 		bsdf_pdf, wi, smp_type, f = bsdf.sample_f(wo, bsdf_smp, flags)
 		if not f.is_black() and bsdf_pdf > 0.:
 			wt = 1.
-			if not smp_type & BDFType.SPECULAR:	# MIS not apply to specular direction
+			if not (smp_type & BDFType.SPECULAR).v == 0:  # MIS not apply to specular direction
 				light_pdf = light.pdf(p, wi)
 				if light_pdf == 0.:
 					return Ld

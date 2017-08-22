@@ -14,6 +14,7 @@ from pytracer.shape import Shape
 
 __all__ = ['Disk']
 
+
 class Disk(Shape):
 	"""
 	Disk Class
@@ -41,10 +42,10 @@ class Disk(Shape):
 	def sample(self, u1: FLOAT, u2: FLOAT) -> ['geo.Point', 'geo.Normal']:
 
 		# account for partial disk
-		from ..montecarlo import concentric_sample_disk
+		from pytracer.montecarlo import concentric_sample_disk
 		x, y = concentric_sample_disk(u1, u2)
 		phi = np.arctan2(y, x) * self.phiMax * INV_2PI
-		r = self.inner + np.sqrt(x * x + y * y) * (self.radius - self.inner)
+		r = self.inner_radius + np.sqrt(x * x + y * y) * (self.radius - self.inner_radius)
 
 		p = geo.Point(r * np.cos(phi), r * np.sin(phi), self.height)
 
@@ -143,3 +144,10 @@ class Disk(Shape):
 	def area(self) -> FLOAT:
 		return self.phiMax * .5 * \
 		       (self.radius * self.radius - self.inner_radius * self.inner_radius)
+
+	def refine(self) -> ['Shape']:
+		"""
+		If `Shape` cannot intersect,
+		return a refined subset
+		"""
+		raise NotImplementedError('Intersecable shapes are not refineable')

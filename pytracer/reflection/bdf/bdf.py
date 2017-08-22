@@ -164,7 +164,10 @@ class BDF(object, metaclass=ABCMeta):
 		return r
 
 	def match_flag(self, flag: 'BDFType') -> bool:
-		return self.type.v & flag.v == self.type.v
+		if isinstance(flag, BDFType):
+			return self.type.v & flag.v == self.type.v
+		else:
+			return self.type.v & flag == self.type.v
 
 
 # adapter from BRDF to BTDF

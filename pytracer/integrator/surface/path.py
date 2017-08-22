@@ -66,12 +66,12 @@ class PathIntegrator(SurfaceIntegrator):
 
 		# subsequent vertex
 		local_isect = Intersection()
-		print('+')
+		# print('+')
 		bounce_cnt = 0
 		while True:
 			# add possibly emitted light
 			if bounce_cnt == 0 or specular_bounce:
-				print('++')
+				# print('++')
 				# emitted light is included by
 				# previous tracing via direct lighting
 				# exceptions for the first tracing or sampling a
@@ -79,7 +79,7 @@ class PathIntegrator(SurfaceIntegrator):
 				L += path_throughput * isectp.le(-ray.d)
 
 			# sample illumination from lights
-			bsdf = isectp.get_BSDF(ray)
+			bsdf = isectp.get_bsdf(ray)
 			p = bsdf.dgs.p
 			n = bsdf.dgs.nn
 			wo = -ray.d
@@ -96,7 +96,7 @@ class PathIntegrator(SurfaceIntegrator):
 				from pytracer.integrator.utility import uniform_sample_one_light
 				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,
 						isectp.rEps, ray.time, bsdf, sample, rng=rng)
-			print('++++')
+			# print('++++')
 			# sample BSDF to get new direction
 			# get BSDFSample for new direction
 			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
@@ -108,11 +108,11 @@ class PathIntegrator(SurfaceIntegrator):
 
 			if f.is_black() or pdf == 0.:
 				break
-			print('+++++')
+			# print('+++++')
 			specular_bounce = (flags & BDFType.SPECULAR) != 0
 			path_throughput *= f * wi.abs_dot(n) / pdf
 			ray = geo.RayDifferential.from_parent(p, wi, ray, isectp.rEps)
-			print('#')
+			# print('#')
 			# possibly terminate
 			if bounce_cnt > PathIntegrator.SAMPLE_DEPTH:
 				cont_prob = min(.5, path_throughput.y())	# high prob for terminating for low contribution paths
@@ -124,16 +124,16 @@ class PathIntegrator(SurfaceIntegrator):
 
 			if bounce_cnt == self.max_depth:
 				break
-			print('##')
+			# print('##')
 			# find next vertex
-			hit, local_isect = scene.intersect(ray)
+			hit = scene.intersect(ray, local_isect)
 			if not hit:
 				# ambient light
 				if specular_bounce:
 					for light in scene.lights:
 						L += path_throughput * light.le(ray)
 				break
-			print('###')
+			# print('###')
 			if bounce_cnt > 1:
 				path_throughput *= renderer.transmittance(scene, ray, None, rng)
 
