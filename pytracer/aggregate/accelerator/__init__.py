@@ -11,3 +11,5 @@ Created by Jiayao on August 24, 2017
 """
 from __future__ import absolute_import
 from pytracer.aggregate.accelerator.bvh import *
+
+__all__ = ['BVH']

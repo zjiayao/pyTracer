@@ -25,7 +25,7 @@ class BVH(Aggregate):
 	"""BVH Class"""
 	class SplitMethod(Enum):
 		MIDDLE = 0
-		EQUAL_COUNTS = 1
+		# EQUAL_COUNTS = 1  # coming soon
 		SAH = 2
 
 	class _BVHPrimitive(object):
@@ -50,15 +50,22 @@ class BVH(Aggregate):
 			self.n_prim = n
 			self.bounds = b
 
-		def init_inter(self, axis: UINT, c0: BVH._BVHNode, c1: BVH._BVHNode):
+		def init_inter(self, axis: UINT, c0: 'BVH._BVHNode', c1: 'BVH._BVHNode'):
 			self.children[0] = c0
 			self.children[1] = c1
 			self.bounds = geo.BBox.Union(c0.bounds, c1.bounds)
 			self.split_axis = axis
 			self.n_prim = 0
+	
+	class _LinearNode(object):
+		"""Flattened nodes for storage and quick look-up."""
+		def __init__(self, bounds: geo.BBox=None, offset: UINT=0, n_prim: UINT=0, axis: UINT=0):
+			self.bounds = bounds
+			self.offset = offset
+			self.n_prim = n_prim
+			self.axis = axis
 
-
-	def __init__(self, p: ['Primitive'], max_prim_per_node: UINT, method: str):
+	def __init__(self, p: ['Primitive'], max_prim_per_node: UINT=4, method: str='sah'):
 		super().__init__()
 		self.primitives = []
 		self.max_prim_per_node = max_prim_per_node
@@ -88,10 +95,14 @@ class BVH(Aggregate):
 		ordered_prims = [None] * len(self.primitives)
 		root = self._recursive_build(build_data, segment, ordered_prims)
 
+		self.primitives = ordered_prims
+
 		# DFS of BVH
+		self.nodes = [BVH._LinearNode() for _ in range(segment[2])]
+		self._flatten_tree(root, 0)
 
 	@staticmethod
-	def _partition(data: ['BVH.BVHPrimitive'], start: UINT, end: UINT, mid: FLOAT, dim: UINT):
+	def _partition(data: ['BVH._BVHPrimitive'], start: INT, end: INT, mid: FLOAT, dim: INT):
 		i = start
 		k = end - 1
 		while i < k:
@@ -103,7 +114,7 @@ class BVH(Aggregate):
 		return k
 
 	@staticmethod
-	def _insertion_sort(data: ['BVH.BVHPrimitive'], start: UINT, end: UINT, dim: UINT):
+	def _insertion_sort(data: ['BVH._BVHPrimitive'], start: INT, end: INT, dim: INT):
 		for i in range(start, end):
 			k = i
 			dk = data[k]
@@ -113,7 +124,7 @@ class BVH(Aggregate):
 			data[k] = dk
 
 	@staticmethod
-	def _bucket_partition(data: ['BVH.BVHPrimitive'], start: UINT, end: UINT,
+	def _bucket_partition(data: ['BVH._BVHPrimitive'], start: INT, end: INT,
 	                      min_cost_idx: INT, n_buckets: INT, dim: INT, centroid_bounds: [geo.BBox]):
 		i = start
 		k = end - 1
@@ -159,7 +170,6 @@ class BVH(Aggregate):
 			dim = centroid_bounds.maximum_extent()
 
 			# partition prims into two sets, build children
-			mid = (start + end) / 2.
 			if centroid_bounds.pMax[dim] == centroid_bounds.pMin[dim]:
 				if n_prim <= self.max_prim_per_node:
 					# create leaf node
@@ -190,7 +200,7 @@ class BVH(Aggregate):
 				else:
 					# buckets
 					n_buckets = 12
-					buckets = [[0, geo.BBox()] for i in range(n_buckets)] # bucket: [count: INT, bounds: BBox]
+					buckets = [[0, geo.BBox()] for i in range(n_buckets)]  # bucket: [count: INT, bounds: BBox]
 					for i in range(start, end):
 						b = INT(n_buckets * ((data[i].centroid[dim] - centroid_bounds.pMax[dim]) /
 						                     (centroid_bounds.pMax[dim] - centroid_bounds.pMin[dim])))
@@ -238,3 +248,146 @@ class BVH(Aggregate):
 			node.init_inter(dim, c0, c1)
 
 		return node
+	
+	def _flatten_tree(self, node: 'BVH._BVHNode', offset: UINT):
+		# pre-traversal
+		linear_node = self.nodes[offset]
+		linear_node.bounds = node.bounds
+		if node.n_prim > 0:
+			linear_node.offset = node.first_offset
+			linear_node.n_prim = node.n_prim
+		else:
+			linear_node.axis = node.split_axis
+			linear_node.n_prim = 0
+			off = self._flatten_tree(node.children[0], offset + 1)
+			linear_node.offset = self._flatten_tree(node.children[1], off)
+		
+		return offset + 1
+	
+	@staticmethod
+	def _intersect_p(bounds: geo.BBox, ray :geo.Ray, inv_dir: geo.Vector, dir_neg: [bool]) -> bool:
+		# ray intersection against x and y slabs
+		tmin = (bounds[dir_neg[0]].x - ray.o.x) * inv_dir.x
+		tmax = (bounds[1-dir_neg[0]].x - ray.o.x) * inv_dir.x
+		tmin_y = (bounds[dir_neg[0]].y - ray.o.y) * inv_dir.y
+		tmax_y = (bounds[1 - dir_neg[0]].y - ray.o.y) * inv_dir.y
+		
+		if tmin > tmax_y or tmin_y > tmax:
+			return False
+		if tmin_y < tmin:
+			tmin = tmin_y
+		if tmax_y > tmax:
+			tmax = tmax_y
+		# z slab
+		tmin_z = (bounds[dir_neg[0]].z - ray.o.z) * inv_dir.z
+		tmax_z = (bounds[1 - dir_neg[0]].z - ray.o.z) * inv_dir.z
+
+		if tmin > tmax_z or tmin_z > tmax:
+			return False
+		if tmin_z < tmin:
+			tmin = tmin_z
+		if tmax_z > tmax:
+			tmax = tmax_z
+	
+		return tmin < ray.maxt and tmax > ray.mint
+
+	def intersect(self, ray: 'geo.Ray', isect: 'Intersection') -> bool:
+		from pytracer.aggregate.accelerator.bvh import BVH
+		if self.nodes is None:
+			return False
+		hit = False
+		inv_dir = 1. / ray.d
+		dir_neg = ray.d < 0.
+		
+		todo_idx = 0
+		node_idx = 0
+		todo = [None] * 64
+		while True:
+			node = self.nodes[node_idx]
+			# check intersection
+			if BVH._intersect_p(node.bounds, ray, inv_dir, dir_neg):
+				if node.n_prim > 0:
+					# intersect with primitives in the leaf
+					for i in range(node.n_prim):
+						if self.primitives[node.offset + i].intersect(ray, isect):
+							hit = True
+					if todo_idx == 0:
+						break
+					todo_idx -= 1
+					node_idx = todo[todo_idx]
+				
+				else:
+					# advance to near node
+					if dir_neg[node.axis]:
+						todo[todo_idx] = node_idx + 1
+						todo_idx += 1
+						node_idx = node.offset
+
+					else:
+						todo[todo_idx] = node.offset
+						todo_idx += 1
+						node_idx += 1
+			
+			else:
+				if todo_idx == 0:
+					break
+				todo_idx -= 1
+				node_idx = todo[todo_idx]
+		
+		return hit
+
+	def intersect_p(self, ray :'geo.Ray') -> bool:
+		from pytracer.aggregate.accelerator.bvh import BVH
+		if self.nodes is None:
+			return False
+		origin = ray(ray.mint)
+		inv_dir = 1. / ray.d
+		dir_neg = ray.d < 0.
+
+		todo_idx = 0
+		node_idx = 0
+		todo = [None] * 64
+		while True:
+			node = self.nodes[node_idx]
+			# check intersection
+			if BVH._intersect_p(node.bounds, ray, inv_dir, dir_neg):
+				if node.n_prim > 0:
+					# intersect with primitives in the leaf
+					for i in range(node.n_prim):
+						if self.primitives[node.offset + i].intersect_p(ray):
+							return True
+					if todo_idx == 0:
+						break
+					todo_idx -= 1
+					node_idx = todo[todo_idx]
+
+				else:
+					# advance to near node
+					if dir_neg[node.axis]:
+						todo[todo_idx] = node_idx + 1
+						todo_idx += 1
+						node_idx = node.offset
+
+					else:
+						todo[todo_idx] = node.offset
+						todo_idx += 1
+						node_idx += 1
+
+			else:
+				if todo_idx == 0:
+					break
+				todo_idx -= 1
+				node_idx = todo[todo_idx]
+
+		return False
+
+	def world_bound(self):
+		if self.nodes is not None:
+			return self.nodes[0].bounds
+		return geo.BBox()
+
+	def can_intersect(self) -> bool:
+		return True
+
+	def refine(self, refined: ['Primitive']):
+		raise NotImplementedError('{}.refine(): Not implemented'.format(self.__class__))

@@ -11,3 +11,4 @@ from __future__ import absolute_import
 from pytracer.aggregate.intersection import *
 from pytracer.aggregate.primitive import *
 from pytracer.aggregate.aggregate import *
+from pytracer.aggregate.accelerator import *
