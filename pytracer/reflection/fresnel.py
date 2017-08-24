@@ -36,6 +36,7 @@ class FresnelConductor(Fresnel):
 	def __init__(self, eta: 'Spectrum', k: 'Spectrum'):
 		self.eta = eta
 		self.k = k
+
 	def __call__(self, cosi: FLOAT):
 		return fr_cond(np.fabs(cosi), self.eta, self.k)
 
@@ -46,7 +47,7 @@ class FresnelDielectric(Fresnel):
 
 	Implement Fresnel interface for conductors
 	"""
-	def __init__(self, eta_i: 'Spectrum', eta_t: 'Spectrum'):
+	def __init__(self, eta_i: FLOAT, eta_t: FLOAT):
 		self.eta_i = eta_i
 		self.eta_t = eta_t
 

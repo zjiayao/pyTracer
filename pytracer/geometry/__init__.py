@@ -588,6 +588,10 @@ class BBox:
 		# automatically convert /0. to np.inf
 		t_near = np.true_divide((self.pMin - r.o), r.d)
 		t_far = np.true_divide((self.pMax - r.o), r.d)
+		if isinstance(t0, RayDifferential) or isinstance(t_near[0], RayDifferential):
+			a = 1
+			b = 2
+			pass
 		for i in range(3):
 			if t_near[i] > t_far[i]:
 				t_near[i], t_far[i] = t_far[i], t_near[i]

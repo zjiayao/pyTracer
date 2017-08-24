@@ -123,7 +123,7 @@ class BDF(object, metaclass=ABCMeta):
 		if wo.z < 0.:
 			wi.z *= -1.
 
-		return [self.pdf(wo, wi), self.f(wo, wi), wi]
+		return [self.pdf(wo, wi), wi, self.f(wo, wi)]
 
 	def rho_hd(self, w: 'geo.Vector', samples: [FLOAT]) -> 'Spectrum':
 		"""
@@ -136,7 +136,7 @@ class BDF(object, metaclass=ABCMeta):
 		"""
 		r = Spectrum(0.)
 		for smp in samples:
-			wi, pdf, f = self.sample_f(w, smp[0], smp[1])
+			pdf, wi, f = self.sample_f(w, smp[0], smp[1])
 			if pdf > 0.:
 				r += f * abs_cos_theta(wi) / pdf
 
@@ -301,7 +301,7 @@ class SpecularTransmission(BDF):
 			ct = -ct
 		wi = geo.Vector(eta * (-wo.x), eta * (-wo.y), ct)
 
-		F = self.fresnel(cos_theta(wo.t))
+		F = self.fresnel(cos_theta(wo))
 
 		return [1., wi, (et * et) / (ei * ei) * (Spectrum(1.) - F) * \
 		        self.T / abs_cos_theta(wi)]  # 1. suggests no MC samples needed

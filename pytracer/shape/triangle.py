@@ -259,7 +259,7 @@ class Triangle(Shape):
 
 		# compute intersection
 		t = e2.dot(s2) * divInv
-		if t < r.mint or d > r.maxt:
+		if t < r.mint or t > r.maxt:
 			return False
 
 		# compute partial derivatives

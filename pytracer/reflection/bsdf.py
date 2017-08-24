@@ -121,11 +121,12 @@ class BSDF(object):
 
 		# sample BDFs
 		wo = self.w2l(wo_w)
-		pdf, f, wi = bdf.sample_f(wo, bsdf_smp.u_dir[0], bsdf_smp.u_dir[1])
-		wi_w = self.l2w(wi)
+		pdf, wi, f = bdf.sample_f(wo, bsdf_smp.u_dir[0], bsdf_smp.u_dir[1])
 
 		if pdf == 0.:
-			return [pdf, wi_w, bdf.type, Spectrum(0.)]
+			return [pdf, None, bdf.type, Spectrum(0.)]
+
+		wi_w = self.l2w(wi)
 
 		# compute overall pdf
 		if (not (bdf.type & BDFType.SPECULAR)) and n_match > 1:

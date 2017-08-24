@@ -170,7 +170,7 @@ class SamplerRendererTask(object):
 				if self.vis_obj_id:
 					if hit and wt > 0.:
 						# random shading
-						Ls[i] = Spectrum.from_rgb([.5, .6, .7])
+						Ls[i] = Spectrum.from_rgb([1., 1., 1.])
 					else:
 						Ls[i] = Spectrum(0.)
 				else:

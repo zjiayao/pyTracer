@@ -10,6 +10,14 @@ Created by Jiayao on Aug 9, 2017
 from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from pytracer.scene import Scene
+	from pytracer.aggregate import Intersection
+	from pytracer.renderer import Renderer
+	from pytracer.light import Light
+	from pytracer.reflection import (BSDF, BDFType)
+	from pytracer.sampler import Sample
 
 
 __all__ = ['compute_light_sampling_cdf', 'uniform_sample_all_lights',
@@ -121,7 +129,7 @@ def specular_reflect(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersect
 	L = Spectrum(0.)
 	if pdf > 0. and not f.is_black() and wi.abs_dot(n) != 0.:
 		# compute ray differential
-		rd = geo.RayDifferential(p, wi, ray, isect.rEps)
+		rd = geo.RayDifferential.from_parent(p, wi, ray, isect.rEps)
 		if ray.has_differentials:
 			rd.has_differentials = True
 			rd.rxOrigin = p + isect.dg.dpdx
@@ -138,10 +146,10 @@ def specular_reflect(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersect
 			dDNdx = dwodx.dot(n) + wo.dot(dndx)
 			dDNdy = dwody.dot(n) + wo.dot(dndy)
 
-			rd.rxDirection = wi - dwodx + 2. * geo.Vector.fromgeo.Normal(wo.dot(n) * dndx + dDNdx * n)
-			rd.ryDirection = wi - dwody + 2. * geo.Vector.fromgeo.Normal(wo.dot(n) * dndy + dDNdy * n)
+			rd.rxDirection = wi - dwodx + 2. * geo.Vector.from_arr(wo.dot(n) * dndx + dDNdx * n)
+			rd.ryDirection = wi - dwody + 2. * geo.Vector.from_arr(wo.dot(n) * dndy + dDNdy * n)
 
-		Li = renderer.li(scene, rd, sample, rng)
+		Li, _ = renderer.li(scene, rd, sample, isect, rng)
 		L = f * Li * wi.abs_dot(n) / pdf
 
 	return L
@@ -157,7 +165,7 @@ def specular_transmit(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersec
 	L = Spectrum(0.)
 	if pdf > 0. and not f.is_black() and wi.abs_dot(n) != 0.:
 		# compute ray differential
-		rd = geo.RayDifferential(p, wi, ray, isect.rEps)
+		rd = geo.RayDifferential.from_parent(p, wi, ray, isect.rEps)
 		if ray.has_differentials:
 			rd.has_differentials = True
 			rd.rxOrigin = p + isect.dg.dpdx
@@ -183,10 +191,10 @@ def specular_transmit(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersec
 			dmudx = (eta - (eta * eta * w.dot(n) / wi.dot(n))) * dDNdx
 			dmudy = (eta - (eta * eta * w.dot(n) / wi.dot(n))) * dDNdy
 
-			rd.rxDirection = wi + eta * dwodx - geo.Vector.fromgeo.Normal(mu * dndx + dmudx * n)
-			rd.ryDirection = wi + eta * dwody - geo.Vector.fromgeo.Normal(mu * dndy + dmudy * n)
+			rd.rxDirection = wi + eta * dwodx - geo.Vector.from_arr(mu * dndx + dmudx * n)
+			rd.ryDirection = wi + eta * dwody - geo.Vector.from_arr(mu * dndy + dmudy * n)
 
-		Li = renderer.li(scene, rd, sample, rng)
+		_, Li = renderer.li(scene, rd, sample, isect, rng)
 		L = f * Li * wi.abs_dot(n) / pdf
 
 	return L

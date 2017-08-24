@@ -85,7 +85,7 @@ class PathIntegrator(SurfaceIntegrator):
 			wo = -ray.d
 
 			if bounce_cnt < PathIntegrator.SAMPLE_DEPTH:
-				print('bounce_cnt: ', bounce_cnt)
+				# print('bounce_cnt: ', bounce_cnt)
 				# use samples
 				from pytracer.integrator.utility import uniform_sample_one_light
 				L += path_throughput * uniform_sample_one_light(scene, renderer, p, n, wo,

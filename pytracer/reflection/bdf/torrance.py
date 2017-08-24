@@ -84,7 +84,7 @@ class Blinn(MicrofacetDistribution):
 		wi = -wo + 2. * wo.dot(wh) * wh
 
 		# pdf
-		pdf = ((self.e + 1.) * np.ower(ct, self.e)) / \
+		pdf = ((self.e + 1.) * np.power(ct, self.e)) / \
 		      (2. * PI * 4. * wo.dot(wh))
 
 		if wo.dot(wh) <= 0.:
@@ -93,12 +93,15 @@ class Blinn(MicrofacetDistribution):
 		return [pdf, wi]
 
 	def pdf(self, wo: 'geo.Vector', wi: 'geo.Vector') -> FLOAT:
-		raise NotImplementedError('src.core.reflection.{}.pdf(): abstract method '
-		                          'called'.format(self.__class__))
+		wh = geo.normalize(wo + wi)
+		ct = abs_cos_theta(wh)
 
-	# Anisotropic, Ashikhmin and Shirley
+		if wo.dot(wh) <= 0.:
+			return 0.
 
+		return ((self.e + 1.) * np.power(ct, self.e)) / (2. * PI * 4. * wo.dot(wh))
 
+# Anisotropic, Ashikhmin and Shirley
 class Anisotropic(MicrofacetDistribution):
 	def __init__(self, ex: FLOAT, ey: FLOAT):
 		self.ex = np.clip(ex, -np.inf, 10000.)
@@ -189,6 +192,7 @@ class Microfacet(BDF):
 	"""
 
 	def __init__(self, r: 'Spectrum', f: 'Fresnel', d: 'MicrofacetDistribution'):
+		super().__init__(BDFType(BDFType.REFLECTION | BDFType.GLOSSY))
 		self.R = r
 		self.fresnel = f
 		self.distribution = d
@@ -213,7 +217,7 @@ class Microfacet(BDF):
 
 	def sample_f(self, wo: 'geo.Vector', u1: FLOAT,
 	             u2: FLOAT) -> [FLOAT, 'geo.Vector', 'Spectrum']:
-		[pdf, wi, spec] = self.distribution.sample_f(wo, u1, u2)
+		pdf, wi = self.distribution.sample_f(wo, u1, u2)
 		if wi.z * wo.z <= 0.:
 			return [pdf, wi, Spectrum(0.)]
 		return [pdf, wi, self.f(wo, wi)]

@@ -39,7 +39,7 @@ class VisibilityTester(object):
 		given segment.
 		"""
 		dist = (p1 - p2).length()
-		self.ray = geo.Ray(p1, (p2 - p1) / dist, eps1, dist * (1. - eps2), time)
+		self.ray = geo.Ray(p1, (p2 - p1) / dist, eps1, dist * (1. - eps2), time=time)
 
 	def set_ray(self, p: 'geo.Point', eps: FLOAT, w: 'geo.Vector', time: FLOAT):
 		"""
@@ -48,7 +48,7 @@ class VisibilityTester(object):
 		The test is to indicate whether there
 		is any object along a given direction.
 		"""
-		self.ray = geo.Ray(p, w, eps, np.inf, time)
+		self.ray = geo.Ray(p, w, eps, np.inf, time=time)
 
 	def unoccluded(self, scene: 'scn.Scene') -> bool:
 		"""
@@ -86,9 +86,9 @@ class ShapeSet(object):
 				tmp.extend(sh.refine())
 
 		if len(self.shapes) > 64:
-			print("Warning: src.core.light.{}.__init__(): "
-					"Area light turned into {} shapes, might be inefficient".format(self.__class__,
-							len(self.shapes)))
+			print("Warning: src.core.light.{}.__init__(): " 
+			      "Area light turned into {} shapes, might be inefficient".format(self.__class__,
+			                                                                      len(self.shapes)))
 		self.areas = []
 		self.sum_area = 0.
 		for sh in self.shapes:
@@ -176,6 +176,6 @@ class LightSample(object):
 	@classmethod
 	def from_sample(cls, sample: 'spler.Sample', offset: 'LightSampleOffset', n: UINT):
 		self = cls(sample.twoD[offset.offset_pos][n][0],
-				   sample.twoD[offset.offset_pos][n][1],
-				   sample.oneD[offset.offset_com][n])
+		           sample.twoD[offset.offset_pos][n][1],
+		           sample.oneD[offset.offset_com][n])
 		return self
