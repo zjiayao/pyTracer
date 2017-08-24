@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 
 __all__ = ['Material', 'MatteMaterial', 'PlasticMaterial',
            'MixMaterial', 'MeasuredMaterial', 'SubsurfaceMaterial',
-           'KdSubsurfaceMaterial', 'UberMaterial']
+           'KdSubsurfaceMaterial', 'UberMaterial', 'MirrorMaterial', 'MetalMaterial',
+           'GlassMaterial']
 
 
 class Material(object, metaclass=ABCMeta):
@@ -175,7 +176,7 @@ class PlasticMaterial(Material):
 		# diffuse
 		kd = self.Kd(dgs).clip()
 		diff = Lambertian(kd)
-		fresnel = FresnelDielectric(Spectrum(1.5), Spectrum(1.))
+		fresnel = FresnelDielectric(1.5, 1.)
 
 		# glossy specular
 		ks = self.Ks(dgs).clip()
@@ -187,6 +188,115 @@ class PlasticMaterial(Material):
 
 		return bsdf
 
+
+class MirrorMaterial(Material):
+	"""
+	MirrorMaterial Class
+
+	Models mirror.
+
+	Kr: Coef of specular reflection
+	"""
+	def __init__(self, Kr: 'Texture', bump_map: 'Texture'=None):
+		"""
+		Kr `Spectrum` `Texture`
+		bump_map: `FLOAT` `Texture`
+		"""
+		self.Kr = Kr
+		self.bump_map = bump_map
+
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, SpecularReflection, FresnelFullReflect)
+		# possibly bump mapping
+		if self.bump_map is not None:
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
+		else:
+			dgs = dg_s.copy()
+
+		bsdf = BSDF(dgs, dg_g.nn)
+
+		r = self.Kr(dgs).clip()
+		if not r.is_black():
+			bsdf.push_back(SpecularReflection(r, FresnelFullReflect()))
+
+		return bsdf
+
+
+class MetalMaterial(Material):
+	"""
+	MetalMaterial Class
+
+	Models metal.
+	"""
+	def __init__(self, eta: 'Texture', k: 'Texture', roughness: 'Texture',
+	             bump_map: 'Texture'=None):
+		"""
+		eta, k: `Spectrum` `Texture`
+		roughness, bump_map: `FLOAT` `Texture`
+		"""
+		self.eta = eta
+		self.k = k
+		self.roughness = roughness
+		self.bump_map = bump_map
+
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, Blinn, FresnelConductor, Microfacet)
+		# possibly bump mapping
+		if self.bump_map is not None:
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
+		else:
+			dgs = dg_s.copy()
+
+		bsdf = BSDF(dgs, dg_g.nn)
+
+		rough = self.roughness(dgs)
+		md = Blinn(1. / rough)
+		fr = FresnelConductor(self.eta(dgs), self.k(dgs))
+
+		bsdf.push_back(Microfacet(Spectrum(1.), fr, md))
+
+		return bsdf
+
+
+class GlassMaterial(Material):
+	"""
+	GlassMaterial Class
+
+	Models glass.
+
+	Kr: Coef of specular reflection
+	"""
+	def __init__(self, Kr: 'Texture', Kt: 'Texture', i: 'Texture',
+	             bump_map: 'Texture'=None):
+		"""
+		Kr, Kt: `Spectrum` `Texture`
+		i, bump_map: `FLOAT` `Texture`
+		"""
+		self.Kr = Kr
+		self.Kt = Kt
+		self.index = i
+		self.bump_map = bump_map
+
+	def get_bsdf(self, dg_g: 'geo.DifferentialGeometry', dg_s: 'geo.DifferentialGeometry') -> 'BSDF':
+		from pytracer.reflection import (BSDF, SpecularReflection, SpecularTransmission, FresnelDielectric)
+		# possibly bump mapping
+		if self.bump_map is not None:
+			dgs = Material.bump(self.bump_map, dg_g, dg_s)
+		else:
+			dgs = dg_s.copy()
+
+		ior = self.index(dgs)
+		bsdf = BSDF(dgs, dg_g.nn, ior)
+
+		R = self.Kr(dgs).clip()
+		if not R.is_black():
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., ior)))
+
+		T = self.Kt(dgs).clip()
+		if not T.is_black():
+			bsdf.push_back(SpecularTransmission(T, 1., ior))
+
+		return bsdf
 
 class UberMaterial(Material):
 	"""
@@ -228,7 +338,7 @@ class UberMaterial(Material):
 		bsdf = BSDF(dgs, dg_g.nn)
 		op = self.opacity(dgs).clip()   # op: Spectrum
 
-		if not (op == 1.).all():
+		if not op == [1., 1., 1.]:
 			bsdf.push_back(SpecularTransmission((1. - op), 1., 1.))
 
 		kd = op * self.Kd(dgs).clip()
@@ -440,7 +550,7 @@ class SubsurfaceMaterial(Material):
 		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			bsdf.push_back(SpecularReflection(R, FresnelDielectric(Spectrum(1.), self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
 
@@ -481,7 +591,7 @@ class KdSubsurfaceMaterial(Material):
 		bsdf = BSDF(dgs, dg_g.nn)
 
 		if not R.is_black():
-			bsdf.push_back(SpecularReflection(R, FresnelDielectric(Spectrum(1.), self.eta(dgs))))
+			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
 
