@@ -26,15 +26,21 @@ def create_triangle_mesh(o2w: 'trans.Transform', w2o: 'trans.Transform',
 		uvs = None if 'st' not in params else params['st']
 	discard = False if 'discard' not in params else params['discard']
 
-	if len(p) % 3 != 0:
+	if len(vi) % 3 != 0:
 		raise RuntimeError
 
-	npi = len(p) // 3 if p is not None else -1
-	P = [None] * npi
-	cnt = 0
-	for i in range(0, len(p), 3):
-		P[cnt] = geo.Point(p[i], p[i+1], p[i+2])
-		cnt += 1
+	if not isinstance(p[0], geo.Point):
+		if len(p) % 3 != 0:
+			raise RuntimeError
+		npi = len(p) // 3 if p is not None else -1
+		P = [None] * npi
+		cnt = 0
+		for i in range(0, len(p), 3):
+			P[cnt] = geo.Point(p[i], p[i+1], p[i+2])
+			cnt += 1
+	else:
+		P = p
+		npi = len(P) if p is not None else -1
 
 	nvi = len(vi) if vi is not None else -1
 	nuvi = len(uvs) if uvs is not None else -1
@@ -154,7 +160,17 @@ class Triangle(Shape):
 
 		return [p, Ns]
 
-	def intersect(self, r: 'Ray') -> (bool, FLOAT, FLOAT, 'geo.DifferentialGeometry'):
+	def __getitem__(self, item):
+		if item == 0:
+			return self.mesh.p[self.mesh.vertexIndex[self.v]]
+		elif item == 1:
+			return self.mesh.p[self.mesh.vertexIndex[self.v+1]]
+		elif item == 2:
+			return self.mesh.p[self.mesh.vertexIndex[self.v+2]]
+		else:
+			raise KeyError
+
+	def intersect(self, r: 'Ray') -> [bool, FLOAT, FLOAT, 'geo.DifferentialGeometry']:
 		"""
 		Determine whether intersects
 		using Barycentric coordinates
