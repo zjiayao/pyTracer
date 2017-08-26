@@ -92,17 +92,23 @@ class BVH(Aggregate):
 
 		# recursively build BVH
 		segment = [0, len(self.primitives), 0]
-		ordered_prims = [None] * len(self.primitives)
-		root = self._recursive_build(build_data, segment, ordered_prims)
-
+		ordered_prims = []#[None] * len(self.primitives)
+		import sys
+		sys.setrecursionlimit(10000)
+		try:
+			root = self._recursive_build(build_data, segment, ordered_prims)
+		except RecursionError:
+			print("Length: ", len(self.primitives))
+			print("Recursion error: ", segment[2])
 		self.primitives = ordered_prims
 
 		# DFS of BVH
 		self.nodes = [BVH._LinearNode() for _ in range(segment[2])]
-		self._flatten_tree(root, 0)
+		self._flatten_tree(root, [0])
 
 	@staticmethod
 	def _partition(data: ['BVH._BVHPrimitive'], start: INT, end: INT, mid: FLOAT, dim: INT):
+		assert start <= end
 		i = start
 		k = end - 1
 		while i < k:
@@ -130,9 +136,11 @@ class BVH(Aggregate):
 		k = end - 1
 		diff = centroid_bounds.pMax[dim] - centroid_bounds.pMin[dim]
 		while i < k:
-			b = n_buckets * ((data[i].centroid[dim] - centroid_bounds.pMin[dim]) / diff)
+			b = INT(n_buckets * ((data[i].centroid[dim] - centroid_bounds.pMin[dim]) / diff))
 			if b == n_buckets:
 				b -= 1
+
+			assert b >= 0 and b < n_buckets
 
 			if b <= min_cost_idx:
 				i += 1
@@ -145,6 +153,12 @@ class BVH(Aggregate):
 		"""Recursively build BVH, segment: [start, end, total]"""
 		from pytracer.aggregate.accelerator.bvh import BVH
 		start, end = segment[0:2]
+		assert start < end
+		if not start < end:
+			a = 2
+			c = 3
+		if start == 1513 and end == 1519:
+			a = 2
 		segment[2] += 1
 		node = BVH._BVHNode()
 
@@ -175,9 +189,11 @@ class BVH(Aggregate):
 					# create leaf node
 					first = len(ordered_prims)
 					for i in range(start, end):
-						ordered_prims.append(self.primitives[data[i]].prim_idx)
+						ordered_prims.append(self.primitives[data[i].prim_idx])
 					node.init_leaf(first, n_prim, bbox)
 				else:
+					assert not mid == end
+					assert not mid == start
 					segment[1] = mid
 					c0 = self._recursive_build(data, segment, ordered_prims)
 					segment[0:2] = [mid, end]
@@ -188,8 +204,8 @@ class BVH(Aggregate):
 
 			# partition based on split_method
 			if self.split_method == BVH.SplitMethod.MIDDLE:
-				pmid = .5 * (centroid_bounds.pMax[dim] + centroid_bounds.pMax[dim])
-				mid = BVH._partition(data, start, end, pmid)
+				pmid = .5 * (centroid_bounds.pMax[dim] + centroid_bounds.pMin[dim])
+				mid = BVH._partition(data, start, end, pmid, dim)
 
 			else:
 				# surface area heuristic
@@ -200,13 +216,16 @@ class BVH(Aggregate):
 				else:
 					# buckets
 					n_buckets = 12
-					buckets = [[0, geo.BBox()] for i in range(n_buckets)]  # bucket: [count: INT, bounds: BBox]
+					buckets = [[0, geo.BBox()] for _ in range(n_buckets)]  # bucket: [count: INT, bounds: BBox]
 					for i in range(start, end):
-						b = INT(n_buckets * ((data[i].centroid[dim] - centroid_bounds.pMax[dim]) /
+						b = INT(n_buckets * ((data[i].centroid[dim] - centroid_bounds.pMin[dim]) /
 						                     (centroid_bounds.pMax[dim] - centroid_bounds.pMin[dim])))
 
 						if b == n_buckets:
 							b -= 1
+
+						assert b >= 0 and b < n_buckets
+
 						buckets[b][0] += 1
 						buckets[b][1].union(data[i].bounds)
 
@@ -224,7 +243,7 @@ class BVH(Aggregate):
 							c1 += buckets[j][0]
 						# cost for intersection: 1.
 						# cost for traversal: .125
-						costs[i] = .125 + (c0 * b0.surface_area() + b1.surface_area()) /\
+						costs[i] = .125 + (c0 * b0.surface_area() + c1 * b1.surface_area()) /\
 						                  bbox.surface_area()
 
 					# find bucket
@@ -232,8 +251,12 @@ class BVH(Aggregate):
 
 					# create leaf of split at bucket
 					if n_prim > self.max_prim_per_node or costs[min_cost_idx] < n_prim:
-						pmid = BVH._bucket_partition(data, start, end, min_cost_idx, n_buckets, dim, centroid_bounds)
-						mid = pmid - start
+						mid = BVH._bucket_partition(data, start, end, min_cost_idx, n_buckets, dim, centroid_bounds)
+						# mid = pmid + start
+						if mid == start:
+							mid += 1
+						elif mid == end:
+							mid -= 1
 					else:
 						first = len(ordered_prims)
 						for i in range(start, end):
@@ -241,6 +264,8 @@ class BVH(Aggregate):
 						node.init_leaf(first, n_prim, bbox)
 						return node
 
+			assert not mid == end
+			assert not mid == start
 			segment[1] = mid
 			c0 = self._recursive_build(data, segment, ordered_prims)
 			segment[0:2] = [mid, end]
@@ -249,44 +274,47 @@ class BVH(Aggregate):
 
 		return node
 	
-	def _flatten_tree(self, node: 'BVH._BVHNode', offset: UINT):
+	def _flatten_tree(self, node: 'BVH._BVHNode', offset: [UINT]):
 		# pre-traversal
-		linear_node = self.nodes[offset]
+		linear_node = self.nodes[offset[0]]
 		linear_node.bounds = node.bounds
+		off = offset[0]
+		offset[0] += 1
 		if node.n_prim > 0:
+			assert node.children[0] is None and node.children[1] is None
 			linear_node.offset = node.first_offset
 			linear_node.n_prim = node.n_prim
 		else:
 			linear_node.axis = node.split_axis
 			linear_node.n_prim = 0
-			off = self._flatten_tree(node.children[0], offset + 1)
-			linear_node.offset = self._flatten_tree(node.children[1], off)
+			self._flatten_tree(node.children[0], offset)
+			linear_node.offset = self._flatten_tree(node.children[1], offset)
 		
-		return offset + 1
+		return off
 	
 	@staticmethod
-	def _intersect_p(bounds: geo.BBox, ray :geo.Ray, inv_dir: geo.Vector, dir_neg: [bool]) -> bool:
+	def _intersect_p(bounds: geo.BBox, ray: geo.Ray, inv_dir: geo.Vector, dir_neg: [bool]) -> bool:
 		# ray intersection against x and y slabs
 		tmin = (bounds[dir_neg[0]].x - ray.o.x) * inv_dir.x
 		tmax = (bounds[1-dir_neg[0]].x - ray.o.x) * inv_dir.x
-		tmin_y = (bounds[dir_neg[0]].y - ray.o.y) * inv_dir.y
-		tmax_y = (bounds[1 - dir_neg[0]].y - ray.o.y) * inv_dir.y
+		tmin_y = (bounds[dir_neg[1]].y - ray.o.y) * inv_dir.y
+		tmax_y = (bounds[1 - dir_neg[1]].y - ray.o.y) * inv_dir.y
 		
 		if tmin > tmax_y or tmin_y > tmax:
 			return False
-		if tmin_y < tmin:
+		if tmin_y > tmin:
 			tmin = tmin_y
-		if tmax_y > tmax:
+		if tmax_y < tmax:
 			tmax = tmax_y
 		# z slab
-		tmin_z = (bounds[dir_neg[0]].z - ray.o.z) * inv_dir.z
-		tmax_z = (bounds[1 - dir_neg[0]].z - ray.o.z) * inv_dir.z
+		tmin_z = (bounds[dir_neg[2]].z - ray.o.z) * inv_dir.z
+		tmax_z = (bounds[1 - dir_neg[2]].z - ray.o.z) * inv_dir.z
 
 		if tmin > tmax_z or tmin_z > tmax:
 			return False
-		if tmin_z < tmin:
+		if tmin_z > tmin:
 			tmin = tmin_z
-		if tmax_z > tmax:
+		if tmax_z < tmax:
 			tmax = tmax_z
 	
 		return tmin < ray.maxt and tmax > ray.mint
