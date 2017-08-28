@@ -16,7 +16,7 @@ from pytracer.transform import (Transform, AnimatedTransform)
 import pytracer.transform.quat as quat
 
 N_TEST_CASE = 10
-VAR = 10
+VAR = 10.
 EPS = 6
 np.random.seed(1)
 rng = np.random.rand
