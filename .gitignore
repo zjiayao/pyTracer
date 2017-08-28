@@ -2,8 +2,11 @@ __pycache__/
 .cache
 *.png
 *.swp
+*.cpp
+*.so
 /tmp
 rt.py
 /.idea
 /testlog*
+/build*
 /profile*

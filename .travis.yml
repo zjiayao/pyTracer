@@ -7,4 +7,6 @@ install:
   - CI=false pip install numpy-quaternion
 
 # command to run tests
-script: PYTHONPATH=$PWD:$PYTHONPATH py.test
+script:
+  python setup.py build_ext --inplace
+  PYTHONPATH=$PWD:$PYTHONPATH py.test
