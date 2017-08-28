@@ -11,6 +11,9 @@ from __future__ import (absolute_import, division)
 import cython
 from pytracer.core.definition import FLOAT
 
+__all__ = ['Vector', 'Point', 'Normal', 'Ray', 'RayDifferential',
+           'BBox']
+
 
 cdef class _Arr3:
 	"""Array baseclass"""
@@ -179,6 +182,12 @@ cdef class Point(_Arr3):
 
 		raise TypeError
 
+	cpdef FLOAT_t sq_dist(self, Point p):
+		return self._sq_dist(p)
+
+	cpdef FLOAT_t dist(self, Point p):
+		return self._dist(p)
+
 cdef class Ray:
 	"""Ray Class"""
 
@@ -203,12 +212,12 @@ cdef class Ray:
 		return self.at(t)
 
 	@staticmethod
-	def from_ray(Ray r):
+	def from_ray(Ray r not None):
 		print("Ray.from_ray(): testing only")
 		return Ray._from_ray(r)
 
 	@staticmethod
-	def from_parent(Point o, Vector d, Ray r,
+	def from_parent(Point o not None, Vector d not None, Ray r not None,
 	                 FLOAT_t mint, FLOAT_t maxt):
 		print("Ray.from_parent(): testing only")
 		return Ray._from_parent(o, d, r, mint, maxt)
@@ -228,7 +237,126 @@ cdef class RayDifferential(Ray):
 		self.ryDirection = Vector(0., 0., 0.)
 
 	@staticmethod
-	def from_rd(RayDifferential r):
+	def from_rd(RayDifferential r not None):
 		print("RayDifferential.from_rd(): testing only")
 		return RayDifferential._from_rd(r)
+
+
+cdef class BBox:
+	"""BBox Class"""
+	def __cinit__(self, Point p1=None, Point p2=None):
+		if p1 is not None and p2 is not None:
+			self.pMin = Point(fmin(p1.x, p2.x),
+			                  fmin(p1.y, p2.y),
+			                  fmin(p1.z, p2.z))
+			self.pMax = Point(fmax(p1.x, p2.x),
+			                  fmax(p1.y, p2.y),
+			                  fmax(p1.z, p2.z))
+
+		elif p1 is None and p2 is None:
+			self.pMin = Point(INF, INF, INF)
+			self.pMax = Point(-INF, -INF, -INF)
+
+		elif p2 is None:
+			self.pMin = p1._copy()
+			self.pMax = Point(INF, INF, INF)
+
+		else:
+			self.pMin = Point(-INF, -INF, -INF)
+			self.pMax = p2._copy()
+
+
+	def __repr__(self):
+		return "{}\npMin:{}\npMax:{}".format(self.__class__,
+                                 self.pMin,
+                                 self.pMax)
+
+	def __getitem__(self, INT_t item):
+		if item == 0:
+			return self.pMin
+		elif item == 1:
+			return self.pMax
+		raise KeyError
+
+
+	@staticmethod
+	def Union(BBox b1 not None, b2 not None):
+		print("BBox.Union(): Depreciated, using Union_b() or Union_p() instead")
+		if isinstance(b2, BBox):
+			return BBox._Union_b(b1, b2)
+		elif isinstance(b2, Point):
+			return BBox._Union_p(b1, b2)
+
+		raise TypeError
+
+	@staticmethod
+	def union(self, b2 not None):
+		print("BBox.Union(): Depreciated, using Union_b() or Union_p() instead")
+		if isinstance(b2, BBox):
+			return self._union_b(b2)
+		elif isinstance(b2, Point):
+			return self._union_p(b2)
+
+		raise TypeError
+
+	@cython.boundscheck(False)
+	cdef bool _intersect_p(self, Ray r, FLOAT_t *t0, FLOAT_t *t1):
+		cdef:
+			FLOAT_t s0 = r.mint, s1 = r.maxt
+			FLOAT_t tnear, tfar
+			Vector t_near = (self.pMin - r.o) / r.d
+			Vector t_far = (self.pMax - r.o) / r.d
+			INT_t i = 0
+
+		for i in range(3):
+			tnear = (self.pMin[i] - r.o[i]) / r.d[i]
+			tfar = (self.pMax[i] - r.o[i]) / r.d[i]
+
+			if tnear > tfar:
+				fswap(&tnear, &tfar)
+			s0 = fmax(s0, tnear)
+			s1 = fmin(s1, tfar)
+			if s0 > s1:
+				return False
+
+		t0[0] = s0
+		t1[0] = s1
+		return True
+
+	cpdef bool overlaps(self, BBox other):
+		return self._overlaps(other)
+
+	cpdef bool inside(self, Point pnt):
+		return self._inside(pnt)
+
+	cpdef bool expand(self, FLOAT_t delta):
+		return self._expand(delta)
+
+	cpdef FLOAT_t surface_area(self):
+		return self._surface_area()
+
+	cpdef FLOAT_t volume(self):
+		return self._volume()
+
+	cpdef INT_t maximum_extent(self):
+		return self._maximum_extent()
+
+	cpdef Point lerp(self, FLOAT_t tx, FLOAT_t ty, FLOAT_t tz):
+		return self._lerp(tx, ty, tz)
+
+	cpdef Vector offset(self, Point pnt):
+		return self._offset(pnt)
+
+	def bounding_shpere(self, Point ctr not None):
+		cdef FLOAT_t rad = self._bounding_sphere(ctr)
+		return [ctr, rad]
+
+	def intersect_p(self, Ray r not None):
+		cdef FLOAT_t t0 = 0., t1 = 0.
+		if self._intersect_p(r, &t0, &t1):
+			return [True, t0, t1]
+		return [False, 0., 0.]
+
+
+
 
