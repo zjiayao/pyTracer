@@ -8,5 +8,5 @@ install:
 
 # command to run tests
 script:
-  python setup.py build_ext --inplace
-  PYTHONPATH=$PWD:$PYTHONPATH py.test
+  - python setup.py build_ext --inplace
+  - PYTHONPATH=$PWD:$PYTHONPATH py.test
