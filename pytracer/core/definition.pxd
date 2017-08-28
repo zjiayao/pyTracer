@@ -10,6 +10,7 @@ Created by Jiayao on Aug 28, 2017
 # distutils: language=c++
 from __future__ import absolute_import
 from libcpp cimport bool
+import numpy as np
 cimport numpy as np
 
 ctypedef np.float32_t FLOAT_t
@@ -24,8 +25,12 @@ cdef:
 	FLOAT_t PI =  3.14159265358979323846
 	FLOAT_t INV_PI = 0.31830988618379067154
 	FLOAT_t INV_2PI = 0.15915494309189533577
-	FLOAT_t INF = math.INFINITY
+	FLOAT_t INF = np.inf
 
+cdef inline void fswap(FLOAT_t *x, FLOAT_t *y):
+	cdef FLOAT_t tmp = x[0]
+	x[0] = y[0]
+	y[0] = x[0]
 
 cdef inline FLOAT_t fmin(FLOAT_t x, FLOAT_t y):
 	return x if x <= y else y
