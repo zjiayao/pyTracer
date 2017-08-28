@@ -1,15 +1,27 @@
 from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
+import numpy
 
-src = ['definition.pxd']
+src = ['pytracer.core.definition', 'pytracer.geometry.geometry']
+loc = [['pytracer/core/definition.pyx'], ['pytracer/geometry/geometry.pyx']]
+incl = [numpy.get_include()]
 
-extensions = [
-	Extension("pytracer.core.definition", ["pytracer/core/definition.pyx"],
-	          language='c++'),
-	Extension("pytracer.geometry.geometry", ["pytracer/geometry/geometry.pyx"],
-                        language='c++')
-]
+
+def _construct_ext(source: list, location: list, include: list):
+	exts = []
+	for i, modu in enumerate(source):
+		exts.append(Extension(modu, location[i], include_dirs=include, language='c++'))
+	return exts
+
+extensions = _construct_ext(src, loc, incl)
+
+# extensions = [
+# 	Extension("pytracer.core.definition", ["pytracer/core/definition.pyx"],
+# 	          language='c++'),
+# 	Extension("pytracer.geometry.geometry", ["pytracer/geometry/geometry.pyx"],
+#                         language='c++')
+# ]
 
 setup(
 	# name='pyTracer',
