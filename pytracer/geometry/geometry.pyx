@@ -75,34 +75,44 @@ cdef class _Arr3:
 		self.data[2] = v
 
 	def __add__(self, other):
+		cdef FLOAT_t o
 		if isinstance(self, _Arr3):
 			if isinstance(other, _Arr3):
 				return self.__class__(self.x + other.x,
 				                      self.y + other.y,
 				                      self.z + other.z)
-			elif type(other) == FLOAT:
-				return self.__class__(self.x + other,
-				                      self.y + other,
-				                      self.z + other)
-		elif type(other) == _Arr3:
-			assert type(self) == FLOAT
+			else:
+				o = <FLOAT_t> other
+				return self.__class__(self.x + o,
+				                      self.y + o,
+				                      self.z + o)
+		elif isinstance(other, _Arr3):
+			# assert type(self) == FLOAT
 			return other.__class__(self + other.x,
 			                      self + other.y,
 			                      self + other.z)
 		raise TypeError
 
+	def __neg__(self):
+		self.data[0] *= -1
+		self.data[1] *= -1
+		self.data[2] *= -1
+		return self
+
 	def __mul__(self, other):
+		cdef FLOAT_t o
 		if isinstance(self, _Arr3):
 			if isinstance(other, _Arr3):
 				return self.__class__(self.x * other.x,
 				                      self.y * other.y,
 				                      self.z * other.z)
-			elif type(other) == FLOAT:
-				return self.__class__(self.x * other,
-				                      self.y * other,
-				                      self.z * other)
-		elif type(other) == _Arr3:
-			assert type(self) == FLOAT
+			else:
+				o = <FLOAT_t> other
+				return self.__class__(self.x * o,
+				                      self.y * o,
+				                      self.z * o)
+		elif isinstance(other, _Arr3):
+			# assert type(self) == FLOAT
 			return other.__class__(self * other.x,
 			                      self * other.y,
 			                      self * other.z)
@@ -110,17 +120,19 @@ cdef class _Arr3:
 		raise TypeError
 
 	def __truediv__(self, other):
+		cdef FLOAT_t o
 		if isinstance(self, _Arr3):
 			if isinstance(other, _Arr3):
 				return self.__class__(self.x / other.x,
 				                      self.y / other.y,
 				                      self.z / other.z)
-			elif type(other) == FLOAT:
-				return self.__class__(self.x / other,
-				                      self.y / other,
-				                      self.z / other)
-		elif type(other) == _Arr3:
-			assert type(self) == FLOAT
+			else:
+				o = <FLOAT_t> other
+				return self.__class__(self.x / o,
+				                      self.y / o,
+				                      self.z / o)
+		elif isinstance(other, _Arr3):
+			# assert type(self) == FLOAT
 			return other.__class__(self / other.x,
 			                      self / other.y,
 			                      self / other.z)
@@ -128,17 +140,20 @@ cdef class _Arr3:
 		raise TypeError
 
 	def __sub__(self, other):
+		cdef FLOAT_t o
 		if isinstance(self, _Arr3):
 			if isinstance(other, _Arr3):
 				return self.__class__(self.x - other.x,
 				                      self.y - other.y,
 				                      self.z - other.z)
-			elif type(other) == FLOAT:
+			# elif type(other) == FLOAT:
+			else:
+				o = <FLOAT_t> other
 				return self.__class__(self.x - other,
 				                      self.y - other,
 				                      self.z - other)
-		elif type(other) == _Arr3:
-			assert type(self) == FLOAT
+		elif isinstance(other, _Arr3):
+			# assert type(self) == FLOAT
 			return other.__class__(self - other.x,
 			                      self - other.y,
 			                      self - other.z)
@@ -161,6 +176,7 @@ cdef class _Arr3:
 
 cdef class Point(_Arr3):
 	def __sub__(self, other):
+		cdef FLOAT_t o
 		if isinstance(self, Point):
 			if isinstance(other, Point):
 				return Vector(self.x - other.x,
@@ -170,12 +186,14 @@ cdef class Point(_Arr3):
 				return Point(self.x - other.x,
 				             self.y - other.y,
 				             self.z - other.z)
-			elif type(other) == FLOAT:
+			# elif type(other) == FLOAT:
+			else:
+				o = <FLOAT_t> other
 				return self.__class__(self.x - other,
 				                      self.y - other,
 				                      self.z - other)
-		elif type(other) == Point:
-			assert type(self) == FLOAT
+		elif isinstance(other, Point):
+			# assert type(self) == FLOAT
 			return self.__class__(self - other.x,
 			                      self - other.y,
 			                      self - other.z)
