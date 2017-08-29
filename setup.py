@@ -3,9 +3,9 @@ from Cython.Build import cythonize
 from distutils.extension import Extension
 import numpy
 
-src = ['pytracer.core.definition', 'pytracer.geometry.geometry']
-loc = [['pytracer/core/definition.pyx'], ['pytracer/geometry/geometry.pyx']]
-incl = [numpy.get_include()]
+src = ['pytracer.geometry.geometry']
+loc = [['pytracer/geometry/geometry.pyx']]
+incl = [numpy.get_include(), 'pytracer/include']
 
 
 def _construct_ext(source: list, location: list, include: list):
