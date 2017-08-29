@@ -10,7 +10,8 @@ from typing import overload
 from collections import (Iterable, Sequence, MutableSequence)
 from abc import (ABCMeta, abstractmethod)
 from enum import Enum
-from pytracer import *
+from pytracer import (FLOAT, INT, UINT, np, util)
+from pytracer import pyEPS as EPS
 from pytracer.data.spectral import CIE_Y_INTEGRAL
 
 __all__ = ['xyz2rgb', 'rgb2xyz', 'Spectrum', 'SpectrumType', 'RGBSpectrum']
