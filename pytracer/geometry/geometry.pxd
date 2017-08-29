@@ -7,17 +7,19 @@ Created by Jiayao on Aug 28, 2017
 """
 # distutils: language=c++
 from __future__ import absolute_import
+from cpython.object cimport Py_EQ, Py_NE
 from libcpp cimport bool
 from libc cimport math
-from pytracer.core.definition cimport FLOAT_t, INT_t, INF, feq, fmin, fmax,lerp, fswap
+from pytracer.core.definition cimport FLOAT_t, INT_t, INF, feq, fmin, fmax,lerp, fswap, not_zero
 
 
 cdef class _Arr3:
 	"""Array baseclass"""
 	cdef FLOAT_t data[3]
 
+
 	@staticmethod
-	cdef inline _Arr3 from_arr(_Arr3 n):
+	cdef inline _Arr3 _from_arr(_Arr3 n):
 		return n.__class__(n[0], n[1], n[2])
 
 	cdef inline _Arr3 _copy(self):
@@ -44,12 +46,13 @@ cdef class _Arr3:
 	cdef inline _Arr3 _normalize(self):
 		"""Inplace normalization"""
 		cdef FLOAT_t length = self.length()
-		if not feq(length, 0.):
+		if not_zero(length):
 			self.data[0] /= length
 			self.data[1] /= length
 			self.data[2] /= length
 		return self
 
+	cpdef _Arr3 copy(self)
 	cpdef FLOAT_t dot(self, _Arr3 other)
 	cpdef _Arr3 cross(self, _Arr3 other)
 	cpdef FLOAT_t sq_length(self)
@@ -71,12 +74,12 @@ cdef class Point(_Arr3):
 	cdef inline FLOAT_t _dist(self, Point p):
 		return math.sqrt(self._sq_dist(p))
 
-	cpdef FLOAT_t sq_dist(self, Point)
-	cpdef FLOAT_t dist(self, Point)
+	cpdef FLOAT_t sq_dist(self, Point pnt)
+	cpdef FLOAT_t dist(self, Point pnt)
 
 
 cdef class Ray:
-	cdef:
+	cdef public:
 		Point o
 		Vector d
 		FLOAT_t mint, maxt, time
@@ -97,7 +100,7 @@ cdef class Ray:
 	cpdef Point at(self, FLOAT_t t)
 
 cdef class RayDifferential(Ray):
-	cdef:
+	cdef public:
 		bool has_differentials
 		Point rxOrigin, ryOrigin
 		Vector rxDirection, ryDirection
@@ -117,23 +120,25 @@ cdef class RayDifferential(Ray):
 
 		return self
 
-	cdef inline RayDifferential scale_differential(self, FLOAT_t s):
+	cdef inline RayDifferential _scale_differential(self, FLOAT_t s):
 		self.rxOrigin = self.o + (self.rxOrigin - self.o) * s
 		self.ryOrigin = self.o + (self.ryOrigin - self.o) * s
 		self.rxDirection = self.d + (self.rxDirection - self.d) * s
 		self.ryDirection = self.d + (self.ryDirection - self.d) * s
 		return self
 
+	cpdef RayDifferential scale_differential(self, FLOAT_t s)
+
 
 cdef class BBox:
 	"""BBox Class"""
-	cdef:
-		public Point pMin, pMax
+	cdef public:
+		Point pMin, pMax
 
 
 	@staticmethod
-	cdef inline _Arr3 from_bbox(BBox box):
-		return BBox.__class__(box.pMin, box.pMax)
+	cdef inline BBox _from_bbox(BBox box):
+		return BBox(box.pMin, box.pMax)
 
 	@staticmethod
 	cdef inline BBox _Union_b(BBox b1, BBox b2):
@@ -223,7 +228,7 @@ cdef class BBox:
 		              (pnt.y - self.pMin.y) / (self.pMax.y - self.pMin.y),
 		              (pnt.z - self.pMin.z) / (self.pMax.z - self.pMin.z))
 
-	cdef inline FLOAT_t bounding_sphere(self, Point ctr):
+	cdef inline FLOAT_t _bounding_sphere(self, Point ctr):
 		ctr.x = .5 * (self.pMin.x + self.pMax.x)
 		ctr.y = .5 * (self.pMin.y + self.pMax.y)
 		ctr.z = .5 * (self.pMin.z + self.pMax.z)
@@ -233,6 +238,7 @@ cdef class BBox:
 		return rad
 
 	cdef bool _intersect_p(self, Ray r, FLOAT_t *t0, FLOAT_t *t1)
+	cpdef BBox union(self, b2)
 	cpdef bool overlaps(self, BBox other)
 	cpdef bool inside(self, Point pnt)
 	cpdef bool expand(self, FLOAT_t delta)

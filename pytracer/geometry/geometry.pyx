@@ -7,9 +7,8 @@ pytracer.geometry implementation
 
 Created by Jiayao on Aug 28, 2017
 """
-from __future__ import (absolute_import, division)
+from __future__ import absolute_import
 import cython
-from pytracer.core.definition import FLOAT
 
 __all__ = ['Vector', 'Point', 'Normal', 'Ray', 'RayDifferential',
            'BBox']
@@ -30,8 +29,21 @@ cdef class _Arr3:
 	def __repr__(self):
 		return "{}:\n[{}, {}, {}]\n".format(self.__class__, self.data[0], self.data[1], self.data[2])
 
+	def __len__(self):
+		return 3
+
+	def __richcmp__(x, _Arr3 y, INT_t op):
+		assert isinstance(x, _Arr3) and isinstance(y, _Arr3)
+		if op == Py_EQ:
+			return x.x == y.x and x.y == y.y and x.z == y.z
+		elif op == Py_NE:
+			return x.x != y.x or x.y != y.y and x.z != y.z
+
+		raise NotImplementedError
+
+
 	@cython.boundscheck(False)
-	def __getitem__(self, int item):
+	def __getitem__(self, INT_t item):
 		if item == 0:
 			return self.data[0]
 		elif item == 1:
@@ -41,14 +53,15 @@ cdef class _Arr3:
 		raise IndexError
 
 	@cython.boundscheck(False)
-	def __setitem__(self, int key, FLOAT_t value):
+	def __setitem__(self, INT_t key, FLOAT_t value):
 		if key == 0:
 			self.data[0] = value
 		elif key == 1:
 			self.data[1] = value
 		elif key == 2:
 			self.data[2] = value
-		raise IndexError
+		else:
+			raise IndexError
 
 	@property
 	def x(self):
@@ -74,6 +87,7 @@ cdef class _Arr3:
 	def z(self, FLOAT_t v):
 		self.data[2] = v
 
+
 	def __add__(self, other):
 		cdef FLOAT_t o
 		if isinstance(self, _Arr3):
@@ -94,10 +108,11 @@ cdef class _Arr3:
 		raise TypeError
 
 	def __neg__(self):
-		self.data[0] *= -1
-		self.data[1] *= -1
-		self.data[2] *= -1
-		return self
+		ret = self._copy()
+		ret.data[0] *= -1
+		ret.data[1] *= -1
+		ret.data[2] *= -1
+		return ret
 
 	def __mul__(self, other):
 		cdef FLOAT_t o
@@ -159,6 +174,13 @@ cdef class _Arr3:
 			                      self - other.z)
 		raise TypeError
 
+	cpdef _Arr3 copy(self):
+		return self._copy()
+
+	@staticmethod
+	def from_arr(_Arr3 n):
+		return _Arr3._from_arr(n)
+
 	cpdef FLOAT_t dot(self, _Arr3 other):
 		return self._dot(other)
 
@@ -200,6 +222,24 @@ cdef class Point(_Arr3):
 
 		raise TypeError
 
+	def __isub__(self, other):
+		cdef FLOAT_t o
+		if isinstance(self, Point):
+			if isinstance(other, Point):
+				raise TypeError
+			if isinstance(other, _Arr3):
+				return Point(self.x - other.x,
+				             self.y - other.y,
+				             self.z - other.z)
+			# elif type(other) == FLOAT:
+			else:
+				o = <FLOAT_t> other
+				return self.__class__(self.x - other,
+				                      self.y - other,
+				                      self.z - other)
+
+		raise TypeError
+
 	cpdef FLOAT_t sq_dist(self, Point p):
 		return self._sq_dist(p)
 
@@ -212,8 +252,8 @@ cdef class Ray:
 	def __cinit__(self, Point o=Point(0., 0., 0.),
 	              Vector d=Vector(0., 0., 0.),
 	              FLOAT_t mint=0., FLOAT_t maxt=INF, INT_t depth=0, FLOAT_t time=0.):
-		self.o = o
-		self.d = d
+		self.o = o._copy()
+		self.d = d._copy()
 		self.mint = mint
 		self.maxt = maxt
 		self.depth = depth
@@ -227,7 +267,7 @@ cdef class Ray:
 
 	def __call__(self, FLOAT_t t):
 		print("Depreciated: use {}.at() instead".format(self.__class__))
-		return self.at(t)
+		return self._at(t)
 
 	@staticmethod
 	def from_ray(Ray r not None):
@@ -236,7 +276,7 @@ cdef class Ray:
 
 	@staticmethod
 	def from_parent(Point o not None, Vector d not None, Ray r not None,
-	                 FLOAT_t mint, FLOAT_t maxt):
+	                 FLOAT_t mint=0., FLOAT_t maxt=INF):
 		print("Ray.from_parent(): testing only")
 		return Ray._from_parent(o, d, r, mint, maxt)
 
@@ -248,7 +288,7 @@ cdef class RayDifferential(Ray):
 	              Vector d=Vector(0., 0., 0.), FLOAT_t mint=0., FLOAT_t maxt=0.,
 	              INT_t depth=0, FLOAT_t time=0.):
 		super().__init__(o, d, mint, maxt, depth, time)
-		self.has_differential = 0
+		self.has_differentials = 0
 		self.rxOrigin = Point(0., 0., 0.)
 		self.ryOrigin = Point(0., 0., 0.)
 		self.rxDirection = Vector(0., 0., 0.)
@@ -258,6 +298,9 @@ cdef class RayDifferential(Ray):
 	def from_rd(RayDifferential r not None):
 		print("RayDifferential.from_rd(): testing only")
 		return RayDifferential._from_rd(r)
+
+	cpdef RayDifferential scale_differential(self, FLOAT_t s):
+		return self._scale_differential(s)
 
 
 cdef class BBox:
@@ -289,6 +332,15 @@ cdef class BBox:
                                  self.pMin,
                                  self.pMax)
 
+	def __richcmp__(x, BBox y, INT_t op):
+		assert isinstance(x, BBox) and isinstance(y, BBox)
+		if op == Py_EQ:
+			return x.pMin == y.pMin and x.pMax == y.pMax
+		elif op == Py_NE:
+			return x.pMin != y.pMin or x.pMax != y.pMax
+
+		raise NotImplementedError
+
 	def __getitem__(self, INT_t item):
 		if item == 0:
 			return self.pMin
@@ -307,8 +359,7 @@ cdef class BBox:
 
 		raise TypeError
 
-	@staticmethod
-	def union(self, b2 not None):
+	cpdef BBox union(self, b2):
 		print("BBox.Union(): Depreciated, using Union_b() or Union_p() instead")
 		if isinstance(b2, BBox):
 			return self._union_b(b2)
@@ -365,7 +416,8 @@ cdef class BBox:
 	cpdef Vector offset(self, Point pnt):
 		return self._offset(pnt)
 
-	def bounding_shpere(self, Point ctr not None):
+	def bounding_sphere(self):
+		cdef Point ctr = Point(0., 0., 0.)
 		cdef FLOAT_t rad = self._bounding_sphere(ctr)
 		return [ctr, rad]
 
@@ -374,6 +426,12 @@ cdef class BBox:
 		if self._intersect_p(r, &t0, &t1):
 			return [True, t0, t1]
 		return [False, 0., 0.]
+
+	@staticmethod
+	def from_bbox(BBox bbox):
+		return BBox._from_bbox(bbox)
+
+	# from bbox
 
 
 
