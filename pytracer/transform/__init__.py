@@ -6,7 +6,8 @@ pytracer.transform package
 Created by Jiayao on Aug 13, 2017
 """
 from __future__ import absolute_import
-from pytracer import *
+from pytracer import (FLOAT, np, util)
+from pytracer import pyEPS as EPS
 import pytracer.geometry as geo
 
 

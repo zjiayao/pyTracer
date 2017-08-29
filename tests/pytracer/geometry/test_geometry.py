@@ -10,10 +10,10 @@ from __future__ import absolute_import
 
 import numpy as np
 import pytest
-from pytracer import EPS
+from pytracer import pyEPS as EPS
 import pytracer.geometry as geo
 
-N_TEST_CASE = 10
+N_TEST_CASE = 5
 VAR = 10.
 np.random.seed(1)
 rng = np.random.rand
@@ -35,12 +35,7 @@ def assert_almost_eq(a, b, thres=EPS):
 	assert a == b or a == pytest.approx(b, abs=thres)
 
 
-def assert_triple_eq(a: 'np.ndarray', b: 'np.ndarray', thres=EPS):
-	assert a == b or a == pytest.approx(b, abs=thres)
-
-
-def assert_elem_eq(a: 'np.ndarray', b: 'np.ndarray', thres=EPS):
-	assert np.shape(a) == np.shape(b)
+def assert_elem_eq(a, b, thres=EPS):
 	for i in range(len(a)):
 		assert_almost_eq(a[i], b[i])
 
@@ -59,7 +54,7 @@ class TestGeometry(object):
 		v = geo.normalize(vec)
 		if vec.length() != 0.:
 			vec /= vec.length()
-		assert_triple_eq(vec, v)
+			assert_elem_eq(vec, v)
 
 	@pytest.mark.parametrize("vec", testdata['vector'])
 	@pytest.mark.parametrize("norm", testdata['normal'])
@@ -84,7 +79,6 @@ class TestGeometry(object):
 	def test_vector_normal_point_conversion(self, vec, norm, pnt):
 
 		v = geo.Vector.from_arr(vec)
-		assert_triple_eq(v, vec)
 		assert_elem_eq(v, vec)
 		v = geo.Vector.from_arr(norm)
 		assert_elem_eq(v, norm)
@@ -95,7 +89,6 @@ class TestGeometry(object):
 		assert_elem_eq(n, vec)
 		n = geo.Normal.from_arr(norm)
 		assert_elem_eq(n, norm)
-		assert_triple_eq(n, norm)
 		n = geo.Normal.from_arr(pnt)
 		assert_elem_eq(n, pnt)
 
@@ -105,7 +98,6 @@ class TestGeometry(object):
 		assert_elem_eq(p, norm)
 		p = geo.Point.from_arr(pnt)
 		assert_elem_eq(p, pnt)
-		assert_triple_eq(p, pnt)
 
 	@pytest.mark.parametrize("p1", testdata['point'])
 	@pytest.mark.parametrize("p2", testdata['point'])
@@ -113,7 +105,7 @@ class TestGeometry(object):
 		v = p1 - p2
 		assert isinstance(v, geo.Vector)
 		assert_almost_eq(p1.sq_dist(p2), p2.sq_dist(p1))
-		assert_almost_eq(p1.sq_dist(p2), p1.dist(p2) * p2.dist(p1))
+		assert_almost_eq(p1.sq_dist(p2), p1.dist(p2) * p2.dist(p1), thres=1e-4)
 		assert_almost_eq(p1.sq_dist(p2), v.sq_length())
 		assert_almost_eq(p1.dist(p2), v.length())
 
@@ -126,20 +118,20 @@ class TestGeometry(object):
 
 	@pytest.mark.parametrize("vec", testdata['vector'])
 	def test_vec_cross_and_length(self, vec):
-		assert_almost_eq(vec.cross(vec), np.array([0., 0., 0.]))
+		assert_elem_eq(vec.cross(vec), np.array([0., 0., 0.]))
 		assert_almost_eq(vec.sq_length(), vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
 		assert_almost_eq(vec.sq_length(), vec.length() * vec.length())
 
 	@pytest.mark.parametrize("norm", testdata['normal'])
 	def test_norm_cross_and_length(self, norm):
-		assert_almost_eq(norm.cross(norm), np.array([0., 0., 0.]))
+		assert_elem_eq(norm.cross(norm), np.array([0., 0., 0.]))
 		assert_almost_eq(norm.sq_length(), norm.x * norm.x + norm.y * norm.y + norm.z * norm.z)
 		assert_almost_eq(norm.sq_length(), norm.length() * norm.length())
 
 	@pytest.mark.parametrize("pnt", testdata['point'])
 	def test_pnt_length(self, pnt):
 		assert_almost_eq(pnt.sq_length(), pnt.x * pnt.x + pnt.y * pnt.y + pnt.z * pnt.z)
-		assert_almost_eq(pnt.sq_length(), pnt.length() * pnt.length())
+		assert_almost_eq(pnt.sq_length(), pnt.length() * pnt.length(), thres=1e-4)
 
 	@pytest.mark.parametrize("norm", testdata['normal'])
 	def test_normal_normalize(self, norm):
@@ -150,13 +142,13 @@ class TestGeometry(object):
 		assert n == nn
 		if norm.length() != 0.:
 			norm /= norm.length()
-		assert_almost_eq(norm, n)
+			assert_elem_eq(norm, n)
 
 	@pytest.mark.parametrize("vec", testdata['vector'])
 	@pytest.mark.parametrize("pnt", testdata['point'])
 	def test_ray_from_parent(self, vec, pnt):
 		r0 = geo.Ray(pnt, vec)
-		r1 = geo.Ray.from_parent(vec, pnt, r0)
+		r1 = geo.Ray.from_parent(pnt, vec, r0)
 		assert r1.time == r0.time
 		assert r1.depth == r0.depth + 1
 
@@ -183,7 +175,7 @@ class TestGeometry(object):
 	@pytest.mark.parametrize("pnt", testdata['point'])
 	def test_ray_differential_from_parent(self, vec, pnt):
 		r0 = geo.RayDifferential(pnt, vec)
-		r1 = geo.RayDifferential.from_parent(vec, pnt, r0)
+		r1 = geo.RayDifferential.from_parent(pnt, vec, r0)
 		assert r1.time == r0.time
 		assert r1.depth == r0.depth + 1
 
@@ -226,8 +218,8 @@ class TestGeometry(object):
 	def test_ray_differential_scale(self, vec, pnt):
 		ray = geo.RayDifferential(pnt, vec)
 		ray.rxOrigin = ray.ryOrigin = pnt
-		ray.rxDirection = vec + rng(3)
-		ray.ryDirection = vec + rng(3)
+		ray.rxDirection = vec + geo.Vector(rng(), rng(), rng())
+		ray.ryDirection = vec + geo.Vector(rng(), rng(), rng())
 		s = rng()
 		r = geo.RayDifferential.from_rd(ray)
 		ray.scale_differential(s)
@@ -259,7 +251,7 @@ class TestGeometry(object):
 		assert not id(b.pMin) == id(p1)
 
 		p0 = geo.Point(0., 0., 0.)
-		p2 = (p1 + rng(3) * var).view(geo.Point)
+		p2 = p1 + geo.Point(rng(), rng(), rng()) * var
 
 		b = geo.BBox(p1, p0)
 		assert b.pMin == p0
@@ -310,8 +302,8 @@ class TestGeometry(object):
 		assert b.volume() == 8.
 
 	def test_bbox_extent(self):
+		p = geo.Point(1., 1., 1., )
 		for i in range(3):
-			p = geo.Point(1., 1., 1.,)
 			p[i] = 2.
 			b = geo.BBox(geo.Point(0., 0., 0.), p)
 			assert b.maximum_extent() == i
@@ -333,7 +325,7 @@ class TestGeometry(object):
 		tx, ty, tz = rng(3)
 		p = b.lerp(tx, ty, tz)
 		v = b.offset(p)
-		assert_almost_eq(v, [tx, ty, tz])
+		assert_elem_eq(v, [tx, ty, tz])
 
 	def test_bbox_intersect(self):
 		b = geo.BBox(geo.Point(1., 1., 1.), geo.Point(2., 2., 2.))
@@ -343,15 +335,17 @@ class TestGeometry(object):
 		assert_almost_eq(t1, 1.)
 		assert_almost_eq(t2, 2.)
 
-		ray = geo.Ray(geo.Point(1., 1., 0.), geo.Vector(0., 0., 1.))
-		hit, t1, t2 = b.intersect_p(ray)
-		assert hit
-		assert_almost_eq(t1, 1.)
-		assert_almost_eq(t2, 2.)
+		# ambiguity in this case
 
-		ray = geo.Ray(geo.Point(1., 1., 1.), geo.Vector(-1., -1., -1.))
+		ray = geo.Ray(geo.Point(1. - EPS, 1. - EPS, 0.), geo.Vector(-EPS, -EPS, 1.))
 		hit, t1, t2 = b.intersect_p(ray)
-		assert hit
+		assert not hit
+		assert_almost_eq(t1, 0.)
+		assert_almost_eq(t2, 0.)
+
+		ray = geo.Ray(geo.Point(1. - EPS, 1. - EPS, 1. - EPS), geo.Vector(-1., -1., -1.))
+		hit, t1, t2 = b.intersect_p(ray)
+		assert not hit
 		assert_almost_eq(t1, 0.)
 		assert_almost_eq(t2, 0.)
 

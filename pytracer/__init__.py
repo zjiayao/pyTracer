@@ -12,19 +12,18 @@ import scipy.spatial  # cKdTree
 # Type Alias
 KdTree = scipy.spatial.cKDTree
 
-# Global Constant
+# Global Definitions and Constants for Python access
 INT = int
 UINT = np.uint32
-FLOAT = np.float64
+FLOAT = np.float32
 DOUBLE = np.float64
 FILTER_TABLE_SIZE = 16
 
-# Global Constants
-EPS = 1e-5
+pyEPS = 1e-5
 HANDEDNESS = 'left'
-PI = FLOAT(np.pi)
-INV_PI = FLOAT(1. / np.pi)
-INV_2PI = FLOAT(1. / (2. * np.pi))
+pyPI = FLOAT(np.pi)
+pyINV_PI = FLOAT(1. / np.pi)
+pyINV_2PI = FLOAT(1. / (2. * np.pi))
 
 # Global Static
 IrIsotropicData = {}

@@ -8,7 +8,8 @@ v0.0
 Created by Jiayao on July 30, 2017
 """
 from __future__ import absolute_import
-from .. import *
+from pytracer import (FLOAT, np)
+from pytracer import pyEPS as EPS
 import numpy
 import quaternion
 from typing import TYPE_CHECKING

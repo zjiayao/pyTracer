@@ -11,7 +11,8 @@ Created by Jiayao on Aug 13, 2017
 from __future__ import absolute_import
 import numpy as np
 
-from pytracer import (FLOAT, INT, UINT, EPS)
+from pytracer import (FLOAT, INT, UINT)
+from pytracer import pyEPS as EPS
 
 __all__ = ['progress_reporter','logging','feq', 'eq_unity', 'ne_unity',
            'ftoi', 'ctoi', 'rtoi', 'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp', 'clip']
