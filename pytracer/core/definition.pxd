@@ -9,19 +9,50 @@ Created by Jiayao on Aug 28, 2017
 """
 # distutils: language=c++
 from __future__ import absolute_import
-from libcpp cimport bool
 from libc cimport math
+import numpy as np
 cimport numpy as np
 
+FLOAT = np.float32
 ctypedef np.float32_t FLOAT_t
 ctypedef np.int32_t INT_t
 ctypedef np.uint32_t UINT32_t
 ctypedef np.uint8_t UINT8_t
 
+ctypedef np.ndarray[FLOAT_t, ndim=2] mat4x4
 
 cdef extern from 'constant.hpp':
 	FLOAT_t EPS, PI, INV_PI, INV_2PI, INF
 
+cdef inline FLOAT_t fsqrt(FLOAT_t x):
+	return math.sqrt(x)
+
+cdef inline FLOAT_t fsin(FLOAT_t x):
+	return math.sin(x)
+
+cdef inline FLOAT_t fasin(FLOAT_t x):
+	return math.asin(x)
+
+cdef inline FLOAT_t fcos(FLOAT_t x):
+	return math.cos(x)
+
+cdef inline FLOAT_t facos(FLOAT_t x):
+	return math.acos(x)
+
+cdef inline FLOAT_t ftan(FLOAT_t x):
+	return math.tan(x)
+
+cdef inline FLOAT_t fatan(FLOAT_t x):
+	return math.atan(x)
+
+cdef inline FLOAT_t fatan2(FLOAT_t y, FLOAT_t x):
+	return math.atan2(y, x)
+
+cdef inline FLOAT_t fabs(FLOAT_t x):
+	return x if x >= 0. else -x
+
+cdef inline bint is_inf(FLOAT_t x):
+	return x == INF
 
 cdef inline void fswap(FLOAT_t *x, FLOAT_t *y):
 	cdef FLOAT_t tmp = x[0]
@@ -34,21 +65,20 @@ cdef inline FLOAT_t fmin(FLOAT_t x, FLOAT_t y):
 cdef inline FLOAT_t fmax(FLOAT_t x, FLOAT_t y):
 	return x if x > y else y
 
-cdef inline bool feq(FLOAT_t x, FLOAT_t y):
+cdef inline bint feq(FLOAT_t x, FLOAT_t y):
 	return y - x < EPS and x - y < EPS
 
-cdef inline bool eq_unity(FLOAT_t x):
+cdef inline bint eq_unity(FLOAT_t x):
 	return feq(x, 1.)
 
-cdef inline bool ne_unity(FLOAT_t x):
+cdef inline bint ne_unity(FLOAT_t x):
 	return not feq(x, 1.)
 
-cdef inline bool is_zero(FLOAT_t x):
+cdef inline bint is_zero(FLOAT_t x):
 	return x > -EPS and x < EPS
 
-cdef inline bool not_zero(FLOAT_t x):
+cdef inline bint not_zero(FLOAT_t x):
 	return x > EPS or x < -EPS
-
 
 cdef inline INT_t ftoi(FLOAT_t x):
 	return <INT_t> math.floor(x)
@@ -75,17 +105,30 @@ cdef inline INT_t round_pow_2(INT_t x) except -1:
 cdef inline INT_t next_pow_2(INT_t x) except -1:
 	return round_pow_2(x)
 
-cdef inline bool is_pow_2(INT_t x):
+cdef inline bint is_pow_2(INT_t x):
 	return x & (x - 1) == 0
 
-cdef inline FLOAT_t clip(FLOAT_t x, FLOAT_t lo, FLOAT_t hi):
+cdef inline FLOAT_t fclip(FLOAT_t x, FLOAT_t lo, FLOAT_t hi):
 	if x <= lo:
 		return lo
 	elif x >= hi:
 		return hi
 	return x
 
-cdef inline FLOAT_t fclip(FLOAT_t x):
-	if x <= 0.:
-		return 0.
-	return x
+# cdef inline FLOAT_t fclip(FLOAT_t x):
+# 	if x <= 0.:
+# 		return 0.
+# 	return x
+
+cdef inline bint solve_linear_2x2(const FLOAT_t A[2][2], const FLOAT_t B[2],
+                              FLOAT_t *x0, FLOAT_t *x1):
+	cdef FLOAT_t det = A[0][0] * A[1][1] - A[0][1] - A[1][0]
+	if fabs(det) < EPS:
+		return 0
+	x0[0] = (A[1][1] * B[0] - A[0][1] * B[1]) / det
+	x1[0] = (A[0][0] * B[1] - A[1][0] * B[0]) / det
+
+	if is_inf(x0[0]) or is_inf(x1[0]):
+		return 0
+
+	return 1
