@@ -181,6 +181,9 @@ cdef class _Arr3:
 	def from_arr(_Arr3 n):
 		return _Arr3._from_arr(n)
 
+	cpdef FLOAT_t _abs_dot(self, _Arr3 other):
+		return self._abs_dot(other)
+
 	cpdef FLOAT_t dot(self, _Arr3 other):
 		return self._dot(other)
 
@@ -430,9 +433,4 @@ cdef class BBox:
 	@staticmethod
 	def from_bbox(BBox bbox):
 		return BBox._from_bbox(bbox)
-
-	# from bbox
-
-
-
 

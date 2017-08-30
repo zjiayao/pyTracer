@@ -1,96 +1,66 @@
 """
-diffgeo.py
+diffgeo.pyx
 
 This module is part of the pyTracer, which
-defines differential geometric operations.
+implemented differential geometric operations.
 
 v0.0
 Created by Jiayao on July 28, 2017
 Modified on Aug 13, 2017
+Cythonized on Aug 30, 2017
 """
-from __future__ import absolute_import
-from pytracer import *
-from pytracer.geometry import (Point, Vector, Normal, RayDifferential)
-from pytracer.geometry.utility import normalize
+cdef void _diffgeom_compute_differential(DifferentialGeometry *self, RayDifferential ray):
+	cdef:
+		Normal d
+		FLOAT_t inv_tx = self.nn.dot(ray.rxDirection)
+		FLOAT_t inv_ty = self.nn.dot(ray.ryDirection)
+		FLOAT_t tx, ty
+		Point px, py
+		INT_t axes[2]
+		FLOAT_t A[2][2], Bx[2], By[2]
 
+	if not ray.has_differentials or is_zero(inv_tx) or is_zero(inv_ty):
+		self.dudx = self.dvdx = self.dudy = self.dvdy = 0.
+		self.dpdx = Vector(0., 0., 0.)
+		self.dpdy = Vector(0., 0., 0.)
 
-class DifferentialGeometry(object):
-	"""
-	Differential Geometry class
-	"""
-	def __init__(self, pnt: 'Point', dpdu: 'Vector', dpdv: 'Vector',
-	             dndu: 'Normal', dndv: 'Normal', uu: 'FLOAT',
-	             vv: 'FLOAT', shape: 'Shape'):
-		self.p = pnt.copy()
-		self.dpdu = dpdu.copy()
-		self.dpdv = dpdv.copy()
-		self.dndu = dndu.copy()
-		self.dndv = dndv.copy()
+	else:
+		d = -self.nn.dot(self.p)
+		tx = -(self.nn.dot(ray.rxOrigin) + d) / inv_tx
+		ty = -(self.nn.dot(ray.ryOrigin) + d) / inv_ty
+		px = ray.rxOrigin + ray.rxDirection * tx
+		py = ray.ryOrigin + ray.ryDirection * ty
 
-		self.nn = Normal.from_arr(normalize(dpdu.cross(dpdv)))
-		self.u = uu
-		self.v = vv
-		self.shape = shape
+		self.dpdx = px - self.p
+		self.dpdx = py - self.p
+		assert isinstance(self.dpdx, Vector)
+		axes[0] = 0
+		axes[1] = 1
 
-		# adjust for handedness
-		if shape is not None and \
-			(shape.ro ^ shape.transform_swaps_handedness):
-			self.nn *= -1.
+		if fabs(self.nn.x) > fabs(self.nn.y) and fabs(self.nn.x) > fabs(self.nn.z):
+			axes[0] = 1
+			axes[1] = 2
+		elif fabs(self.nn.y) > fabs(self.nn.z):
+			axes[1] = 2
 
-		# for anti-aliasing
-		self.dudx = self.dvdx = self.dudy = self.dvdy = FLOAT(0.)
-		self.dpdx = self.dpdy = Vector(0., 0., 0.)
+		A[0][0] = self.dpdu[axes[0]]
+		A[0][1] = self.dpdv[axes[0]]
+		A[1][0] = self.dpdu[axes[1]]
+		A[1][1] = self.dpdv[axes[1]]
 
-	def __repr__(self):
-		return "{}\nNormal Vector: {}\n".format(self.__class__, self.nn)
+		Bx[0] = px[axes[0]] - self.p[axes[0]]
+		Bx[1] = px[axes[1]] - self.p[axes[1]]
 
-	def copy(self):
-		return DifferentialGeometry(self.p, self.dpdu, self.dpdv, self.dndu, self.dndv, self.u, self.v, self.shape)
+		By[0] = py[axes[0]] - self.p[axes[0]]
+		By[1] = py[axes[1]] - self.p[axes[1]]
 
-	def compute_differential(self, ray: 'RayDifferential'):
-		if ray.has_differentials:
-			# estimate screen space change in p and (u, v)
+		if not solve_linear_2x2(A, Bx, &self.dudx, &self.dvdx):
+			self.dudx = 0.
+			self.dvdx = 0.
 
-			# compute intersections of incremental rays
+		if not solve_linear_2x2(A, By, &self.dudy, &self.dvdy):
+			self.dudy = 0.
+			self.dvdy = 0.
 
-			d = -self.nn.dot(self.p)
-
-			#  dot product between Normal and Point is defined =D
-			tx = -(self.nn.dot(ray.rxOrigin) + d) / (self.nn.dot(ray.rxDirection))
-			px = ray.rxOrigin + tx * ray.rxDirection
-
-			ty = -(self.nn.dot(ray.ryOrigin) + d) / (self.nn.dot(ray.ryDirection))
-			py = ray.ryOrigin + ty * ray.ryDirection
-
-			self.dpdx = px - self.p
-			self.dpdy = py - self.p
-
-			# compute (u, v) offsets
-
-			# init coefficients
-			axes = [0, 1]
-			if np.fabs(self.nn.x) > np.fabs(self.nn.y) and np.fabs(self.nn.x) > np.fabs(self.nn.z):
-				axes = [1, 2]
-			elif np.fabs(self.nn.y) > np.fabs(self.nn.z):
-				axes = [0, 2]
-
-			A = [[self.dpdu[axes[0]], self.dpdv[axes[0]]],
-			     [self.dpdu[axes[1]], self.dpdv[axes[1]]]]
-			Bx = [px[axes[0]] - self.p[axes[0]],
-			      px[axes[1]] - self.p[axes[1]]]
-			By = [py[axes[0]] - self.p[axes[0]],
-			      py[axes[1]] - self.p[axes[1]]]
-
-			try:
-				[self.dudx, self.dvdx] = np.linalg.solve(A, Bx)
-			except np.linalg.linalg.LinAlgError:
-				[self.dudx, self.dvdx] = [0., 0.]
-
-			try:
-				[self.dudy, self.dvdy] = np.linalg.solve(A, By)
-			except np.linalg.linalg.LinAlgError:
-				[self.dudy, self.dvdy] = [0., 0.]			
-
-		else:
-			self.dudx = self.dvdx = self.dudy = self.dvdy = FLOAT(0.)
-			self.dpdx = self.dpdy = Vector(0., 0., 0.)
+# cpdef void compute_differential(self, RayDifferential ray):
+# 	self._compute_differential(ray)

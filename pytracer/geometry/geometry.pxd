@@ -9,18 +9,41 @@ Created by Jiayao on Aug 28, 2017
 from __future__ import absolute_import
 from cpython.object cimport Py_EQ, Py_NE
 from libcpp cimport bool
-from libc cimport math
-from pytracer.core.definition cimport FLOAT_t, INT_t, INF, feq, fmin, fmax,lerp, fswap, not_zero
+from pytracer.core.definition cimport FLOAT_t, INT_t, INF, fabs, feq, fmin, fmax, fsqrt, lerp, fswap, not_zero
+
+cdef inline _Arr3 normalize(_Arr3 vec):
+	"""
+	Normalize a given vector, returns the
+	normalized version. The input is not
+	modified. Noted `Normal`s are also
+	normalized using this method.
+
+	:param
+		- vec: `Vector`
+			The `Vector` to be normalized.
+	:return
+		- `Vector`
+			The normalized version of `vec`
+	"""
+	n = vec.copy()
+	length = vec.length()
+	if not length == 0.:
+		n /= length
+	return n
 
 
 cdef class _Arr3:
 	"""Array baseclass"""
 	cdef FLOAT_t data[3]
 
-
 	@staticmethod
 	cdef inline _Arr3 _from_arr(_Arr3 n):
 		return n.__class__(n[0], n[1], n[2])
+
+	cdef inline void _set(self, FLOAT_t x, FLOAT_t y, FLOAT_t z):
+		self.data[0] = x
+		self.data[1] = y
+		self.data[2] = z
 
 	cdef inline _Arr3 _copy(self):
 		return self.__class__(self.data[0], self.data[1], self.data[2])
@@ -28,11 +51,18 @@ cdef class _Arr3:
 	cdef inline FLOAT_t _dot(self, _Arr3 other):
 		return self.x * other.x + self.y * other.y + self.z * other.z
 
+	cdef inline FLOAT_t _abs_dot(self, _Arr3 other):
+		return fabs(self._dot(other))
+
+	cdef inline void _set_cross(self, _Arr3 v1, _Arr3 v2):
+		self.x = v1.y * v2.z - v1.z * v2.y
+		self.y = v1.z * v2.x - v1.x * v2.z
+		self.z = v1.x * v2.y - v1.y * v2.x
 
 	cdef inline _Arr3 _cross(self, _Arr3 other):
 		return self.__class__(self.y * other.z - self.z * other.y,
-		                              self.z * other.x - self.x * other.z,
-		                              self.x * other.y - self.y * other.x)
+		                      self.z * other.x - self.x * other.z,
+		                      self.x * other.y - self.y * other.x)
 
 
 	cdef inline FLOAT_t _sq_length(self):
@@ -40,12 +70,12 @@ cdef class _Arr3:
 
 
 	cdef inline FLOAT_t _length(self):
-		return math.sqrt(self.sq_length())
+		return fsqrt(self._sq_length())
 
 
 	cdef inline _Arr3 _normalize(self):
 		"""Inplace normalization"""
-		cdef FLOAT_t length = self.length()
+		cdef FLOAT_t length = self._length()
 		if not_zero(length):
 			self.data[0] /= length
 			self.data[1] /= length
@@ -54,6 +84,7 @@ cdef class _Arr3:
 
 	cpdef _Arr3 copy(self)
 	cpdef FLOAT_t dot(self, _Arr3 other)
+	cpdef FLOAT_t _abs_dot(self, _Arr3 other)
 	cpdef _Arr3 cross(self, _Arr3 other)
 	cpdef FLOAT_t sq_length(self)
 	cpdef FLOAT_t length(self)
@@ -64,7 +95,10 @@ cdef class Vector(_Arr3):
 
 
 cdef class Normal(_Arr3):
-	pass
+	cdef inline Normal _face_forward(self, Vector v):
+		if self._dot(v) < 0:
+			self *= -1.
+		return self
 
 
 cdef class Point(_Arr3):
@@ -72,7 +106,7 @@ cdef class Point(_Arr3):
 		return (p.x - self.x) * (p.x - self.x) + (p.y - self.y) * (p.y - self.y) + (p.z - self.z) * (p.z - self.z)
 
 	cdef inline FLOAT_t _dist(self, Point p):
-		return math.sqrt(self._sq_dist(p))
+		return fsqrt(self._sq_dist(p))
 
 	cpdef FLOAT_t sq_dist(self, Point pnt)
 	cpdef FLOAT_t dist(self, Point pnt)
