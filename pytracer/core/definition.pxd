@@ -19,7 +19,7 @@ ctypedef np.int32_t INT_t
 ctypedef np.uint32_t UINT32_t
 ctypedef np.uint8_t UINT8_t
 
-ctypedef np.ndarray[FLOAT_t, ndim=2] mat4x4
+ctypedef FLOAT_t[:, :] mat4x4
 
 cdef extern from 'constant.hpp':
 	FLOAT_t EPS, PI, INV_PI, INV_2PI, INF
@@ -114,6 +114,38 @@ cdef inline FLOAT_t fclip(FLOAT_t x, FLOAT_t lo, FLOAT_t hi):
 	elif x >= hi:
 		return hi
 	return x
+
+cdef inline FLOAT_t deg2rad(FLOAT_t angle):
+	return angle / 180. * PI
+
+cdef inline mat4x4 mat4x4_inv(mat4x4 mat):
+	return np.linalg.inv(mat)
+
+cdef inline void mat4x4_kji(mat4x4 m1, mat4x4 m2, mat4x4 res):
+	cdef INT_t i, j, k
+	cdef FLOAT_t tmp
+	for i in range(4):
+		for j in range(4):
+			res[i][j] = 0.
+
+	for k in range(4):
+		for j in range(4):
+			tmp = m2[k][j]
+			for i in range(4):
+				res[i][j] += m1[i][k] * tmp
+
+cdef inline void mat4x4_t(mat4x4 m, mat4x4 m_inv):
+	cdef INT_t i, j
+	for i in range(4):
+		for j in range(4):
+			m_inv[i][j] = m[j][i]
+
+cdef inline FLOAT_t det3x3(mat4x4 m):
+	return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+	        m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+	        m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+
+
 
 # cdef inline FLOAT_t fclip(FLOAT_t x):
 # 	if x <= 0.:
