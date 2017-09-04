@@ -11,7 +11,8 @@ from cpython.object cimport Py_EQ, Py_NE
 from libcpp cimport bool
 from pytracer.core.definition cimport FLOAT_t, INT_t, INF, fabs, feq, fmin, fmax, fsqrt, lerp, fswap, not_zero
 
-cdef inline _Arr3 normalize(_Arr3 vec):
+
+cdef inline _Arr3 _normalize(_Arr3 vec):
 	"""
 	Normalize a given vector, returns the
 	normalized version. The input is not
@@ -30,6 +31,8 @@ cdef inline _Arr3 normalize(_Arr3 vec):
 	if not length == 0.:
 		n /= length
 	return n
+
+cpdef _Arr3 normalize(_Arr3 vec)
 
 
 cdef class _Arr3:
@@ -84,7 +87,7 @@ cdef class _Arr3:
 
 	cpdef _Arr3 copy(self)
 	cpdef FLOAT_t dot(self, _Arr3 other)
-	cpdef FLOAT_t _abs_dot(self, _Arr3 other)
+	cpdef FLOAT_t abs_dot(self, _Arr3 other)
 	cpdef _Arr3 cross(self, _Arr3 other)
 	cpdef FLOAT_t sq_length(self)
 	cpdef FLOAT_t length(self)

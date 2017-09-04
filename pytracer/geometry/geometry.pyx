@@ -13,6 +13,8 @@ import cython
 __all__ = ['Vector', 'Point', 'Normal', 'Ray', 'RayDifferential',
            'BBox']
 
+cpdef _Arr3 normalize(_Arr3 vec):
+	return _normalize(vec)
 
 cdef class _Arr3:
 	"""Array baseclass"""
@@ -181,7 +183,7 @@ cdef class _Arr3:
 	def from_arr(_Arr3 n):
 		return _Arr3._from_arr(n)
 
-	cpdef FLOAT_t _abs_dot(self, _Arr3 other):
+	cpdef FLOAT_t abs_dot(self, _Arr3 other):
 		return self._abs_dot(other)
 
 	cpdef FLOAT_t dot(self, _Arr3 other):
