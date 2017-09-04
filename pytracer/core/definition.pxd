@@ -10,11 +10,14 @@ Created by Jiayao on Aug 28, 2017
 # distutils: language=c++
 from __future__ import absolute_import
 from libc cimport math
+from libc.stdlib cimport malloc, free
+cimport scipy.linalg.cython_lapack as cython_lapack
 import numpy as np
 cimport numpy as np
 
 FLOAT = np.float32
 ctypedef np.float32_t FLOAT_t
+ctypedef np.float64_t DOUBLE_t
 ctypedef np.int32_t INT_t
 ctypedef np.uint32_t UINT32_t
 ctypedef np.uint8_t UINT8_t
@@ -119,7 +122,21 @@ cdef inline FLOAT_t deg2rad(FLOAT_t angle):
 	return angle / 180. * PI
 
 cdef inline mat4x4 mat4x4_inv(mat4x4 mat):
-	return np.linalg.inv(mat)
+	cdef int k = 4, zero = 0
+	cdef DOUBLE_t *mat_ptr = <DOUBLE_t*> np.PyArray_DATA(mat)
+	cdef DOUBLE_t *id_ptr
+	cdef int *pvt_ptr = <int*> malloc(sizeof (int) * k)
+	cdef DOUBLE_t[:, :] identity = np.eye(k, dtype=np.dtype('float64'))
+
+	try:
+		id_ptr = <DOUBLE_t*> np.PyArray_DATA(identity)
+		cython_lapack.dgesv(&k, &k, mat_ptr, &k,
+		                    pvt_ptr, id_ptr, &k, &zero)
+		return identity.astype('float32')
+
+	finally:
+		free(pvt_ptr)
+
 
 cdef inline void mat4x4_kji(mat4x4 m1, mat4x4 m2, mat4x4 res):
 	cdef INT_t i, j, k
