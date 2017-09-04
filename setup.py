@@ -3,8 +3,8 @@ from Cython.Build import cythonize
 from distutils.extension import Extension
 import numpy
 
-src = ['pytracer.geometry.*']#, 'pytracer.geometry.diffgeom']
-loc = [['pytracer/geometry/*.pyx']]#, ['pytracer.geometry.diffgeom']]
+src = ['pytracer.geometry.*', 'pytracer.transform.*', 'pytracer.shape.*']#, 'pytracer.geometry.diffgeom']
+loc = [['pytracer/geometry/*.pyx'], ['pytracer/transform/*.pyx'], ['pytracer/shape/*.pyx']]#, ['pytracer.geometry.diffgeom']]
 incl = [numpy.get_include(), 'pytracer/include']
 
 

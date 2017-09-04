@@ -416,87 +416,87 @@ class TestTransform(object):
 		assert_almost_eq(pp.x, p.x / (p.z * np.tan(np.deg2rad(.5 * fov))))
 		assert_almost_eq(pp.y, p.y / (p.z * np.tan(np.deg2rad(.5 * fov))))
 
-
-class TestQuat(object):
-
-	@pytest.mark.parametrize("q1", test_data['quat'])
-	@pytest.mark.parametrize("q2", test_data['quat'])
-	def test_dot(self, q1, q2):
-		q = quat.dot(q1, q2)
-		assert_almost_eq(q, q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z)
-
-	@pytest.mark.parametrize("q", test_data['quat'])
-	def test_to_transform(self, q):
-		t = quat.to_transform(q)
-
-	@pytest.mark.parametrize("vec", test_data['vector'])
-	def test_from_transform_and_arr(self, vec):
-		t = Transform.rotate(rng() * 360., vec)
-		q1 = quat.from_transform(t)
-		q2 = quat.from_arr(t.m)
-		assert q1 == q2
-
-	@pytest.mark.parametrize("q1", test_data['quat'])
-	@pytest.mark.parametrize("q2", test_data['quat'])
-	def test_slerp(self, q1, q2):
-		q = quat.slerp(rng(), q1, q2)
-		assert isinstance(q, quat.Quaternion)
-
-
-class TestAnimatedTransform(object):
-
-	@pytest.mark.parametrize("t1", geometry_data['t1'])
-	@pytest.mark.parametrize("t2", geometry_data['t2'])
-	def test_init(self, t1, t2):
-		tm = rng()
-		at = AnimatedTransform(t1, tm, t1, tm)
-		assert not at.animated
-		at = AnimatedTransform(t1, tm, t1, tm + rng())
-		assert not at.animated
-		at = AnimatedTransform(t1, 0., t2, tm)
-		assert at.animated
-
-	@pytest.mark.parametrize("pnt", test_data['point'])
-	@pytest.mark.parametrize("vec", test_data['vector'])
-	@pytest.mark.parametrize("t1", geometry_data['t1'])
-	@pytest.mark.parametrize("t2", geometry_data['t2'])
-	def test_call(self, pnt, vec, t1, t2):
-		ray = geo.Ray(pnt, vec)
-		tm = rng()
-		at = AnimatedTransform(t1, tm, t1, tm)
-		assert at(ray).o == t1(ray).o
-		assert at(ray).d == t1(ray).d
-		assert at(rng(), pnt) == t1(pnt)
-		assert at(rng(), vec) == t1(vec)
-
-		at = AnimatedTransform(t1, 0., t2, tm)
-		at(ray)
-		at(rng(), pnt)
-		at(rng(), vec)
-
-	@pytest.mark.parametrize("t1", geometry_data['t1'])
-	@pytest.mark.parametrize("t2", geometry_data['t2'])
-	def test_motion_bounds(self, t1, t2):
-		tm = rng()
-		at = AnimatedTransform(t1, 0., t2, tm)
-		b1 = at.motion_bounds(geo.BBox(geo.Point(0., 0., 0.), geo.Point(0., 0., 0.)), False)
-		b2 = geo.BBox(geo.Point(0., 0., 0.), geo.Point(0., 1., 1.))
-		assert b1 == b2
-
-	@pytest.mark.parametrize("t1", geometry_data['t1'])
-	@pytest.mark.parametrize("t2", geometry_data['t2'])
-	def test_interpolate(self, t1, t2):
-		tm = rng()
-		at = AnimatedTransform(t1, 0., t2, tm)
-		t = at.interpolate(rng())
-
-	def test_decompose(self):
-		with pytest.raises(TypeError):
-			t, r, s = AnimatedTransform.decompose(rng(3, 3))
-		t, r, s = AnimatedTransform.decompose(rng(4, 4))
-		assert isinstance(t, geo.Vector)
-		assert isinstance(r, quat.Quaternion)
-		assert isinstance(s, np.ndarray)
-
-
+#
+# class TestQuat(object):
+#
+# 	@pytest.mark.parametrize("q1", test_data['quat'])
+# 	@pytest.mark.parametrize("q2", test_data['quat'])
+# 	def test_dot(self, q1, q2):
+# 		q = quat.dot(q1, q2)
+# 		assert_almost_eq(q, q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z)
+#
+# 	@pytest.mark.parametrize("q", test_data['quat'])
+# 	def test_to_transform(self, q):
+# 		t = quat.to_transform(q)
+#
+# 	@pytest.mark.parametrize("vec", test_data['vector'])
+# 	def test_from_transform_and_arr(self, vec):
+# 		t = Transform.rotate(rng() * 360., vec)
+# 		q1 = quat.from_transform(t)
+# 		q2 = quat.from_arr(t.m)
+# 		assert q1 == q2
+#
+# 	@pytest.mark.parametrize("q1", test_data['quat'])
+# 	@pytest.mark.parametrize("q2", test_data['quat'])
+# 	def test_slerp(self, q1, q2):
+# 		q = quat.slerp(rng(), q1, q2)
+# 		assert isinstance(q, quat.Quaternion)
+#
+#
+# class TestAnimatedTransform(object):
+#
+# 	@pytest.mark.parametrize("t1", geometry_data['t1'])
+# 	@pytest.mark.parametrize("t2", geometry_data['t2'])
+# 	def test_init(self, t1, t2):
+# 		tm = rng()
+# 		at = AnimatedTransform(t1, tm, t1, tm)
+# 		assert not at.animated
+# 		at = AnimatedTransform(t1, tm, t1, tm + rng())
+# 		assert not at.animated
+# 		at = AnimatedTransform(t1, 0., t2, tm)
+# 		assert at.animated
+#
+# 	@pytest.mark.parametrize("pnt", test_data['point'])
+# 	@pytest.mark.parametrize("vec", test_data['vector'])
+# 	@pytest.mark.parametrize("t1", geometry_data['t1'])
+# 	@pytest.mark.parametrize("t2", geometry_data['t2'])
+# 	def test_call(self, pnt, vec, t1, t2):
+# 		ray = geo.Ray(pnt, vec)
+# 		tm = rng()
+# 		at = AnimatedTransform(t1, tm, t1, tm)
+# 		assert at(ray).o == t1(ray).o
+# 		assert at(ray).d == t1(ray).d
+# 		assert at(rng(), pnt) == t1(pnt)
+# 		assert at(rng(), vec) == t1(vec)
+#
+# 		at = AnimatedTransform(t1, 0., t2, tm)
+# 		at(ray)
+# 		at(rng(), pnt)
+# 		at(rng(), vec)
+#
+# 	@pytest.mark.parametrize("t1", geometry_data['t1'])
+# 	@pytest.mark.parametrize("t2", geometry_data['t2'])
+# 	def test_motion_bounds(self, t1, t2):
+# 		tm = rng()
+# 		at = AnimatedTransform(t1, 0., t2, tm)
+# 		b1 = at.motion_bounds(geo.BBox(geo.Point(0., 0., 0.), geo.Point(0., 0., 0.)), False)
+# 		b2 = geo.BBox(geo.Point(0., 0., 0.), geo.Point(0., 1., 1.))
+# 		assert b1 == b2
+#
+# 	@pytest.mark.parametrize("t1", geometry_data['t1'])
+# 	@pytest.mark.parametrize("t2", geometry_data['t2'])
+# 	def test_interpolate(self, t1, t2):
+# 		tm = rng()
+# 		at = AnimatedTransform(t1, 0., t2, tm)
+# 		t = at.interpolate(rng())
+#
+# 	def test_decompose(self):
+# 		with pytest.raises(TypeError):
+# 			t, r, s = AnimatedTransform.decompose(rng(3, 3))
+# 		t, r, s = AnimatedTransform.decompose(rng(4, 4))
+# 		assert isinstance(t, geo.Vector)
+# 		assert isinstance(r, quat.Quaternion)
+# 		assert isinstance(s, np.ndarray)
+#
+#
 
