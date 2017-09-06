@@ -10,19 +10,18 @@ Created by Jiayao on Aug 28, 2017
 # distutils: language=c++
 from __future__ import absolute_import
 from libc cimport math
-from libc.stdlib cimport malloc, free
-cimport scipy.linalg.cython_lapack as cython_lapack
+# from libc.stdlib cimport malloc, free
+# cimport scipy.linalg.cython_lapack as cython_lapack
 import numpy as np
 cimport numpy as np
 
-FLOAT = np.float32
+# FLOAT = np.float32
 ctypedef np.float32_t FLOAT_t
-ctypedef np.float64_t DOUBLE_t
+# ctypedef np.float64_t DOUBLE_t
 ctypedef np.int32_t INT_t
 ctypedef np.uint32_t UINT32_t
 ctypedef np.uint8_t UINT8_t
 
-ctypedef FLOAT_t[:, :] mat4x4
 
 cdef extern from 'constant.hpp':
 	FLOAT_t EPS, PI, INV_PI, INV_2PI, INF
@@ -120,49 +119,6 @@ cdef inline FLOAT_t fclip(FLOAT_t x, FLOAT_t lo, FLOAT_t hi):
 
 cdef inline FLOAT_t deg2rad(FLOAT_t angle):
 	return angle / 180. * PI
-
-cdef inline mat4x4 mat4x4_inv(mat4x4 mat):
-	cdef int k = 4, zero = 0
-	cdef DOUBLE_t *mat_ptr = <DOUBLE_t*> np.PyArray_DATA(mat)
-	cdef DOUBLE_t *id_ptr
-	cdef int *pvt_ptr = <int*> malloc(sizeof (int) * k)
-	cdef DOUBLE_t[:, :] identity = np.eye(k, dtype=np.dtype('float64'))
-
-	try:
-		id_ptr = <DOUBLE_t*> np.PyArray_DATA(identity)
-		cython_lapack.dgesv(&k, &k, mat_ptr, &k,
-		                    pvt_ptr, id_ptr, &k, &zero)
-		return identity.astype('float32')
-
-	finally:
-		free(pvt_ptr)
-
-
-cdef inline void mat4x4_kji(mat4x4 m1, mat4x4 m2, mat4x4 res):
-	cdef INT_t i, j, k
-	cdef FLOAT_t tmp
-	for i in range(4):
-		for j in range(4):
-			res[i][j] = 0.
-
-	for k in range(4):
-		for j in range(4):
-			tmp = m2[k][j]
-			for i in range(4):
-				res[i][j] += m1[i][k] * tmp
-
-cdef inline void mat4x4_t(mat4x4 m, mat4x4 m_inv):
-	cdef INT_t i, j
-	for i in range(4):
-		for j in range(4):
-			m_inv[i][j] = m[j][i]
-
-cdef inline FLOAT_t det3x3(mat4x4 m):
-	return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
-	        m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-	        m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
-
-
 
 # cdef inline FLOAT_t fclip(FLOAT_t x):
 # 	if x <= 0.:
