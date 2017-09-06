@@ -10,6 +10,28 @@ Cythonized on Aug 30, 2017
 import numpy as np
 cimport numpy as np
 import cython
+
+cdef mat4x4 mat4x4_inv(mat4x4 mat):
+	# cdef np.ndarray view = np.asarray(mat)
+	cdef mat4x4 ret = np.linalg.inv(mat).astype(np.dtype('float32'))
+	# cdef mat4x4 ret = np.linalg.inv(mat).astype(np.dtype('float32'))
+	return ret
+	# cdef int k = 4, zero = 0
+	# cdef DOUBLE_t *mat_ptr = <DOUBLE_t*> np.PyArray_DATA(mat)
+	# cdef DOUBLE_t *id_ptr
+	# cdef int *pvt_ptr = <int*> malloc(sizeof (int) * k)
+	# identity = np.eye(k, dtype=np.dtype('float64'))
+	# cdef mat4x4 buffer
+	# try:
+	# 	id_ptr = <DOUBLE_t*> np.PyArray_DATA(identity)
+	# 	cython_lapack.dgesv(&k, &k, mat_ptr, &k,
+	# 	                    pvt_ptr, id_ptr, &k, &zero)
+	# 	buffer = identity.astype(np.dtype('float32'))
+	# 	return buffer
+	#
+	# finally:
+	# 	free(pvt_ptr)
+
 cdef class Transform:
 	"""
 	Transform class

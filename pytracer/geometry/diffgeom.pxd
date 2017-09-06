@@ -24,7 +24,7 @@ cdef class DifferentialGeometry:
 		Vector dpdu, dpdv, dpdx, dpdy
 		Normal dndu, dndv, nn
 		FLOAT_t u, v, dudx, dudy, dvdx, dvdy
-		Shape shape
+		# Shape shape
 
 	cdef void _compute_differential(self, RayDifferential ray)
 	cpdef void compute_differential(self, RayDifferential ray)

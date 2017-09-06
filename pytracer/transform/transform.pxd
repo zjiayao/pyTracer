@@ -8,11 +8,41 @@ Cythonized on Aug 30, 2017
 """
 from __future__ import absolute_import
 
-from pytracer.core.definition cimport FLOAT_t, INT_t, EPS, mat4x4, feq, fsin, fcos, ftan, deg2rad, is_zero, ne_unity, det3x3, mat4x4_inv, mat4x4_t, mat4x4_kji
+from pytracer.core.definition cimport FLOAT_t, INT_t, EPS, feq, fsin, fcos, ftan, deg2rad, is_zero, ne_unity
 from pytracer.geometry.geometry cimport _normalize, _Arr3, Point, Vector, Normal, Ray, RayDifferential, BBox
 from cpython.object cimport Py_EQ, Py_NE
+import numpy as np
 cimport numpy as np
-cimport cython
+
+ctypedef FLOAT_t[:, :] mat4x4
+
+cdef mat4x4 mat4x4_inv(mat4x4 mat)
+
+cdef inline void mat4x4_kji(mat4x4 m1, mat4x4 m2, mat4x4 res):
+	cdef INT_t i, j, k
+	cdef FLOAT_t tmp
+	for i in range(4):
+		for j in range(4):
+			res[i][j] = 0.
+
+	for k in range(4):
+		for j in range(4):
+			tmp = m2[k][j]
+			for i in range(4):
+				res[i][j] += m1[i][k] * tmp
+
+cdef inline void mat4x4_t(mat4x4 m, mat4x4 m_inv):
+	cdef INT_t i, j
+	for i in range(4):
+		for j in range(4):
+			m_inv[i][j] = m[j][i]
+
+cdef inline FLOAT_t det3x3(mat4x4 m):
+	return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+	        m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+	        m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+
+
 
 
 cdef class Transform:
