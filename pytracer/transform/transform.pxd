@@ -58,14 +58,13 @@ cdef class Transform:
 		to.m_inv[:, :] = self.m_inv
 
 	cdef inline void _call_point(self, Point p, Point to):
-		to.data[0] = (self.m[0][0] + self.m[1][0] + self.m[2][0]) * p.data[0] + self.m[0][3]
-		to.data[1] = (self.m[0][1] + self.m[1][1] + self.m[2][1]) * p.data[1] + self.m[1][3]
-		to.data[2] = (self.m[0][2] + self.m[1][2] + self.m[2][2]) * p.data[2] + self.m[2][3]
+		cdef FLOAT_t coef = self.m[3][0] * p.x + self.m[3][1] * p.y + self.m[3][2] * p.z + self.m[3][3]
+		to.data[0] = self.m[0][0] * p.x + self.m[0][1] * p.y + self.m[0][2] * p.z + self.m[0][3]
+		to.data[1] = self.m[1][0] * p.x + self.m[1][1] * p.y + self.m[1][2] * p.z + self.m[1][3]
+		to.data[2] = self.m[2][0] * p.x + self.m[2][1] * p.y + self.m[2][2] * p.z + self.m[2][3]
 
-		if not feq(to.data[2], 1.):
-			to.data[0] /= to.data[2]
-			to.data[1] /= to.data[2]
-			to.data[2] = 1.
+		if not feq(coef, 1.):
+			to /= coef
 
 	cdef inline void _call_vector(self, Vector v, Vector to):
 		to.data[0] = (self.m[0][0] + self.m[1][0] + self.m[2][0]) * v.data[0]

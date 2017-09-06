@@ -4,13 +4,13 @@ from distutils.extension import Extension
 import numpy
 
 src = [
-	'pytracer.geometry.diffgeom',
+	'pytracer.geometry.*',
 	'pytracer.transform.*',
 	'pytracer.shape.*',
        ]
 
 loc = [
-	['pytracer/geometry/diffgeom.pyx'],
+	['pytracer/geometry/*.pyx'],
 	['pytracer/transform/*.pyx'],
 	['pytracer/shape/*.pyx'],
 ]

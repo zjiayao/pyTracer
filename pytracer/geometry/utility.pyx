@@ -13,15 +13,21 @@ from __future__ import absolute_import
 from pytracer.geometry.geometry cimport Vector, Normal
 from pytracer.core.definition cimport PI, FLOAT_t, fabs, fclip, fsqrt, fsin, fcos, facos, fatan2
 
-# __all__ = ['coordinate_system',
-#            'face_forward',
-#            'spherical_direction',
-#            'spherical_theta',
-#            'spherical_phi']
+__all__ = ['coordinate_system',
+           'face_forward',
+           'spherical_direction',
+           'spherical_theta',
+           'spherical_phi']
 
 # Geometry Utility Functions
+cpdef list coordinate_system(Vector v):
+	cdef Vector v2 = Vector()
+	cdef Vector v3 = Vector()
+	_coordinate_system(v, v2, v3)
+	return [v, v2, v3]
 
-cdef inline void coordinate_system(Vector v1, Vector v2, Vector v3):
+
+cdef inline void _coordinate_system(Vector v1, Vector v2, Vector v3):
 	"""
 	Construct a left-handed coordinate system
 	with v1, which is assumed to be normalized.
@@ -54,8 +60,10 @@ cdef inline void coordinate_system(Vector v1, Vector v2, Vector v3):
 
 	v3._set_cross(v1, v2)
 
+cpdef Normal face_forward(Normal n, Vector v):
+	return _face_forward(n, v)
 
-cdef inline Normal face_forward(Normal n, Vector v):
+cdef inline Normal _face_forward(Normal n, Vector v):
 	"""
 	face_forward
 
@@ -70,7 +78,10 @@ cdef inline Normal face_forward(Normal n, Vector v):
 
 	return n.copy()
 
-cdef inline Vector spherical_direction(FLOAT_t stheta, FLOAT_t ctheta, FLOAT_t phi, Vector x=None, Vector y=None, Vector z=None):
+cpdef Vector spherical_direction(FLOAT_t stheta, FLOAT_t ctheta, FLOAT_t phi, Vector x=None, Vector y=None, Vector z=None):
+	return _spherical_direction(stheta, ctheta, phi, x, y, z)
+
+cdef inline Vector _spherical_direction(FLOAT_t stheta, FLOAT_t ctheta, FLOAT_t phi, Vector x=None, Vector y=None, Vector z=None):
 	"""
 	spherical_direction
 
@@ -82,8 +93,10 @@ cdef inline Vector spherical_direction(FLOAT_t stheta, FLOAT_t ctheta, FLOAT_t p
 	else:
 		return x * stheta * fcos(phi) + y * stheta * fsin(phi) + z * ctheta
 
+cpdef FLOAT_t spherical_theta(Vector v):
+	return _spherical_theta(v)
 
-cdef inline FLOAT_t spherical_theta(Vector v):
+cdef inline FLOAT_t _spherical_theta(Vector v):
 	"""
 	spherical_theta
 
@@ -91,8 +104,10 @@ cdef inline FLOAT_t spherical_theta(Vector v):
 	"""
 	return facos(fclip(v.z, -1., 1.))
 
+cpdef FLOAT_t spherical_phi(Vector v):
+	return _spherical_phi(v)
 
-cdef inline FLOAT_t spherical_phi(Vector v):
+cdef inline FLOAT_t _spherical_phi(Vector v):
 	"""
 	spherical_phi
 

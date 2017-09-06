@@ -11,8 +11,9 @@ from __future__ import absolute_import
 import numpy as np
 from numpy.testing import assert_array_almost_equal
 import pytest
+from pytracer import FLOAT
 import pytracer.geometry as geo
-from pytracer.transform import (Transform, AnimatedTransform)
+from pytracer.transform import Transform
 import pytracer.transform.quat as quat
 
 N_TEST_CASE = 5
@@ -61,8 +62,8 @@ def assert_elem_eq(a, b, thres=EPS):
 class TestTransform(object):
 
 	def test_init(self):
-		m = np.random.rand(4, 4)
-		m_inv = np.linalg.inv(m)
+		m = np.random.rand(4, 4).astype(FLOAT)
+		m_inv = np.linalg.inv(m).astype(FLOAT)
 
 		t = Transform(m, m_inv)
 		assert (m == t.m).all()
@@ -85,7 +86,7 @@ class TestTransform(object):
 		assert_array_almost_equal(t.m_inv, m_inv)
 
 		with pytest.raises(TypeError):
-			t = Transform(np.random.rand(3,3))
+			t = Transform(np.random.rand(3,3).astype(FLOAT))
 
 		t = Transform()
 		tt = t.copy()
@@ -93,18 +94,18 @@ class TestTransform(object):
 		assert not id(tt) == id(t)
 
 	def test_inverse(self):
-		t = Transform(rng(4,4))
+		t = Transform(rng(4,4).astype(FLOAT))
 		ti = t.inverse()
 		assert_array_almost_equal(t.m, ti.m_inv)
 		assert_array_almost_equal(t.m_inv, ti.m)
 
 	def test_identity(self):
 		assert Transform().is_identity()
-		assert not Transform(rng(4, 4)).is_identity()
+		assert not Transform(rng(4, 4).astype(FLOAT)).is_identity()
 
 	def test_has_scale(self):
 		assert not Transform().has_scale()
-		assert Transform(rng(4, 4)).has_scale()
+		assert Transform(rng(4, 4).astype(FLOAT)).has_scale()
 
 	def test_swap_handedness(self):
 		assert not Transform().swaps_handedness()
@@ -117,10 +118,10 @@ class TestTransform(object):
 		assert v == vec
 		assert not id(v) == id(vec)
 
-		v = t(np.array(vec), dtype=geo.Vector)
-		assert isinstance(v, geo.Vector)
-		assert v == vec
-		assert not id(v) == id(vec)
+		# v = t(np.array(vec), dtype=geo.Vector)
+		# assert isinstance(v, geo.Vector)
+		# assert v == vec
+		# assert not id(v) == id(vec)
 
 	@pytest.mark.parametrize("pnt", test_data['point'])
 	def test_call_point(self, pnt):
@@ -130,10 +131,10 @@ class TestTransform(object):
 		assert p == pnt
 		assert not id(p) == id(pnt)
 
-		p = t(np.array(pnt), dtype=geo.Point)
-		assert isinstance(p, geo.Point)
-		assert p == pnt
-		assert not id(p) == id(pnt)
+		# p = t(np.array(pnt), dtype=geo.Point)
+		# assert isinstance(p, geo.Point)
+		# assert p == pnt
+		# assert not id(p) == id(pnt)
 
 	@pytest.mark.parametrize("norm", test_data['normal'])
 	def test_call_normal(self, norm):
@@ -143,9 +144,9 @@ class TestTransform(object):
 		assert n == norm
 		assert not id(n) == id(norm)
 
-		n = t(np.array(norm), dtype=geo.Normal)
-		assert n == norm
-		assert not id(n) == id(norm)
+		# n = t(np.array(norm), dtype=geo.Normal)
+		# assert n == norm
+		# assert not id(n) == id(norm)
 
 	@pytest.mark.parametrize("pnt", test_data['point'])
 	@pytest.mark.parametrize("vec", test_data['vector'])
@@ -183,10 +184,10 @@ class TestTransform(object):
 			t(1.)
 
 	def test_mul(self):
-		m1 = rng(4,4)
-		m2 = rng(4,4)
-		m1_inv = np.linalg.inv(m1)
-		m2_inv = np.linalg.inv(m2)
+		m1 = rng(4, 4).astype(FLOAT)
+		m2 = rng(4, 4).astype(FLOAT)
+		m1_inv = np.linalg.inv(m1).astype(FLOAT)
+		m2_inv = np.linalg.inv(m2).astype(FLOAT)
 
 		t1 = Transform(m1, m1_inv)
 		t2 = Transform(m2, m2_inv)

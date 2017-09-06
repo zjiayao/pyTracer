@@ -9,6 +9,10 @@ Created by Jiayao on July 28, 2017
 Modified on Aug 13, 2017
 Cythonized on Aug 30, 2017
 """
+
+__all__ = ['DifferentialGeometry']
+
+
 cdef class DifferentialGeometry:
 	def __cinit__(self, Point p=Point(), Vector dpdu=Vector(), Vector dpdv=Vector(), Normal dndu=Normal(),
 	              Normal dndv=Normal(), FLOAT_t uu=0., FLOAT_t vv=0., Shape shape=None):

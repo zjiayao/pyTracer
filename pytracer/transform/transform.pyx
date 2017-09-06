@@ -39,12 +39,20 @@ cdef class Transform:
 	@cython.boundscheck(False)
 	def __cinit__(self, mat4x4 m=None, mat4x4 m_inv=None):
 		if m is None:
-			self.m = np.eye(4, 4, dtype=np.dtype('float32'))
-			self.m = np.eye(4, 4, dtype=np.dtype('float32'))
+			self.m = np.eye(4, dtype=np.dtype('float32'))
+			self.m_inv = np.eye(4, dtype=np.dtype('float32'))
 		elif m is not None and m_inv is not None:
+			if m.shape[0] != 4 or m.shape[1] != 4 or m_inv.shape[0] != 4 or m_inv.shape[1] != 4:
+				raise TypeError
+			self.m = np.empty([4, 4], dtype=np.dtype('float32'))
+			self.m_inv = np.empty([4, 4], dtype=np.dtype('float32'))
 			self.m[:, :] = m
 			self.m_inv[:, :] = m_inv
 		else:
+			if m.shape[0] != 4 or m.shape[1] != 4:
+				raise TypeError
+			self.m = np.empty([4, 4], dtype=np.dtype('float32'))
+			self.m_inv = np.empty([4, 4], dtype=np.dtype('float32'))
 			self.m[:, :] = m
 			self.m_inv = mat4x4_inv(m)
 
@@ -96,28 +104,28 @@ cdef class Transform:
 	def __call__(self, arg):
 		print("Depreciated, using c methods instead")
 		cdef:
-			_Arr3 ret = _Arr3()
+			_Arr3 ret
 			Ray ray
 			RayDifferential rd
 			BBox box
 
 		if isinstance(arg, Point):
 			arg = <Point> arg
-			ret = <Point> ret
+			ret = Point()
 			self._call_point(arg, ret)
 
 			return ret
 
 		elif isinstance(arg, Vector):
 			arg = <Vector> arg
-			ret = <Vector> ret
+			ret = Vector()
 			self._call_vector(arg, ret)
 			return ret
 
 		elif isinstance(arg, Normal):
 			# must be transformed by inverse transpose
 			arg = <Normal> arg
-			ret = <Normal> ret
+			ret = Normal()
 			self._call_normal(arg, ret)
 			return ret
 

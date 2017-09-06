@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import cython
 
 __all__ = ['Vector', 'Point', 'Normal', 'Ray', 'RayDifferential',
-           'BBox']
+           'BBox', 'normalize']
 
 cpdef _Arr3 normalize(_Arr3 vec):
 	return _normalize(vec)

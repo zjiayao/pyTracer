@@ -16,7 +16,6 @@ from pytracer.geometry.geometry cimport Point, Vector, Normal, RayDifferential
 cdef class DifferentialGeometry
 from pytracer.shape.shape cimport Shape
 
-__all__ = ['DifferentialGeometry']
 
 cdef class DifferentialGeometry:
 	cdef:
