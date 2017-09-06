@@ -19,9 +19,10 @@ Cythonized on Aug 30, 2017
 from __future__ import absolute_import
 from pytracer.core.definition cimport EPS, INT_t, FLOAT_t
 from pytracer.geometry.geometry cimport Ray, BBox, Point, Normal, Vector
-from pytracer.transform.transform cimport Transform
 cdef class Shape
 from pytracer.geometry.diffgeom cimport DifferentialGeometry
+from pytracer.transform.transform cimport Transform
+
 
 cdef class Shape:
 	"""
