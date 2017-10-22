@@ -275,7 +275,6 @@ cdef class SampledSpectrum(CoefficientSpectrum):
 	model uniformly spaced samples taken from
 	the spectrum.
 	"""
-
 	# XYZ SampledSpectrum
 	X = None
 	Y = None

@@ -10,12 +10,12 @@ Cythonized on Aug 30, 2017
 import numpy as np
 cimport numpy as np
 import cython
-
+from pytracer import FLOAT
 
 cdef mat4x4 mat4x4_inv(mat4x4 mat):
 	# cdef np.ndarray view = np.asarray(mat)
-	cdef mat4x4 ret = np.linalg.inv(mat).astype(np.dtype('float32'))
-	# cdef mat4x4 ret = np.linalg.inv(mat).astype(np.dtype('float32'))
+	cdef mat4x4 ret = np.linalg.inv(mat).astype(FLOAT)
+	# cdef mat4x4 ret = np.linalg.inv(mat).astype(FLOAT)
 	return ret
 	# cdef int k = 4, zero = 0
 	# cdef DOUBLE_t *mat_ptr = <DOUBLE_t*> np.PyArray_DATA(mat)
@@ -27,7 +27,7 @@ cdef mat4x4 mat4x4_inv(mat4x4 mat):
 	# 	id_ptr = <DOUBLE_t*> np.PyArray_DATA(identity)
 	# 	cython_lapack.dgesv(&k, &k, mat_ptr, &k,
 	# 	                    pvt_ptr, id_ptr, &k, &zero)
-	# 	buffer = identity.astype(np.dtype('float32'))
+	# 	buffer = identity.astype(FLOAT)
 	# 	return buffer
 	#
 	# finally:
@@ -40,20 +40,20 @@ cdef class Transform:
 	@cython.boundscheck(False)
 	def __cinit__(self, mat4x4 m=None, mat4x4 m_inv=None):
 		if m is None:
-			self.m = np.eye(4, dtype=np.dtype('float32'))
-			self.m_inv = np.eye(4, dtype=np.dtype('float32'))
+			self.m = np.eye(4, dtype=FLOAT)
+			self.m_inv = np.eye(4, dtype=FLOAT)
 		elif m is not None and m_inv is not None:
 			if m.shape[0] != 4 or m.shape[1] != 4 or m_inv.shape[0] != 4 or m_inv.shape[1] != 4:
 				raise TypeError
-			self.m = np.empty([4, 4], dtype=np.dtype('float32'))
-			self.m_inv = np.empty([4, 4], dtype=np.dtype('float32'))
+			self.m = np.empty([4, 4], dtype=FLOAT)
+			self.m_inv = np.empty([4, 4], dtype=FLOAT)
 			self.m[:, :] = m
 			self.m_inv[:, :] = m_inv
 		else:
 			if m.shape[0] != 4 or m.shape[1] != 4:
 				raise TypeError
-			self.m = np.empty([4, 4], dtype=np.dtype('float32'))
-			self.m_inv = np.empty([4, 4], dtype=np.dtype('float32'))
+			self.m = np.empty([4, 4], dtype=FLOAT)
+			self.m_inv = np.empty([4, 4], dtype=FLOAT)
 			self.m[:, :] = m
 			self.m_inv = mat4x4_inv(m)
 
@@ -156,7 +156,7 @@ cdef class Transform:
 		cdef Transform ret = Transform()
 		assert isinstance(other, Transform)
 		mat4x4_kji(self.m, other.m, ret.m)
-		mat4x4_kji(other.m_inv, self.m_int, ret.m_inv)
+		mat4x4_kji(other.m_inv, self.m_inv, ret.m_inv)
 		return ret
 
 	@staticmethod
@@ -252,7 +252,7 @@ cdef class Transform:
 	@classmethod
 	def perspective(cls, FLOAT_t fov, FLOAT_t n, FLOAT_t f):
 		# projective along z
-		cdef mat4x4 m = np.eye(4)
+		cdef mat4x4 m = np.eye(4, dtype=FLOAT)
 		cdef FLOAT_t tan_inv = 1. / ftan(deg2rad(fov) / 2.)
 
 		m[2][2] = f / (f - n)
@@ -339,7 +339,7 @@ cdef class AnimatedTransform:
 		return ret
 
 	@staticmethod
-	def decompose(mat4x4_t m): # -> ['geo.Vector', 'quat.Quaternion', 'np.ndarray']:
+	def decompose(mat4x4 m): # -> ['geo.Vector', 'quat.Quaternion', 'np.ndarray']:
 		"""
 		decompose into
 		m = T R S
@@ -363,7 +363,7 @@ cdef class AnimatedTransform:
 			Rit = np.linalg.inv(R.T)
 			Rnext = .5 * (Rit + R)
 			D = np.fabs(Rnext - Rit)[0:3, 0:3]
-			norm = np.max(norm, np.max(np.sum(D, axis=0)))
+			norm = max(norm, np.max(np.sum(D, axis=0)))
 			R = Rnext
 
 		from pytracer.transform.quat import from_arr
