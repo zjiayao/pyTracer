@@ -8,9 +8,8 @@ Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
 from pytracer import *
-import pytracer.geometry as geo
-import pytracer.transform as trans
 from pytracer.shape import Shape
+import pytracer.geometry as geo
 
 __all__ = ['Sphere']
 
@@ -22,7 +21,6 @@ class Sphere(Shape):
 	Subclasses `Shape` and is used
 	to model possibly partial Sphere.
 	"""
-
 	def __init__(self, o2w: 'trans.Transform', w2o: 'trans.Transform',
 	             ro: bool, rad: FLOAT, z0: FLOAT, z1: FLOAT, pm: FLOAT):
 		super().__init__(o2w, w2o, ro)

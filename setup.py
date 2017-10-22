@@ -7,12 +7,14 @@ src = [
 	'pytracer.geometry.*',
 	'pytracer.transform.*',
 	'pytracer.shape.*',
+    'pytracer.spectral.*'
        ]
 
 loc = [
 	['pytracer/geometry/*.pyx'],
 	['pytracer/transform/*.pyx'],
 	['pytracer/shape/*.pyx'],
+    ['pytracer/spectral/*.pyx']
 ]
 incl = [numpy.get_include(), 'pytracer/include']
 

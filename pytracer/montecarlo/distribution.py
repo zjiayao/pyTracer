@@ -1,5 +1,5 @@
 """
-distributino.py
+distribution.py
 
 pytracer.montecarlo package
 

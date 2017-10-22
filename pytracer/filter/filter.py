@@ -8,6 +8,7 @@ Created by Jiayao on Aug 1, 2017
 from __future__ import absolute_import
 from abc import ABCMeta, abstractmethod
 from pytracer import *
+from pytracer import pyEPS as EPS
 
 __all__ = ['Filter', 'BoxFilter', 'TriangleFilter',
            'GaussianFilter', 'MitchellFilter', 'LanczosSincFilter']

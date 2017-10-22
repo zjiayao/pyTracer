@@ -14,5 +14,5 @@ from __future__ import absolute_import
 
 # for cython implementation
 from pytracer.geometry.geometry import *
-from pytracer.geometry.diffgeom import *
+from pytracer.geometry.diffgeom import DifferentialGeometry
 from pytracer.geometry.utility import *

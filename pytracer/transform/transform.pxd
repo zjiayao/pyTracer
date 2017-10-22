@@ -8,7 +8,7 @@ Cythonized on Aug 30, 2017
 """
 from __future__ import absolute_import
 
-from pytracer.core.definition cimport FLOAT_t, INT_t, EPS, feq, fsin, fcos, ftan, deg2rad, is_zero, ne_unity
+from pytracer.core.definition cimport FLOAT_t, INT_t, EPS, feq, fsin, fcos, ftan, deg2rad, is_zero, ne_unity, lerp
 from pytracer.geometry.geometry cimport _normalize, _Arr3, Point, Vector, Normal, Ray, RayDifferential, BBox
 from cpython.object cimport Py_EQ, Py_NE
 import numpy as np
@@ -226,124 +226,17 @@ cdef class Transform:
 	cpdef bint is_identity(self)
 	cpdef bint has_scale(self)
 	cpdef bint swaps_handedness(self)
-#
-# cdef class AnimatedTransform:
-# 	cdef:
-# 		FLOAT_t startTime, endTime
-# 		Transform startTransform, endTransform
-# 		bint animated
-#
-# 	def __init__(self, t1: 'Transform', tm1: FLOAT, t2: 'Transform', tm2: FLOAT):
-# 		self.startTime = tm1
-# 		self.endTime = tm2
-# 		self.startTransform = t1
-# 		self.endTransform = t2
-# 		self.animated = (t1 != t2)
-# 		self.T = [None, None]
-# 		self.R = [None, None]
-# 		self.S = [None, None]
-# 		self.T[0], self.R[0], self.S[0] = AnimatedTransform.decompose(t1.m)
-# 		self.T[1], self.R[1], self.S[1] = AnimatedTransform.decompose(t2.m)
-#
-# 	def __repr__(self):
-# 		return "{}\nTime: {} - {}\nAnimated: {}".format(self.__class__,
-# 		                                                self.startTime, self.endTime, self.animated)
-#
-# 	def __call__(self, arg_1, arg_2=None):
-# 		if isinstance(arg_1, geo.Ray) and arg_2 is None:
-# 			r = arg_1
-# 			if not self.animated or r.time < self.startTime:
-# 				tr = self.startTransform(r)
-# 			elif r.time >= self.endTime:
-# 				tr = self.endTransform(r)
-# 			else:
-# 				tr = self.interpolate(r.time)(r)
-# 			tr.time = r.time
-# 			return tr
-#
-# 		elif isinstance(arg_1, (float, FLOAT, np.float)) and isinstance(arg_2, geo.Point):
-# 			time = arg_1
-# 			p = arg_2
-# 			if not self.animated or time < self.startTime:
-# 				return self.startTransform(p)
-# 			elif time > self.endTime:
-# 				return self.endTransform(p)
-# 			return self.interpolate(time)(p)
-#
-# 		elif isinstance(arg_1, (float, FLOAT, np.float)) and isinstance(arg_2, geo.Vector):
-# 			time = arg_1
-# 			v = arg_2
-# 			if not self.animated or time < self.startTime:
-# 				return self.startTransform(v)
-# 			elif time > self.endTime:
-# 				return self.endTransform(v)
-# 			return self.interpolate(time)(v)
-# 		else:
-# 			raise TypeError()
-#
-# 	def motion_bounds(self, b: 'geo.BBox', use_inv: bool=False) -> 'geo.BBox':
-# 		if not self.animated:
-# 			return self.startTransform.inverse()(b)
-# 		ret = geo.BBox()
-# 		steps = 128
-# 		for i in range(128):
-# 			time = util.lerp(i * (1. / (steps - 1)), self.startTime, self.endTime)
-# 			t = self.interpolate(time)
-# 			if use_inv:
-# 				t = t.inverse()
-# 			ret.union(t(b))
-# 		return ret
-#
-# 	@staticmethod
-# 	def decompose(m: 'np.ndarray') -> ['geo.Vector', 'quat.Quaternion', 'np.ndarray']:
-# 		"""
-# 		decompose into
-# 		m = T R S
-# 		Assume m is an affine transformation
-# 		"""
-# 		if not np.shape(m) == (4, 4):
-# 			raise TypeError
-#
-# 		T = geo.Vector(m[0, 3], m[1, 3], m[2, 3])
-# 		M = m.copy()
-# 		M[0:3, 3] = M[3, 0:3] = 0
-# 		M[3, 3] = 1
-#
-# 		# polar decomposition
-# 		norm = 2 * EPS
-# 		R = M.copy()
-#
-# 		for _ in range(100):
-# 			if norm < EPS:
-# 				break
-# 			Rit = np.linalg.inv(R.T)
-# 			Rnext = .5 * (Rit + R)
-# 			D = np.fabs(Rnext - Rit)[0:3, 0:3]
-# 			norm = max(norm, np.max(np.sum(D, axis=0)))
-# 			R = Rnext
-#
-# 		from pytracer.transform.quat import from_arr
-# 		Rquat = from_arr(R)
-# 		S = np.linalg.inv(R).dot(M)
-#
-# 		return T, Rquat, S
-#
-# 	def interpolate(self, time: FLOAT) -> 'Transform':
-#
-# 		if not self.animated or time <= self.startTime:
-# 			return self.startTransform
-#
-# 		if time >= self.endTime:
-# 			return self.endTransform
-#
-# 		from pytracer.transform.quat import (slerp, to_transform)
-#
-# 		dt = (time - self.startTime) / (self.endTime - self.startTime)
-#
-# 		trans = (1. - dt) * self.T[0] + dt * self.T[1]
-# 		rot = slerp(dt, self.R[0], self.R[1])
-# 		scale = util.ufunc_lerp(dt, self.S[0], self.S[1])
-#
-# 		return Transform.translate(trans) *\
-# 		       to_transform(rot) *\
-# 		       Transform(scale)
+
+
+cdef class AnimatedTransform:
+	cdef:
+		FLOAT_t startTime, endTime
+		Transform startTransform, endTransform
+		bint animated
+		list T, R, S
+
+	cpdef motion_bounds(self, BBox b, bint use_inv=?)
+
+	# cpdef decompose(np.ndarray m)
+
+	# cpdef interpolate(self, FLOAT_t time)

@@ -1,7 +1,7 @@
 from pytracer import *
+from pytracer.shape.shapes import (Sphere, Disk, create_triangle_mesh, create_loop_subdiv)
 from pytracer.geometry import (Vector, Point)
 from pytracer.transform import (Transform, AnimatedTransform)
-from pytracer.shape import (Sphere, Disk, create_triangle_mesh, create_loop_subdiv)
 from pytracer.aggregate import (BVH, SimpleAggregate, GeometricPrimitive, GridAccel)
 from pytracer.texture import ConstantTexture
 from pytracer.material import (MatteMaterial, UberMaterial, MeasuredMaterial, MirrorMaterial, MetalMaterial, GlassMaterial)

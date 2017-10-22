@@ -30,7 +30,7 @@ IrIsotropicData = {}
 ReHalfangleData = {}
 
 # Utility functions
-import pytracer.utility as util
+import pytracer.utility.utility as util
 
 # Spectrum
 from pytracer.spectral import (Spectrum, SpectrumType)

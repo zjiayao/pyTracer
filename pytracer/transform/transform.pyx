@@ -11,6 +11,7 @@ import numpy as np
 cimport numpy as np
 import cython
 
+
 cdef mat4x4 mat4x4_inv(mat4x4 mat):
 	# cdef np.ndarray view = np.asarray(mat)
 	cdef mat4x4 ret = np.linalg.inv(mat).astype(np.dtype('float32'))
@@ -273,3 +274,120 @@ cdef class Transform:
 
 	cpdef bint swaps_handedness(self):
 		return self._swaps_handedness()
+
+
+cdef class AnimatedTransform:
+	def __cinit__(self, Transform t1, FLOAT_t tm1, Transform t2, FLOAT_t tm2):
+		self.startTime = tm1
+		self.endTime = tm2
+		self.startTransform = t1
+		self.endTransform = t2
+		self.animated = (t1 != t2)
+		self.T = [None, None]
+		self.R = [None, None]
+		self.S = [None, None]
+		self.T[0], self.R[0], self.S[0] = AnimatedTransform.decompose(t1.m)
+		self.T[1], self.R[1], self.S[1] = AnimatedTransform.decompose(t2.m)
+
+	def __repr__(self):
+		return "{}\nTime: {} - {}\nAnimated: {}".format(self.__class__,
+		                                                self.startTime, self.endTime, self.animated)
+
+	def __call__(self, arg_1, arg_2=None):
+		if isinstance(arg_1, Ray) and arg_2 is None:
+			r = arg_1
+			if not self.animated or r.time < self.startTime:
+				tr = self.startTransform(r)
+			elif r.time >= self.endTime:
+				tr = self.endTransform(r)
+			else:
+				tr = self.interpolate(r.time)(r)
+			tr.time = r.time
+			return tr
+
+		elif isinstance(arg_2, Point):
+			time = arg_1
+			p = arg_2
+			if not self.animated or time < self.startTime:
+				return self.startTransform(p)
+			elif time > self.endTime:
+				return self.endTransform(p)
+			return self.interpolate(time)(p)
+
+		elif isinstance(arg_2, Vector):
+			time = arg_1
+			v = arg_2
+			if not self.animated or time < self.startTime:
+				return self.startTransform(v)
+			elif time > self.endTime:
+				return self.endTransform(v)
+			return self.interpolate(time)(v)
+		else:
+			raise TypeError()
+
+	cpdef motion_bounds(self, BBox b, bint use_inv=False):
+		if not self.animated:
+			return self.startTransform.inverse()(b)
+		ret = BBox()
+		steps = 128
+		for i in range(128):
+			time = lerp(i * (1. / (steps - 1)), self.startTime, self.endTime)
+			t = self.interpolate(time)
+			if use_inv:
+				t = t.inverse()
+			ret.union(t(b))
+		return ret
+
+	@staticmethod
+	def decompose(mat4x4_t m): # -> ['geo.Vector', 'quat.Quaternion', 'np.ndarray']:
+		"""
+		decompose into
+		m = T R S
+		Assume m is an affine transformation
+		"""
+		if not np.shape(m) == (4, 4):
+			raise TypeError
+
+		T = Vector(m[0, 3], m[1, 3], m[2, 3])
+		M = m.copy()
+		M[0:3, 3] = M[3, 0:3] = 0
+		M[3, 3] = 1
+
+		# polar decomposition
+		norm = 2 * EPS
+		R = M.copy()
+
+		for _ in range(100):
+			if norm < EPS:
+				break
+			Rit = np.linalg.inv(R.T)
+			Rnext = .5 * (Rit + R)
+			D = np.fabs(Rnext - Rit)[0:3, 0:3]
+			norm = np.max(norm, np.max(np.sum(D, axis=0)))
+			R = Rnext
+
+		from pytracer.transform.quat import from_arr
+		Rquat = from_arr(R)
+		S = np.linalg.inv(R).dot(M)
+
+		return T, Rquat, S
+
+	def interpolate(self, FLOAT_t time):
+
+		if not self.animated or time <= self.startTime:
+			return self.startTransform
+
+		if time >= self.endTime:
+			return self.endTransform
+
+		from pytracer.transform.quat import (slerp, to_transform)
+
+		dt = (time - self.startTime) / (self.endTime - self.startTime)
+
+		trans = (1. - dt) * self.T[0] + dt * self.T[1]
+		rot = slerp(dt, self.R[0], self.R[1])
+		scale = (1. - dt) * self.S[0] + dt * self.S[1]
+
+		return Transform.translate(trans) *\
+		       to_transform(rot) *\
+		       Transform(scale)

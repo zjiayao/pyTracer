@@ -8,9 +8,8 @@ Modified on Aug 13, 2017
 """
 from __future__ import absolute_import
 from pytracer import *
-import pytracer.geometry as geo
-import pytracer.transform as trans
 from pytracer.shape import Shape
+import pytracer.geometry as geo
 
 __all__ = ['create_triangle_mesh', 'Triangle', 'TriangleMesh']
 
@@ -111,7 +110,6 @@ class Triangle(Shape):
 	`TriangleMesh`. Holds refernces to
 	the data in the outer `TriangleMesh`
 	"""
-
 	def __init__(self, o2w: 'trans.Transform', w2o: 'trans.Transform',
 	             ro: bool, m: 'TriangleMesh', n: INT):
 		super().__init__(o2w, w2o, ro)
@@ -405,7 +403,6 @@ class TriangleMesh(Shape):
 	Subclasses `Shape` and is used
 	to model trianglular meshes.
 	"""
-
 	def __init__(self, o2w: 'trans.Transform', w2o: 'trans.Transform',
 	             ro: bool, nt: INT, nv: INT, vi: [INT],
 	             P: [geo.Point], N: [geo.Normal] = None, S: [geo.Vector] = None,

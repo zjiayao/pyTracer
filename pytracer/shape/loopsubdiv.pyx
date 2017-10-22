@@ -9,15 +9,22 @@ Modified on Aug 13, 2017
 from __future__ import absolute_import
 from pytracer import *
 import pytracer.geometry as geo
-import pytracer.transform as trans
-from pytracer.shape import Shape, NEXT, PREV
+from pytracer.shape import Shape
+from pytracer.core.definition cimport INT_t
 
 
 __all__ = ['create_loop_subdiv', 'LoopSubdiv']
 
 
+cpdef INT_t NEXT(INT_t i): return (i + 1) % 3
+
+
+cpdef INT_t PREV(INT_t i): return (i + 2) % 3
+
+
 def create_loop_subdiv(o2w: 'trans.Transform', w2o: 'trans.Transform',
                        ro: bool, params: {str: object}):
+	import pytracer.geometry as geo
 	nlevels = 3 if 'nlevels' not in params else params['nlevels']
 	vi = None if 'indices' not in params else params['indices']
 	P = None if 'P' not in params else params['P']
@@ -276,12 +283,14 @@ class LoopSubdiv(Shape):
 		return P
 
 	def object_bound(self) -> 'geo.BBox':
+		import pytracer.geometry as geo
 		ret = geo.BBox()
 		for i in range(len(self.vertices)):
 			ret.union(self.vertices[i].P)
 		return ret
 
 	def world_bound(self) -> 'geo.BBox':
+		import pytracer.geometry as geo
 		ret = geo.BBox()
 		for i in range(len(self.vertices)):
 			ret.union(self.o2w(self.vertices[i].P))
@@ -291,6 +300,7 @@ class LoopSubdiv(Shape):
 		return False
 
 	def refine(self) -> ['Shape']:
+		import pytracer.geometry as geo
 		f = self.faces
 		v = self.vertices
 		for i in range(self.nLevels):

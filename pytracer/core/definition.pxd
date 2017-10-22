@@ -15,11 +15,11 @@ from libc cimport math
 import numpy as np
 cimport numpy as np
 
-# FLOAT = np.float32
+FLOAT = np.float32
 ctypedef np.float32_t FLOAT_t
 # ctypedef np.float64_t DOUBLE_t
 ctypedef np.int32_t INT_t
-ctypedef np.uint32_t UINT32_t
+ctypedef np.uint32_t UINT_t
 ctypedef np.uint8_t UINT8_t
 
 
