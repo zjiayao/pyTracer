@@ -422,7 +422,7 @@ class LoopSubdiv(Shape):
 						-Pring[0] + 2 * Pring[1] + 2 * Pring[2] + -Pring[3] + -2 * vv.P)  # avoid geo.Point substraction
 				else:
 					theta = np.pi / (valence - 1)
-					T = geo.Vector(np.sin(theta) * (Pring[0] + Pring[-1]))
+					T = geo.Vector.from_arr(np.sin(theta) * (Pring[0] + Pring[-1]))
 					T += np.sum([((2 * np.cos(theta) - 2) * np.sin(k * theta)) * \
 					             Pring[k] for k in range(valence - 1)], axis=0)
 					T *= -1.
