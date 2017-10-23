@@ -8,6 +8,7 @@ pytracer.geometry implementation
 Created by Jiayao on Aug 28, 2017
 """
 from __future__ import absolute_import
+import numpy as np
 import cython
 
 __all__ = ['Vector', 'Point', 'Normal', 'Ray', 'RayDifferential',
@@ -97,6 +98,10 @@ cdef class _Arr3:
 				return self.__class__(self.x + other.x,
 				                      self.y + other.y,
 				                      self.z + other.z)
+			elif isinstance(other, np.ndarray):
+				return self.__class__(self.x + other[0],
+						 self.y + other[1],
+						 self.z + other[2])
 			else:
 				o = <FLOAT_t> other
 				return self.__class__(self.x + o,
@@ -123,6 +128,10 @@ cdef class _Arr3:
 				return self.__class__(self.x * other.x,
 				                      self.y * other.y,
 				                      self.z * other.z)
+			elif isinstance(other, np.ndarray):
+				return self.__class__(self.x * other[0],
+						 self.y * other[1],
+						 self.z * other[2])
 			else:
 				o = <FLOAT_t> other
 				return self.__class__(self.x * o,
@@ -143,6 +152,10 @@ cdef class _Arr3:
 				return self.__class__(self.x / other.x,
 				                      self.y / other.y,
 				                      self.z / other.z)
+			elif isinstance(other, np.ndarray):
+				return self.__class__(self.x / other[0],
+						 self.y / other[1],
+						 self.z / other[2])
 			else:
 				o = <FLOAT_t> other
 				return self.__class__(self.x / o,
@@ -180,7 +193,9 @@ cdef class _Arr3:
 		return self._copy()
 
 	@staticmethod
-	def from_arr(_Arr3 n):
+	def from_arr(n):
+		if isinstance(n, np.ndarray):
+			return _Arr3(n[0], n[1], n[2])
 		return _Arr3._from_arr(n)
 
 	cpdef FLOAT_t abs_dot(self, _Arr3 other):

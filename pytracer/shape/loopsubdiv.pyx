@@ -51,14 +51,14 @@ def create_loop_subdiv(o2w: 'trans.Transform', w2o: 'trans.Transform',
 	return LoopSubdiv(o2w, w2o, ro, len(vi) // 3, npnt, vi, p, nlevels)
 
 
-class LoopSubdiv(Shape):
+cdef class LoopSubdiv(Shape):
 	"""
 	LoopSubdiv Class
 
 	Implement Loop's method for subdivision surfaces.
 	Assumes meshes are manifolds and are consistently ordered.
 	"""
-	class SDVertex(object):
+	cdef class SDVertex(object):
 		"""
 		SDVertex Class
 
@@ -134,7 +134,7 @@ class LoopSubdiv(Shape):
 
 			return P
 
-	class SDFace(object):
+	cdef class SDFace(object):
 		"""
 		SDFace Class
 
@@ -173,7 +173,7 @@ class LoopSubdiv(Shape):
 					return self.v[i]
 			raise RuntimeError('Logic error in Shape.LoopSubdiv.SDVertex.other_vert()')
 
-	class SDEdge(object):
+	cdef class SDEdge(object):
 		"""
 		SDEdge Class
 

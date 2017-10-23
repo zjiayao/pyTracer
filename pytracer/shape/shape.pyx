@@ -21,7 +21,7 @@ cdef INT_t next_shape_id = 1
 
 cdef class Shape:
 
-	def __cinit__(self, Transform o2w, Transform w2o, bint ro):
+	def __init__(self, Transform o2w, Transform w2o, bint ro):
 		self.o2w = o2w
 		self.w2o = w2o
 		self.ro = ro

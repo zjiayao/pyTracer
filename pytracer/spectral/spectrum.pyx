@@ -16,7 +16,6 @@ from pytracer.data.spectral import CIE_Y_INTEGRAL
 
 __all__ = ['xyz2rgb', 'rgb2xyz', 'Spectrum', 'SpectrumType', 'RGBSpectrum']
 
-
 # Utility Declarations
 SAMPLED_LAMBDA_START = 400
 SAMPLED_LAMBDA_END = 700
