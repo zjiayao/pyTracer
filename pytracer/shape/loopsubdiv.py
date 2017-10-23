@@ -29,6 +29,10 @@ def create_loop_subdiv(o2w: 'trans.Transform', w2o: 'trans.Transform',
 		util.logging('Error', 'LoopSubDiv: data error')
 		return None
 
+	if not len(vi) % 3 == 0:
+		util.logging('Error', 'LoopSubDiv: data error')
+		return None
+
 	npnt = len(P) // 3
 
 	p = [None] * npnt
@@ -348,8 +352,8 @@ class LoopSubdiv(Shape):
 			# startFace ref of odd vertices (done)
 			# startFace ref of even vertices
 			for vv in v:
-				v_num = vv.startFace.vnum(v)
-				vv.child.startFace = vv.startFace.child[v_num]
+				v_num = vv.startFace.vnum(vv)
+				vv.child.startFace = vv.startFace.children[v_num]
 
 			# new faces' neighbor ref
 			for ff in f:
@@ -388,7 +392,7 @@ class LoopSubdiv(Shape):
 				Plimit.append(self.weight_one_ring(vv, self.gamma(vv.valence())))
 
 		for i, vv in enumerate(v):
-			vv.p = Plimit[i]
+			vv.P = Plimit[i]
 
 		# compute vertex tangents
 		## S: first tangent, across tangent
@@ -410,9 +414,9 @@ class LoopSubdiv(Shape):
 				## boundary
 				S = Pring[valence - 1] - Pring[0]
 				if valence == 2:
-					T = geo.Vector.fromPoint(Pring[0] + Pring[1] - 2 * vert.P)
+					T = geo.Vector.fromPoint(Pring[0] + Pring[1] - 2 * vv.P)
 				elif valence == 3:
-					T = Pring[1] - v.P
+					T = Pring[1] - vv.P
 				elif valence == 4:
 					T = geo.Vector(
 						-Pring[0] + 2 * Pring[1] + 2 * Pring[2] + -Pring[3] + -2 * vv.P)  # avoid geo.Point substraction
@@ -421,7 +425,7 @@ class LoopSubdiv(Shape):
 					T = geo.Vector(np.sin(theta) * (Pring[0] + Pring[-1]))
 					T += np.sum([((2 * np.cos(theta) - 2) * np.sin(k * theta)) * \
 					             Pring[k] for k in range(valence - 1)], axis=0)
-					T = -T
+					T *= -1.
 
 			Ns.append(geo.Normal.fromVector(S.cross(T)))
 
@@ -438,7 +442,7 @@ class LoopSubdiv(Shape):
 		          'P': Plimit,
 		          'N': Ns}
 
-		from .triangle import create_triangle_mesh
+		from pytracer.shape.triangle import create_triangle_mesh
 		return [create_triangle_mesh(self.o2w, self.w2o, self.ro, params)]
 
 	def intersect(self, r: 'geo.Ray') -> (bool, FLOAT, FLOAT, 'geo.DifferentialGeometry'):
