@@ -414,7 +414,7 @@ class LoopSubdiv(Shape):
 				## boundary
 				S = Pring[valence - 1] - Pring[0]
 				if valence == 2:
-					T = geo.Vector.fromPoint(Pring[0] + Pring[1] - 2 * vv.P)
+					T = geo.Vector.from_arr(Pring[0] + Pring[1] - 2 * vv.P)
 				elif valence == 3:
 					T = Pring[1] - vv.P
 				elif valence == 4:
@@ -427,7 +427,7 @@ class LoopSubdiv(Shape):
 					             Pring[k] for k in range(valence - 1)], axis=0)
 					T *= -1.
 
-			Ns.append(geo.Normal.fromVector(S.cross(T)))
+			Ns.append(geo.Normal.from_arr(S.cross(T)))
 
 		# create `TriangleMesh`
 		verts = []
