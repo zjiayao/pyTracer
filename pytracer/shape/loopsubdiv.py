@@ -418,7 +418,7 @@ class LoopSubdiv(Shape):
 				elif valence == 3:
 					T = Pring[1] - vv.P
 				elif valence == 4:
-					T = geo.Vector(
+					T = geo.Vector.from_arr(
 						-Pring[0] + 2 * Pring[1] + 2 * Pring[2] + -Pring[3] + -2 * vv.P)  # avoid geo.Point substraction
 				else:
 					theta = np.pi / (valence - 1)
