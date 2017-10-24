@@ -1,6 +1,7 @@
 # pyTracer
 ![Head Model](examples/head.png)
-*Head rendered by `pytracer`, model courtesy of CS238b.*
+
+*Proudly rendered with `pytracer`, head model courtesy of CS238b.*
 
 [![Build Status](https://travis-ci.com/zjiayao/pyTracer.svg?token=9cK4Kmeqpdioyfb1EXxS&branch=stable)](https://travis-ci.com/zjiayao/pyTracer)
 [![Chat on Gitter](https://badges.gitter.im/zjiayao/pyTracer.svg)](https://gitter.im/zjiayao/pyTracer/)
