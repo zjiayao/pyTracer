@@ -7,12 +7,14 @@
 
 *Proudly rendered with `pytracer`, head model courtesy of CS238b.*
 
+
 ## Introduction
+
 
 **PyTracer** is a photorealistic rendering interface
 backended by ray tracing algorithm. It may sound
 counter-intuitive that one may ever wish to
-implement a render with `Python`, nevertheles,
+implement a ray tracer with `Python`, nevertheles,
 PyTracer makes it feasible to do fast proto-typing
 using current state-of-the-art learning libraries
 which are mostly implemented in `Python`.
@@ -28,6 +30,7 @@ algorithms.
 
 ## Working Flow
 
+
 The normal working flow is essentially the same
 as the main rendering loop specified in `pbrt`;
 A concrete example is given in `head.py`,
@@ -38,9 +41,11 @@ try it by:
 
 ## Features
 
+
 ![Matte Example](examples/matte.png)
 
-Currently, `pyTracer` supports the following
+
+Currently, PyTracer supports the following
 features:
 
 - Triangle Mesh with Loop Subdividing Surface Modeling
@@ -51,14 +56,15 @@ features:
 - Multiple Types of Materials including Irregular Sampled Isotropic BRDF
 - Spot and Area Diffuse Lights
 - Monte Carlo Integration with MCMC Samplers
-- (Single) Path Integrator and Direct Lighting Integrater
+- (Single) Path Integrator and Direct Lighting Integrator
 
 Users familiar with `pbrt` may find it intuitive to work with other components.
 
 
 ## Development
 
-Currently, `pyTracer` is still under development for supporting more features,
+
+PyTracer is still under development for supporting more features,
 which are, tentatively:
 
 - MERL BRDF Support
@@ -73,6 +79,7 @@ And most importantly,
 
 
 ## Cite This Project
+
 
     @misc{pytracer:2017,
 		title = {pyTracer},
