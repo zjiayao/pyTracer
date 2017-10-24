@@ -139,7 +139,7 @@ class Sphere(Shape):
 		C = ray.o.sq_length() - self.radius * self.radius
 
 		D = B * B - 4. * A * C
-		if D <= 0.:
+		if D <= 0. + EPS:
 			return [False, None, None, None]
 
 		# validate solutions
@@ -233,7 +233,7 @@ class Sphere(Shape):
 		C = ray.o.sq_length() - self.radius * self.radius
 
 		D = B * B - 4. * A * C
-		if D <= 0.:
+		if D <= 0. + EPS:
 			return False
 
 		# validate solutions
@@ -249,6 +249,7 @@ class Sphere(Shape):
 				return False
 
 		phit = ray(thit)
+		print("Type phit: {}\nphit.x: {}\nphit.y: {}\n".format(type(phit), type(phit.x), type(phit.y)))
 		if phit.x == 0. and phit.y == 0.:
 			phit.x = EPS * self.radius
 		phi = np.arctan2(phit.y, phit.x)
