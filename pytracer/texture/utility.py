@@ -223,7 +223,7 @@ class MIPMap(object):
 		self.max_aniso = max_aniso
 		self.wrap = wrap
 
-		sres, tres, chn = img.shape
+		sres, tres = img.shape[0:2]
 
 		resampled = None
 
@@ -291,7 +291,7 @@ class MIPMap(object):
 			u, v = self.__pyramid[i - 1].shape[0:2]
 			s_res = max(1, UINT(u // 2))
 			t_res = max(1, UINT(v // 2))
-			self.__pyramid[i] = np.empty([t_res, s_res])
+			self.__pyramid[i] = np.empty([t_res, s_res], dtype=object)
 			for t in range(t_res):
 				for s in range(s_res):
 					self.__pyramid[i][t, s] = \

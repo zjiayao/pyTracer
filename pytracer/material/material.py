@@ -546,10 +546,10 @@ class SubsurfaceMaterial(Material):
 			dgs = Material.bump(self.bump_map, dg_g, dg_s)
 		else:
 			dgs = dg_s.copy()
-		R = self.kr(dgs).clip()
+		util.clip(R = self.kr(dgs))
 		bsdf = BSDF(dgs, dg_g.nn)
 
-		if not R.is_black():
+		if not util.is_black(R):
 			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf
@@ -587,10 +587,10 @@ class KdSubsurfaceMaterial(Material):
 		else:
 			dgs = dg_s.copy()
 
-		R = self.kr(dgs).clip()
+		R = util.clip(self.kr(dgs))
 		bsdf = BSDF(dgs, dg_g.nn)
 
-		if not R.is_black():
+		if not util.is_black(R):
 			bsdf.push_back(SpecularReflection(R, FresnelDielectric(1., self.eta(dgs))))
 
 		return bsdf

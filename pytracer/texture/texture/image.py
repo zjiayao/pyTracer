@@ -16,6 +16,7 @@ import pytracer.spectral as spec
 import pytracer.utility.imageio as iio
 from pytracer.texture.texture import Texture
 from pytracer.texture import MIPMap
+from pytracer.texture.utility import ImageWrap
 
 
 class ImageTexture(Texture):
@@ -68,13 +69,13 @@ class ImageTexture(Texture):
 	# class static
 	textures = {}
 
-	def __init__(self, type_ret: type, type_mem: type, mapping: 'TextureMapping2D', filename: str, trilinear: bool,
-	             max_aniso: FLOAT, wrap: 'ImageWrap', scale: FLOAT, gamma: FLOAT):
+	def __init__(self, type_ret: type, type_mem: type, mapping: 'TextureMapping2D', filename: str, trilinear: bool=False,
+	             max_aniso: FLOAT=8., wrap: ImageWrap=ImageWrap.REPEAT, scale: FLOAT=1., gamma: FLOAT=1.):
 		self.type_ret = type_ret
 		self.type_mem = type_mem
 
 		self.mapping = mapping
-		self.mipmap = ImageTexture.get_texture(filename, trilinear, max_aniso,
+		self.mipmap = self.get_texture(filename, trilinear, max_aniso,
 		                                       wrap, scale, gamma)
 
 	def __call__(self, dg: 'geo.DifferentialGeometry'):
@@ -88,13 +89,13 @@ class ImageTexture(Texture):
 
 		Performs gamma correction if needed.
 		"""
-
-		if isinstance(texel, 'RGBSpectrum') and \
+		import numpy as np
+		if isinstance(texel, np.ndarray) and \
 						type_mem is spec.RGBSpectrum:
-			return (scale * texel) ** gamma
-		elif isinstance(texel, 'RGBSpectrum') and \
+			return spec.RGBSpectrum( (scale * texel) ** gamma )
+		elif isinstance(texel, np.ndarray) and \
 						type_mem is (FLOAT or float):
-			return (scale * texel.y()) ** gamma
+			return (scale * spec.RGBSpectrum(texel).y()) ** gamma
 		else:
 			raise TypeError('src.core.texture.ImageTexture.__convert__in__: '
 			                'undefined convertion between {} and {}'.format(texel.__class__, type_mem))
@@ -106,6 +107,8 @@ class ImageTexture(Texture):
 		from storage type to returning type.
 		"""
 
+		# print(type(texel), type(type_ret))
+		# return Spectrum.from_rgb(texel)
 		if isinstance(texel, 'RGBSpectrum') and \
 						type_ret is Spectrum:
 			return Spectrum.from_rgb(texel.toRGB())
@@ -129,9 +132,9 @@ class ImageTexture(Texture):
 
 		try:
 			texels = iio.read_image(filename)
-			width, height = np.shape(texels)
+			width, height = texels.shape[0:2]
 		except:
-			print('src.core.texture.{}.get_texture(): cannot process file {}, '
+			print('{}.get_texture(): cannot process file {}, '
 			      'use default one-valued MIPMap'.format(self.__class__, filename))
 			texels = None
 
@@ -140,7 +143,7 @@ class ImageTexture(Texture):
 				conv = np.empty([height, width], dtype=object)
 				for t in range(height):
 					for s in range(width):
-						conv[t, s] = ImageTexture.__convert_in__(texels[t, s], self.type_mem, scale, gamma)
+						conv[t, s] = ImageTexture.__convert__in__(texels[t, s], self.type_mem, scale, gamma)
 
 			ret = MIPMap(self.type_mem, conv, trilinear, max_aniso, wrap)
 

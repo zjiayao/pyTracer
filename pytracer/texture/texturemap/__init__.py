@@ -15,7 +15,7 @@ from pytracer import *
 import pytracer.geometry as geo
 import pytracer.transform as trans
 
-__all__ = ['TextureMapping2D', 'TextureMapping3D', 'SphericalMapping2D',
+__all__ = ['TextureMapping2D', 'TextureMapping3D', 'SphericalMapping2D', 'UVMapping2D',
            'CylindricalMapping2D', 'PlannarMapping2D', 'IdentityMapping3D']
 
 
