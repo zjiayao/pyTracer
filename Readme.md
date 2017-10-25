@@ -3,7 +3,9 @@
 [![Build Status](https://travis-ci.com/zjiayao/pyTracer.svg?token=9cK4Kmeqpdioyfb1EXxS&branch=stable)](https://travis-ci.com/zjiayao/pyTracer)
 [![Chat on Gitter](https://badges.gitter.im/zjiayao/pyTracer.svg)](https://gitter.im/zjiayao/pyTracer/)
 
-![Head Model](examples/head.png)
+
+![Triangle Mesh](examples/head_mesh.png)
+![Loop Sudividing Surface](examples/head_loop.png)
 
 *Proudly rendered with `pytracer`, head model courtesy of CS238b.*
 
@@ -27,15 +29,12 @@ The development and implementation of PyTracer largely take references from
 both second and third edition.
 
 
-## Working Flow
+## Usage
 
-
-The normal working flow is essentially the same
-as the main rendering loop specified in `pbrt`;
-A concrete example is given in `head.py`,
-try it by:
-
-    >> import head
+The `Cython` integration has not been built, hence no setup
+is needed.
+The main work flow of PyTracer is analogous to `pbrt`, and
+a quick tutorial with examples is provided in the [Quick Start Guide](Quick%20Start.ipynb).
 
 
 ## Features
@@ -69,16 +68,26 @@ which are, tentatively:
 - MERL BRDF Support;
 - Volume Scattering Modeling;
 - Bidirectional Path Tracing and More Light Transport Algorithm;
-- Direct support to `pbrt` Flavour Input Files;
+- Direct support to `pbrt` Flavour Input Files and Other UI/UX Improvements;
 - Optimization with `Cython`;
 
-and most importantly,
 
-- **Making bullshits on performance real.**
+## Known Issues
+
+- **Speed**. PyTracer is currently amazingly slow.
+- **Robustness**. Some components are implemented but have not been
+thoroughly tested yet. Please use with caution.
+
+## Gallery
+
+![Head Model](examples/head.png)
 
 
 ## Cite This Project
 
+PyTracer is maintained by [Jiayao Zhang](https://i.cs.hku.hk/~jyzhang) and
+[Li-Yi Wei](https://www.liyiwei.org/). The `bib` entry for this repo may be
+as follows:
 
     @misc{pytracer:2017,
 		title = {pyTracer},
