@@ -27,6 +27,7 @@ def read_image(filename: str) -> ['spec.Spectrum']:
 		raise IOError('pytracer.imageio.read_image(): filename cannot be None')
 
 	specs = None
+	img = None
 	with PIL.Image.open(filename) as pic:
 		img = np.array(pic)
 		width, height, chn = np.shape(img) # note the order of height and width
@@ -38,20 +39,11 @@ def read_image(filename: str) -> ['spec.Spectrum']:
 			height = util.next_pow_2(height)
 			pic.resize((width, height))
 			img = np.array(pic)
-			return img
-		# specs = np.empty([height, width], dtype=object)
-		# if chn == 3:
-		# 	for t in range(height):
-		# 		for s in range(width):
-		# 			specs[t, s] = spec.Spectrum.from_rgb(img[t, s, :])
-		# # monochrome
-		# elif chn == 1:
-		# 	for t in range(height):
-		# 		for s in range(width):
-		# 			specs[t, s] = img[t,s]
 
-		else:
-			raise TypeError('pytracer.imageio.read_image(): unsupported '
+	if img is not None:
+		return img
+
+	raise TypeError('pytracer.imageio.read_image(): unsupported '
 				'type of file {}'.format(filename))
 
 
@@ -65,16 +57,17 @@ def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
 	for i in range(3):
 		coef = np.max(rgb[:, :, i])
 		if not coef == 0.:
-			rgb[:, :, i] = (255 * rgb[:, :, i]) / coef
+			rgb[:, :, i] = (255. * rgb[:, :, i]) / coef
 	
 	rgb = rgb.astype('uint8')
 
 	if alpha is None:
 		if xRes == xFullRes and yRes == yFullRes:
 			# save new img
-
+			ret = rgb.copy()
 			pic = PIL.Image.fromarray(rgb, mode="RGB")
 			pic.save(filename, 'PNG')
+			return ret
 
 		else:
 			if not os.path.exists(filename):
@@ -86,9 +79,11 @@ def write_image(filename: str, rgb: 'np.ndarray', alpha: 'np.ndarray',
 			pic.close()
 
 			img[xOffset:xOffset+xRes-1, yOffset:yOffset+yRes-1, :] = rgb
-			
+			ret = img.copy()
+
 			pic = PIL.Image.fromarray(img, mode="RGB")
 			pic.save(filename, 'PNG')
+			return ret
 
 	else:
 		# contains alpha channel
