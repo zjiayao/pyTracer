@@ -8,12 +8,10 @@ Created on Oct. 25, 2017 by Jiayao
 """
 
 from __future__ import (absolute_import, print_function, division)
-
+import numpy as np
+from pytracer import *
 
 def test_render():
-	import numpy as np
-	from pytracer import *
-
 	Spectrum.init()
 
 	from pytracer.geometry import (Vector, Point)
