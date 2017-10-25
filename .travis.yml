@@ -8,5 +8,4 @@ install:
 
 # command to run tests
 script:
-  - PYTHONPATH=$PWD:$PYTHONPATH python -c "import head"
   - PYTHONPATH=$PWD:$PYTHONPATH py.test
