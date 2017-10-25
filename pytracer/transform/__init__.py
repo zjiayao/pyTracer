@@ -277,8 +277,9 @@ class AnimatedTransform(object):
 		self.T = [None, None]
 		self.R = [None, None]
 		self.S = [None, None]
-		self.T[0], self.R[0], self.S[0] = AnimatedTransform.decompose(t1.m)
-		self.T[1], self.R[1], self.S[1] = AnimatedTransform.decompose(t2.m)
+		if self.animated:
+			self.T[0], self.R[0], self.S[0] = AnimatedTransform.decompose(t1.m)
+			self.T[1], self.R[1], self.S[1] = AnimatedTransform.decompose(t2.m)
 
 	def __repr__(self):
 		return "{}\nTime: {} - {}\nAnimated: {}".format(self.__class__,
