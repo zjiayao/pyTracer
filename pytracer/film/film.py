@@ -105,7 +105,7 @@ class ImageFilm(Film):
 		def __repr__(self):
 			return "{}\nLocked: {}".format(self.__class__, self.lock.locked())
 
-	def __init__(self, xr: INT, yr: INT, filt: 'Filter', crop: [FLOAT], fn: str):
+	def __init__(self, xr: INT, yr: INT, filt: 'Filter', crop: [FLOAT], fn: str='.tmp.png'):
 		super().__init__(xr, yr)
 		self.crop = crop.copy()	# the extent of pixels to actually process
 								# in NDC space, range: [0, 1]
@@ -234,7 +234,7 @@ class ImageFilm(Film):
 		return [self.xPixel_start, self.xPixel_start + self.xPixel_cnt,
 				self.yPixel_start, self.yPixel_start + self.yPixel_cnt]
 
-	def write_image(self, splat_scale: FLOAT=1.) -> [INT]:
+	def write_image(self, splat_scale: FLOAT=1.):
 		"""
 		Display or write image to file
 		"""
@@ -255,7 +255,7 @@ class ImageFilm(Film):
 				rgb[y, x] += splat_scale * xyz2rgb(self.pixels[x][y].splatXYZ)
 
 		# write image
-		iio.write_image(self.filename, rgb, None,
+		return iio.write_image(self.filename, rgb, None,
 		                self.xPixel_cnt, self.yPixel_cnt, self.xResolution, self.yResolution,
 		                self.xPixel_start, self.yPixel_start)
 
