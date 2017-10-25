@@ -31,6 +31,9 @@ def read_image(filename: str) -> ['spec.Spectrum']:
 	with PIL.Image.open(filename) as pic:
 		img = np.array(pic)
 		width, height, chn = np.shape(img) # note the order of height and width
+		if chn >= 4:
+			# desert alpha
+			img = img[:,:,0:3]
 
 		# avoid expensive resizing in src.core.texture.MIPMap.__init__()
 		if (not util.is_pow_2(width)) or (not util.is_pow_2(height)):
