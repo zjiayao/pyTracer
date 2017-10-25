@@ -14,7 +14,7 @@ import numpy as np
 from pytracer import (FLOAT, INT, UINT, EPS)
 
 __all__ = ['progress_reporter','logging','feq', 'eq_unity', 'ne_unity',
-           'ftoi', 'ctoi', 'rtoi', 'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp', 'clip']
+           'ftoi', 'ctoi', 'rtoi', 'lerp', 'round_pow_2', 'next_pow_2', 'is_pow_2', 'ufunc_lerp', 'clip', 'is_black']
 
 
 # Global Functions
@@ -115,7 +115,16 @@ def clip(x, min=0., max=np.inf):
 	elif isinstance(x, Spectrum):
 		return x.clip(min, max)
 
-# Numpy universal function for linear interpolation
+
+def is_black(s):
+	from pytracer import Spectrum
+
+	if isinstance(s, np.ndarray):
+		return (np.abs((s - 0.)) < EPS).all()
+	return np.abs(s - 0.) < EPS
+
+
+#) Numpy universal function for linear interpolation
 _ulerp = np.frompyfunc(lerp, 3, 1)
 
 
