@@ -86,7 +86,7 @@ thoroughly tested yet. Please use with caution.
 ## Cite This Project
 
 PyTracer is maintained by [Jiayao Zhang](https://i.cs.hku.hk/~jyzhang) and
-[Li-Yi Wei](https://www.liyiwei.org/). The `bib` entry for this repo may be
+[Li-Yi Wei](http://www.liyiwei.org/). The `bib` entry for this repo may be
 as follows:
 
     @misc{pytracer:2017,
