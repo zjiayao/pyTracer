@@ -127,7 +127,7 @@ def specular_reflect(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersect
 	n = bsdf.dgs.nn
 	pdf, wi, _, f = bsdf.sample_f(wo, BSDFSample.from_rand(rng), BDFType(BDFType.REFLECTION | BDFType.SPECULAR))
 	L = Spectrum(0.)
-	if pdf > 0. and not f.is_black() and wi.abs_dot(n) != 0.:
+	if pdf > 0. and not util.is_black(f) and wi.abs_dot(n) != 0.:
 		# compute ray differential
 		rd = geo.RayDifferential.from_parent(p, wi, ray, isect.rEps)
 		if ray.has_differentials:
@@ -163,7 +163,7 @@ def specular_transmit(ray: 'geo.RayDifferential', bsdf: 'BSDF', isect: 'Intersec
 	n = bsdf.dgs.nn
 	pdf, wi, _, f = bsdf.sample_f(wo, BSDFSample.from_rand(rng), BDFType(BDFType.TRANSMISSION | BDFType.SPECULAR))
 	L = Spectrum(0.)
-	if pdf > 0. and not f.is_black() and wi.abs_dot(n) != 0.:
+	if pdf > 0. and not util.is_black(f) and wi.abs_dot(n) != 0.:
 		# compute ray differential
 		rd = geo.RayDifferential.from_parent(p, wi, ray, isect.rEps)
 		if ray.has_differentials:
@@ -213,9 +213,9 @@ def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'geo
 	Ld = Spectrum(0.)
 	# sample light source
 	Li, wi, light_pdf, vis = light.sample_l(p, r_eps, light_smp, time)
-	if light_pdf > 0. and not Li.is_black():
+	if light_pdf > 0. and not util.is_black(Li):
 		f = bsdf.f(wo, wi, flags)
-		if not f.is_black() and vis.unoccluded(scene):
+		if not util.is_black(f) and vis.unoccluded(scene):
 			# add contribution to reflected radiance
 			## account for attenuation due to participating media,
 			## left for `VolumeIntegrator` to do
@@ -232,7 +232,7 @@ def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'geo
 	## no need if delta light
 	if not light.is_delta_light():
 		bsdf_pdf, wi, smp_type, f = bsdf.sample_f(wo, bsdf_smp, flags)
-		if not f.is_black() and bsdf_pdf > 0.:
+		if not util.is_black(f) and bsdf_pdf > 0.:
 			wt = 1.
 			if not (smp_type & BDFType.SPECULAR).v == 0:  # MIS not apply to specular direction
 				light_pdf = light.pdf(p, wi)
@@ -250,7 +250,7 @@ def estimate_direct(scene: 'Scene', renderer: 'Renderer', light: 'Light', p:'geo
 				else:
 					Li = light.le(ray) # light illum.
 
-				if not Li.is_black():
+				if not util.is_black(Li):
 					Li *= renderer.transmittance(scene, ray, None, rng) # attenuation
 					Ld += f * Li * wi.abs_dot(n) * wt / bsdf_pdf
 
