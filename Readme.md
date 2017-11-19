@@ -1,13 +1,14 @@
 # PyTracer
 
-[![Build Status](https://travis-ci.com/zjiayao/pyTracer.svg?token=9cK4Kmeqpdioyfb1EXxS&branch=stable)](https://travis-ci.com/zjiayao/pyTracer)
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/zjiayao/pyTracer/blob/stable/LICENSE)
+[![Build Status](https://travis-ci.org/zjiayao/pyTracer.svg?branch=stable)](https://travis-ci.org/zjiayao/pyTracer)
 [![Chat on Gitter](https://badges.gitter.im/zjiayao/pyTracer.svg)](https://gitter.im/zjiayao/pyTracer/)
 
 
 ![Triangle Mesh](examples/head_mesh.png)
 ![Loop Sudividing Surface](examples/head_loop.png)
 
-*Proudly rendered with `pytracer`, head model courtesy of CS238b.*
+*Proudly rendered with `pytracer`, head model courtesy of C348b.*
 
 
 ## Introduction
@@ -29,18 +30,52 @@ The development and implementation of PyTracer largely take references from
 both second and third edition.
 
 
-## Usage
+## Installation
 
-The `Cython` integration has not been built, hence no setup
-is needed.
-The main work flow of PyTracer is analogous to `pbrt`, and
-a quick tutorial with examples is provided in the [Quick Start Guide](Quick%20Start.ipynb).
+Currently, the integration with `C++` has not completed, hence
+no compile is needed. PyTracer has the following dependencies:
+
+- scipy: for KDTree structure for fast measured texture retreival
+- numpy, PILLOW: for image I/O
+- quaternion: for interpolation of motion transformations
+
+To install the dependencies using `pip`, one may issue the following command:
+
+    pip install -r requirements.txt
+    pip install numpy-quaternion
+
+After preparation, clone PyTracer via:
+
+    git clone https://github.com/zjiayao/pyTracer
+    cd pyTracer
+
+One may also wish to unit test several low-level modules before use
+(assume `pytest` is installed, otherwise, one may do a `pip install pytest`):
+
+    PYTHONPATH=$PWD:$PYTHONPATH py.test
+
+It might be convenient to move the `pyTracer` directory to your favourite
+location and add it to your `PYTHONPATH` (for example, under a `virtualenv`),
+assuming current directory is the root of `pyTracer`, one may add it via:
+
+    export PYTHONPATH=$PWD:$PYTHONPATH py.test
+
+
+## Quick Start
+
+
+The main work flow of PyTracer is analogous to `pbrt`. To start,
+one may render the sample head model image via:
+
+    python -c "import examples/head_mesh_render.py"
+
+This gives a quick rendering of `128 * 128` pixels, with straitified sampling
+of `1 * 1` sampling rate. By default the rendered image is written to `tmp.png`.
+
+To play around with other componenets, please visit the quick tutorial with examples at [Quick Start Guide](Quick%20Start.ipynb).
 
 
 ## Features
-
-
-![Matte Example](examples/matte.png)
 
 
 Currently, PyTracer supports the following
@@ -69,14 +104,13 @@ which are, tentatively:
 - Volume Scattering Modeling;
 - Bidirectional Path Tracing and More Light Transport Algorithm;
 - Direct support to `pbrt` Flavour Input Files and Other UI/UX Improvements;
-- Optimization with `Cython`;
+- Optimization with `C++17`;
 
-
-## Known Issues
+The general goals for this stage are:
 
 - **Speed**. PyTracer is currently amazingly slow.
 - **Robustness**. Some components are implemented but have not been
-thoroughly tested yet. Please use with caution.
+thoroughly tested yet.
 
 ## Gallery
 
@@ -85,8 +119,8 @@ thoroughly tested yet. Please use with caution.
 
 ## Cite This Project
 
-PyTracer is maintained by [Jiayao Zhang](https://i.cs.hku.hk/~jyzhang) and
-[Li-Yi Wei](http://www.liyiwei.org/). The `bib` entry for this repo may be
+PyTracer is maintained by [Jiayao Zhang](https://i.cs.hku.hk/~jyzhang) advising
+by [Li-Yi Wei](http://www.liyiwei.org/). The `bib` entry for this repo may be
 as follows:
 
     @misc{pytracer:2017,
