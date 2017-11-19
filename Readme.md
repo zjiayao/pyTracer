@@ -58,7 +58,7 @@ It might be convenient to move the `pyTracer` directory to your favourite
 location and add it to your `PYTHONPATH` (for example, under a `virtualenv`),
 assuming current directory is the root of `pyTracer`, one may add it via:
 
-    export PYTHONPATH=$PWD:$PYTHONPATH py.test
+    export PYTHONPATH=$PWD:$PYTHONPATH
 
 
 ## Quick Start
