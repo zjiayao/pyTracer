@@ -1,5 +1,5 @@
 numpy==1.13.1
 quaternion
 pytest
-pillow==6.2.0
+pillow==9.0.1
 scipy==0.19.1
