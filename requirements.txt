@@ -1,4 +1,4 @@
-numpy==1.13.1
+numpy==1.22.0
 quaternion
 pytest
 pillow==6.2.0
